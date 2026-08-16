@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-red: #DA291C;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+::selection {
+  background: rgba(218, 41, 28, 0.2);
+  color: #0f172a;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-red text-white font-display font-bold tracking-wider uppercase px-6 py-3 
+           transition-all duration-200 hover:bg-brand-red-dark hover:scale-[1.02] 
+           active:scale-[0.98] inline-flex items-center justify-center gap-2 rounded-md shadow-sm;
+  }
+  
+  .btn-outline {
+    @apply border border-slate-200 bg-white text-slate-700 font-display font-semibold tracking-wider uppercase px-6 py-3
+           transition-all duration-200 hover:border-brand-red hover:text-brand-red
+           inline-flex items-center justify-center gap-2 rounded-md shadow-sm;
+  }
+
+  .section-title {
+    @apply font-display text-2xl md:text-3xl font-bold text-slate-900 tracking-tight;
+  }
+  
+  .input-base {
+    @apply w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400
+           px-4 py-3 rounded-md focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
+  }
+}

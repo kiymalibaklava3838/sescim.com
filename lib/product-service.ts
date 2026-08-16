@@ -1,0 +1,34 @@
+import { unstable_cache } from 'next/cache'
+import { createServerSupabaseClient } from './supabase-server'
+
+/**
+ * Ürün verisini ID'ye göre getirir ve cache-ler.
+ * Bu sayede veritabanına giden gereksiz istekleri (Egress) engeller.
+ * revalidate: 3600 -> Veri 1 saat boyunca cache-den gelir.
+ */
+export const getProduct = unstable_cache(
+  async (id: string) => {
+    const supabase = await createServerSupabaseClient()
+    return supabase.from('urunler')
+      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
+      .eq('id', id)
+      .single()
+  },
+  ['product-detail'],
+  { revalidate: 3600, tags: ['products'] }
+)
+
+export const getProductBySlug = unstable_cache(
+  async (slug: string) => {
+    const supabase = await createServerSupabaseClient()
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+    const queryColumn = isUUID ? 'id' : 'slug'
+
+    return supabase.from('urunler')
+      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
+      .eq(queryColumn, slug)
+      .single()
+  },
+  ['product-detail-slug'],
+  { revalidate: 3600, tags: ['products'] }
+)

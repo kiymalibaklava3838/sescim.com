@@ -1,0 +1,21 @@
+{
+  "name": "Akdağ Elektronik B2B",
+  "short_name": "Akdağ B2B",
+  "description": "Kayseri'nin Profesyonel Ses, Işık ve Görüntü Sistemleri Uzmanı",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F0F",
+  "theme_color": "#DA291C",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

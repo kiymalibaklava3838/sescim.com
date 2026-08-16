@@ -107,8 +107,8 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
       return q.range(from, to)
     },
-    ['product-list-cache'],
-    { revalidate: 3600, tags: ['products'] }
+    ['product-list', from.toString(), to.toString(), JSON.stringify(filters)],
+    { revalidate: 60, tags: ['products'] }
   )
 
   const filters = {

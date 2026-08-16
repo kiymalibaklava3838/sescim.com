@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star } from 'lucide-react'
+import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff } from 'lucide-react'
 import { PARA_BIRIMLERI } from '@/lib/kur'
 import { createClient } from '@/lib/supabase'
 import { KATEGORILER, KATEGORI_HIYERARSI } from '@/lib/categories'
@@ -32,6 +32,8 @@ interface Product {
   marka?: string | null
   kullanim_alani?: string | null
   is_featured?: boolean
+  sescim_fiyat?: number | null
+  sescim_aktif?: boolean
 }
 
 interface Props {
@@ -87,7 +89,24 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       .order('created_at', { ascending: false })
       .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1)
     if (!error && data) {
-      setProducts(data)
+      try {
+        const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
+        const urunIds = data.map((p: any) => p.id)
+        const pricingMap = await getSescimPricingMap(urunIds)
+        
+        const mergedData = data.map((p: any) => {
+          const pricing = pricingMap.get(p.id)
+          return {
+            ...p,
+            sescim_fiyat: pricing?.sescim_fiyat ?? null,
+            sescim_aktif: pricing?.sescim_aktif ?? true
+          }
+        })
+        setProducts(mergedData)
+      } catch (e) {
+        console.error('Failed to fetch Sescim prices for admin', e)
+        setProducts(data)
+      }
       setTotalCount(count || 0)
     }
     setLoading(false)
@@ -99,8 +118,38 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     const { error } = await supabase.from('urunler').update({ is_featured: newValue }).eq('id', product.id)
     if (!error) {
       setProducts(products.map(p => p.id === product.id ? { ...p, is_featured: newValue } : p))
-      // Ana sayfa cache'ini yenile ki yeni öne çıkanlar hemen görünsün
       await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+    }
+  }
+
+  const handleSescimFiyatChange = async (productId: string, newFiyat: string) => {
+    const val = newFiyat === '' ? null : parseFloat(newFiyat)
+    setProducts(products.map(p => p.id === productId ? { ...p, sescim_fiyat: val } : p))
+  }
+
+  const saveSescimFiyat = async (product: Product) => {
+    try {
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(product.id, {
+        sescim_fiyat: product.sescim_fiyat,
+        sescim_aktif: product.sescim_aktif
+      })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const toggleSescimAktif = async (product: Product) => {
+    const newValue = !(product.sescim_aktif ?? true)
+    try {
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(product.id, {
+        sescim_fiyat: product.sescim_fiyat,
+        sescim_aktif: newValue
+      })
+      setProducts(products.map(p => p.id === product.id ? { ...p, sescim_aktif: newValue } : p))
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -374,18 +423,30 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                     <span className="font-body text-white/40 text-[10px] uppercase tracking-wider">{product.kategori}</span>
                     {product.fiyat && (
-                      <span className="font-display font-bold text-[10px] text-brand-red">
+                      <span className="font-display font-bold text-[10px] text-white/40 line-through">
                         {PARA_BIRIMLERI.find(p => p.value === product.para_birimi)?.symbol || ''} {product.fiyat.toLocaleString('tr-TR')} {product.para_birimi || 'TL'}
-                        {product.bayi_fiyati && (
-                          <span className="text-green-400/60 ml-1">
-                            / Bayi: {PARA_BIRIMLERI.find(p => p.value === product.bayi_para_birimi)?.symbol || ''} {product.bayi_fiyati.toLocaleString('tr-TR')} {product.bayi_para_birimi || 'TL'}
-                          </span>
-                        )}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <label className="text-[9px] text-brand-red/60 uppercase tracking-widest font-bold mb-0.5">Sescim Fiyatı</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      placeholder="Fiyat Yok"
+                      value={product.sescim_fiyat === null || product.sescim_fiyat === undefined ? '' : product.sescim_fiyat}
+                      onChange={(e) => handleSescimFiyatChange(product.id, e.target.value)}
+                      onBlur={() => saveSescimFiyat(product)}
+                      className="input-dark w-24 text-xs py-1 px-2 border-brand-red/30 focus:border-brand-red"
+                    />
+                  </div>
+                  <button onClick={() => toggleSescimAktif(product)} className={`w-9 h-9 border flex items-center justify-center transition-all mt-3 ${product.sescim_aktif === false ? 'border-red-500/50 text-red-500 bg-red-500/10' : 'border-green-500/50 text-green-500 bg-green-500/10'}`} title={product.sescim_aktif === false ? "Sescim'de Gizli" : "Sescim'de Göster"}>
+                    {product.sescim_aktif === false ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                   <button onClick={() => toggleFeatured(product)} className={`w-9 h-9 border flex items-center justify-center transition-all ${product.is_featured ? 'border-yellow-500/50 text-yellow-500 bg-yellow-500/10' : 'border-white/10 text-white/20 hover:border-yellow-500/40 hover:text-yellow-500'}`} title={product.is_featured ? "Öne Çıkanlardan Kaldır" : "Öne Çıkar"}>
                     <Star size={13} fill={product.is_featured ? "currentColor" : "none"} />
                   </button>

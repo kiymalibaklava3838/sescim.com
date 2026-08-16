@@ -33,6 +33,9 @@ interface Product {
   kritik_stok?: number | null
   marka?: string | null
   kullanim_alani?: string | null
+  sescim_fiyat?: number
+  sescim_indirimli_fiyat?: number
+  sescim_aktif?: boolean
 }
 
 interface Props {
@@ -135,7 +138,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     ? (Date.now() - new Date(product.fiyat_guncelleme).getTime()) < 7 * 24 * 60 * 60 * 1000
     : false
 
-  const normalFiyatTL = product.fiyat ? dovizToTL(product.fiyat, pb, kurData) : null
+  const aktifFiyat = product.sescim_fiyat ?? product.fiyat
+  const normalFiyatTL = aktifFiyat ? dovizToTL(aktifFiyat, pb, kurData) : null
 
   const [fav, setFav] = useState(false)
   const [cmp, setCmp] = useState(false)
@@ -169,9 +173,10 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!product.fiyat || stok === 'tukendi') return
+    const finalFiyat = product.sescim_fiyat ?? product.fiyat
+    if (!finalFiyat || stok === 'tukendi') return
 
-    const fiyatTL = dovizToTL(product.fiyat, pb, kurData)
+    const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
 
     addToCart({
       id: product.id,
@@ -179,7 +184,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       kategori: product.kategori,
       fotograf: product.fotograflar?.[0] || '',
       fiyat: fiyatTL,
-      fiyat_doviz: product.fiyat,
+      fiyat_doviz: finalFiyat,
       para_birimi: pb,
       bayi_fiyati: null,
       bayi_fiyat_doviz: null,
@@ -236,10 +241,15 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           )}
 
           <div className="mt-auto space-y-0.5">
-            {product.fiyat ? (
+            {aktifFiyat ? (
               <>
                 <div className="font-display font-black text-lg text-slate-800">
-                  {formatFiyat(product.fiyat, pb)}
+                  {formatFiyat(aktifFiyat, pb)}
+                  {product.sescim_indirimli_fiyat && (
+                    <span className="text-xs text-red-500 ml-2 line-through">
+                      {formatFiyat(product.fiyat ?? 0, pb)}
+                    </span>
+                  )}
                 </div>
                 {pb !== 'TRY' && normalFiyatTL && (
                   <div className="font-body text-slate-500 text-xs">

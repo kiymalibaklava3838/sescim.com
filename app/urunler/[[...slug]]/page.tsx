@@ -12,6 +12,7 @@ import ProductFilters from '@/components/ProductFilters'
 
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { unstable_cache } from 'next/cache'
+import { getSescimPricingMap } from '@/lib/sescim-pricing'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -122,7 +123,33 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     sirala
   }
 
-  const { data: products, count } = await getProducts(from, to, filters) as any
+  let { data: products, count } = await getProducts(from, to, filters) as any
+
+  if (products && products.length > 0) {
+    try {
+      const urunIds = products.map((p: any) => p.id)
+      const pricingMap = await getSescimPricingMap(urunIds)
+      products = products
+        .map((p: any) => {
+          const pricing = pricingMap.get(p.id)
+          if (pricing) {
+            return { 
+              ...p, 
+              sescim_fiyat: pricing.sescim_fiyat,
+              sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
+              sescim_aktif: pricing.sescim_aktif
+            }
+          }
+          // Sescim'de kaydı olmayan ürünler her zaman gösterilir (default: true)
+          return { ...p, sescim_aktif: true }
+        })
+        .filter((p: any) => p.sescim_aktif === true)
+    } catch (e) {
+      console.error('Sescim pricing fetch failed for product list', e)
+      // Hata olursa tüm ürünleri göster
+    }
+  }
+
   const totalPages = Math.ceil((count || 0) / PER_PAGE)
 
   // Cache'den filtreleri çek

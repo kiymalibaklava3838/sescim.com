@@ -78,39 +78,6 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   const max = searchParams.max ? Number(searchParams.max) : null
   const sirala = searchParams.sirala || 'yeni'
 
-  // Ürünleri getiren ana fonksiyonu cache-liyoruz
-  const getProducts = unstable_cache(
-    async (from: number, to: number, filters: any) => {
-      const sb = await createServerSupabaseClient()
-      let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
-      
-      if (filters.q) q = q.ilike('ad', `%${filters.q}%`)
-      if (filters.activeCategory) {
-        const targetNames = Array.isArray(filters.activeCategory.dbName) 
-          ? filters.activeCategory.dbName 
-          : [filters.activeCategory.dbName || filters.activeCategory.name];
-
-        if (filters.slugLength === 1) q = q.in('kategori', targetNames)
-        else if (filters.slugLength === 2) q = q.in('alt_kategori', targetNames)
-        else if (filters.slugLength === 3) q = q.in('urun_tipi', targetNames)
-      }
-      if (filters.min) q = q.gte('fiyat', filters.min)
-      if (filters.max) q = q.lte('fiyat', filters.max)
-      if (filters.stok && filters.stok !== 'tum') q = q.eq('stok_durumu', filters.stok)
-      if (filters.marka && filters.marka !== 'tum') q = q.eq('marka', filters.marka)
-      if (filters.kullanim && filters.kullanim !== 'tum') q = q.eq('kullanim_alani', filters.kullanim)
-
-      if (filters.sirala === 'yeni') q = q.order('created_at', { ascending: false })
-      else if (filters.sirala === 'fiyat_artan') q = q.order('fiyat', { ascending: true })
-      else if (filters.sirala === 'fiyat_azalan') q = q.order('fiyat', { ascending: false })
-      else if (filters.sirala === 'ad_asc') q = q.order('ad', { ascending: true })
-
-      return q.range(from, to)
-    },
-    ['product-list', from.toString(), to.toString(), JSON.stringify(filters)],
-    { revalidate: 60, tags: ['products'] }
-  )
-
   const filters = {
     q: searchParams.q,
     activeCategory,
@@ -123,7 +90,36 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     sirala
   }
 
-  let { data: products, count } = await getProducts(from, to, filters) as any
+  // Ürün sorgusu - sayfa zaten force-dynamic olduğundan ayrıca cache gerekmez
+  const fetchProducts = async () => {
+    const sb = await createServerSupabaseClient()
+    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
+
+    if (filters.q) q = q.ilike('ad', `%${filters.q}%`)
+    if (filters.activeCategory) {
+      const targetNames = Array.isArray(filters.activeCategory.dbName)
+        ? filters.activeCategory.dbName
+        : [filters.activeCategory.dbName || filters.activeCategory.name]
+
+      if (filters.slugLength === 1) q = q.in('kategori', targetNames)
+      else if (filters.slugLength === 2) q = q.in('alt_kategori', targetNames)
+      else if (filters.slugLength === 3) q = q.in('urun_tipi', targetNames)
+    }
+    if (filters.min) q = q.gte('fiyat', filters.min)
+    if (filters.max) q = q.lte('fiyat', filters.max)
+    if (filters.stok && filters.stok !== 'tum') q = q.eq('stok_durumu', filters.stok)
+    if (filters.marka && filters.marka !== 'tum') q = q.eq('marka', filters.marka)
+    if (filters.kullanim && filters.kullanim !== 'tum') q = q.eq('kullanim_alani', filters.kullanim)
+
+    if (filters.sirala === 'yeni') q = q.order('created_at', { ascending: false })
+    else if (filters.sirala === 'fiyat_artan') q = q.order('fiyat', { ascending: true })
+    else if (filters.sirala === 'fiyat_azalan') q = q.order('fiyat', { ascending: false })
+    else if (filters.sirala === 'ad_asc') q = q.order('ad', { ascending: true })
+
+    return q.range(from, to)
+  }
+
+  let { data: products, count } = await fetchProducts() as any
 
   if (products && products.length > 0) {
     try {

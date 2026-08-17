@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="katman_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1080 1080">
+  <!-- Generator: Adobe Illustrator 30.3.0, SVG Export Plug-In . SVG Version: 2.1.3 Build 182)  -->
+  <defs>
+    <style>
+      .st0 {
+        font-family: Swiss721BT-BoldExtended, 'Swis721 Ex BT';
+        font-size: 223.4px;
+        font-weight: 700;
+      }
+
+      .st1 {
+        fill: #d61f26;
+      }
+    </style>
+  </defs>
+  <text class="st0" transform="translate(154.01 602.61) scale(.77 1)"><tspan x="0" y="0">sesc m</tspan></text>
+  <path d="M673.61,657.08v-82.57h14.2v82.57l-2.97,5.94h-6.61l-4.62-4.29"/>
+  <polygon class="st1" points="657.18 538.18 657.18 559.65 663.46 566.59 697.81 566.59 704.08 560.31 704.08 538.18 657.18 538.18"/>
+  <polygon class="st1" points="704.08 529.6 704.08 510.11 697.37 500.86 665.22 500.86 657.18 508.9 657.18 529.6 704.08 529.6"/>
+  <polyline points="673.81 416.97 688.45 416.97 688.45 494.04 673.81 494.04 673.81 416.97"/>
+</svg>

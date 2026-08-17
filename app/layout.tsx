@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
   },
-  icons: { icon: '/logo.png', apple: '/logo.png' },
+  // icons is auto-handled by app/icon.svg
   openGraph: {
     title: 'sescim.com | Ses, Işık & Görüntü',
     description: 'Türkiye\'nin en büyük ses, ışık ve görüntü ekipmanları e-ticaret platformu.',

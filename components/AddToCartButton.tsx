@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { ShoppingCart, Check, MessageCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ShoppingCart, Check } from 'lucide-react'
 import { addToCart } from '@/lib/cart'
 import { dovizToTL, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
-import { createClient } from '@/lib/supabase'
 
 interface Props {
   urun: {
@@ -15,83 +14,129 @@ interface Props {
     kategori: string
     fotograflar: string[]
     fiyat: number
-    bayi_fiyati?: number | null
+    indirimli_fiyat?: number | null
+    indirimli_fiyat_doviz?: string | null
     para_birimi?: string
-    bayi_para_birimi?: string
   }
-  isBayi: boolean
 }
 
-export default function AddToCartButton({ urun, isBayi }: Props) {
+export default function AddToCartButton({ urun }: Props) {
   const [added, setAdded] = useState(false)
+  const [flyingItems, setFlyingItems] = useState<{id: number, x: number, y: number}[]>([])
   const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
-  const [isBayiAuth, setIsBayiAuth] = useState(isBayi)
 
   useEffect(() => {
     getKurClient().then(setKur).catch(() => {})
+  }, [])
 
-    // İstemci taraflı bayi kontrolü
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
-      if (session?.user) {
-        supabase.from('bayiler').select('onaylandi').eq('user_id', session.user.id).maybeSingle()
-          .then(({ data }: { data: any }) => {
-            if (data?.onaylandi) setIsBayiAuth(true)
-          })
-      }
-    })
-  }, [isBayi])
-
-  const activeIsBayi = isBayi || isBayiAuth
-
-  const handleAdd = () => {
-    if (!activeIsBayi) return
-    
+  const handleAdd = (e: React.MouseEvent<HTMLButtonElement>) => {
     const pb = urun.para_birimi || 'TRY'
-    const bayiPb = urun.bayi_para_birimi || pb
+    const indirimPb = urun.indirimli_fiyat_doviz || pb
 
-    // Sepette TL cinsinden tutuyoruz (ödeme TL ile)
     const fiyatTL = dovizToTL(urun.fiyat, pb, kur)
-    const bayiFiyatTL = urun.bayi_fiyati ? dovizToTL(urun.bayi_fiyati, bayiPb, kur) : null
+    const indirimliFiyatTL = urun.indirimli_fiyat ? dovizToTL(urun.indirimli_fiyat, indirimPb, kur) : null
 
     addToCart({
       id: urun.id,
       ad: urun.ad,
       kategori: urun.kategori,
       fotograf: urun.fotograflar?.[0] || '',
-      fiyat: fiyatTL,                    // TL karşılığı
-      fiyat_doviz: urun.fiyat,           // Orijinal döviz fiyatı
+      fiyat: fiyatTL,
+      fiyat_doviz: urun.fiyat,
       para_birimi: pb,
-      bayi_fiyati: bayiFiyatTL,          // TL karşılığı
-      bayi_fiyat_doviz: urun.bayi_fiyati || null,
-      bayi_para_birimi: bayiPb,
+      indirimli_fiyat: indirimliFiyatTL,
+      indirimli_fiyat_doviz: urun.indirimli_fiyat || null,
     })
+    
+    // Sepete Eklendi State
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
-  }
 
-  if (!activeIsBayi) {
-    return (
-      <a
-        href={`https://wa.me/905323934370?text=${encodeURIComponent(`Merhaba, ${urun.ad} ürünü hakkında bilgi almak ve sipariş vermek istiyorum.`)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-outline text-sm w-full justify-center gap-2"
-      >
-        <MessageCircle size={15} />
-        Bilgi Al & Sipariş Ver
-      </a>
-    )
+    // Uçan resim animasyonu
+    if (urun.fotograflar?.[0]) {
+      const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+      const newItem = {
+        id: Date.now(),
+        x: rect.left + rect.width / 2 - 25, // Button center
+        y: rect.top - 50 // Slightly above button
+      }
+      setFlyingItems(prev => [...prev, newItem])
+      
+      // Remove item after animation completes
+      setTimeout(() => {
+        setFlyingItems(prev => prev.filter(i => i.id !== newItem.id))
+      }, 1000)
+    }
   }
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.95 }}
-      onClick={handleAdd}
-      className={`btn-primary text-sm w-full justify-center transition-all duration-300 ${added ? '!bg-green-600' : ''}`}
-    >
-      {added ? <Check size={15} /> : <ShoppingCart size={15} />}
-      {added ? 'Sepete Eklendi!' : 'Sepete Ekle'}
-    </motion.button>
+    <>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={handleAdd}
+        className={`btn-primary text-sm w-full justify-center transition-all duration-300 relative overflow-hidden ${added ? '!bg-emerald-500 hover:!bg-emerald-600' : ''}`}
+      >
+        <AnimatePresence mode="wait">
+          {added ? (
+            <motion.div
+              key="added"
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="flex items-center gap-2 font-display font-bold"
+            >
+              <Check size={16} />
+              Sepete Eklendi
+            </motion.div>
+          ) : (
+            <motion.div
+              key="add"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="flex items-center gap-2 font-display font-bold"
+            >
+              <ShoppingCart size={16} />
+              Sepete Ekle
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+
+      {/* Uçan Resim (Portallar vasıtasıyla z-index en üstte) */}
+      <AnimatePresence>
+        {flyingItems.map(item => (
+          <motion.img
+            key={item.id}
+            src={urun.fotograflar[0]}
+            initial={{ 
+              position: 'fixed',
+              left: item.x,
+              top: item.y,
+              width: '50px',
+              height: '50px',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              opacity: 1,
+              scale: 1,
+              zIndex: 9999,
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)'
+            }}
+            animate={{
+              left: window.innerWidth - 100, // Sağ üstteki sepet ikonunun tahmini koordinatı (Desktop için)
+              top: 20,
+              scale: 0.1,
+              opacity: 0.5,
+              rotate: 360
+            }}
+            transition={{ 
+              duration: 0.8,
+              ease: [0.17, 0.67, 0.83, 0.67] // Custom beizer for floating effect
+            }}
+            className="pointer-events-none bg-white border border-slate-200 p-1"
+          />
+        ))}
+      </AnimatePresence>
+    </>
   )
 }

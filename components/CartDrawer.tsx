@@ -1,14 +1,24 @@
 'use client'
 
 import { useCartStore } from '@/store/useCartStore'
+import { getCart, removeFromCart, getCartTotal, type CartItem } from '@/lib/cart'
 import { X, Trash2, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 
 export default function CartDrawer() {
-  const { items, isDrawerOpen, toggleDrawer, removeFromCart } = useCartStore()
+  const { isDrawerOpen, toggleDrawer } = useCartStore()
+  const [items, setItems] = useState<CartItem[]>([])
+  
+  useEffect(() => {
+    setItems(getCart())
+    const onUpd = () => setItems(getCart())
+    window.addEventListener('cart-updated', onUpd)
+    return () => window.removeEventListener('cart-updated', onUpd)
+  }, [])
 
-  const subtotal = items.reduce((acc, item) => acc + item.fiyat * item.qty, 0)
+  const subtotal = getCartTotal()
 
   return (
     <>
@@ -32,7 +42,7 @@ export default function CartDrawer() {
             <ShoppingBag className="text-brand-red" size={20} />
             <span className="font-display font-black text-lg text-slate-800 uppercase tracking-wide">Sepetim</span>
             <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {items.length}
+              {items.reduce((acc, item) => acc + item.adet, 0)}
             </span>
           </div>
           <button 
@@ -61,9 +71,9 @@ export default function CartDrawer() {
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 bg-white p-4 border border-slate-100 shadow-sm">
                   <div className="w-20 h-20 bg-slate-100 flex-shrink-0 relative border border-slate-200">
-                    {item.resim_url ? (
+                    {item.fotograf ? (
                       <Image 
-                        src={item.resim_url} 
+                        src={item.fotograf} 
                         alt={item.ad} 
                         fill 
                         className="object-contain p-2"
@@ -80,12 +90,12 @@ export default function CartDrawer() {
                         {item.ad}
                       </h3>
                       <div className="font-display font-bold text-sm text-brand-red mt-1">
-                        {item.fiyat.toLocaleString('tr-TR')} TL
+                        {Math.ceil(item.indirimli_fiyat ? item.indirimli_fiyat : item.fiyat).toLocaleString('tr-TR')} TL
                       </div>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <div className="text-xs font-medium text-slate-500">
-                        Adet: {item.qty}
+                        Adet: {item.adet}
                       </div>
                       <button 
                         onClick={() => removeFromCart(item.id)}
@@ -104,17 +114,34 @@ export default function CartDrawer() {
         {/* Footer */}
         {items.length > 0 && (
           <div className="bg-white border-t border-slate-200 p-6 space-y-4">
+            
+            {/* Kargo Bedava Barı */}
+            {subtotal < 1999 ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <div className="flex justify-between text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 mb-2">
+                  <span>Kargo Bedavaya <span className="text-brand-red">{(1999 - subtotal).toLocaleString('tr-TR')} ₺</span></span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-brand-red h-1.5 rounded-full transition-all duration-500" style={{ width: `${(subtotal / 1999) * 100}%` }} />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center justify-center gap-2 text-emerald-600 font-display font-bold text-xs uppercase tracking-widest">
+                <span>Kargo Bedava</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between font-display font-black text-slate-800 uppercase text-lg">
               <span>Ara Toplam</span>
               <span>{subtotal.toLocaleString('tr-TR')} TL</span>
             </div>
             <p className="text-xs text-slate-500 text-center pb-2">Kargo ve vergiler ödeme sayfasında hesaplanır.</p>
             <Link 
-              href="/checkout"
+              href="/sepet"
               onClick={toggleDrawer}
               className="w-full flex items-center justify-center bg-brand-red text-white py-4 font-display font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-colors"
             >
-              Alışverişi Tamamla
+              Sepete Git & Tamamla
             </Link>
           </div>
         )}

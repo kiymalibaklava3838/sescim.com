@@ -58,3 +58,69 @@ export const getProductBySlug = unstable_cache(
   ['product-detail-slug'],
   { revalidate: 3600, tags: ['products'] }
 )
+
+export const getRelatedProducts = unstable_cache(
+  async (kategori: string, excludeId: string) => {
+    const supabase = await createAkdagServerClient()
+    const { data } = await supabase
+      .from('urunler')
+      .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
+      .eq('kategori', kategori)
+      .neq('id', excludeId)
+      .limit(4)
+
+    if (data && data.length > 0) {
+      try {
+        const { getSescimPricingMap } = await import('./sescim-pricing')
+        const urunIds = data.map((p: any) => p.id)
+        const pricingMap = await getSescimPricingMap(urunIds)
+        
+        return data.map((p: any) => {
+          const pricing = pricingMap.get(p.id)
+          if (pricing) {
+            return { ...p, sescim_fiyat: pricing.sescim_fiyat, sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, sescim_aktif: pricing.sescim_aktif }
+          }
+          return { ...p, sescim_aktif: true }
+        }).filter((p: any) => p.sescim_aktif)
+      } catch (e) {
+        return data
+      }
+    }
+    return data || []
+  },
+  ['product-related'],
+  { revalidate: 3600, tags: ['products'] }
+)
+
+export const getCrossSellProducts = unstable_cache(
+  async (kategori: string) => {
+    const targetKategori = kategori !== 'Kablo, Stand ve Aksesuar' ? 'Kablo, Stand ve Aksesuar' : 'Kulaklık & Monitör'
+    const supabase = await createAkdagServerClient()
+    const { data } = await supabase
+      .from('urunler')
+      .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
+      .eq('kategori', targetKategori)
+      .limit(4)
+
+    if (data && data.length > 0) {
+      try {
+        const { getSescimPricingMap } = await import('./sescim-pricing')
+        const urunIds = data.map((p: any) => p.id)
+        const pricingMap = await getSescimPricingMap(urunIds)
+        
+        return data.map((p: any) => {
+          const pricing = pricingMap.get(p.id)
+          if (pricing) {
+            return { ...p, sescim_fiyat: pricing.sescim_fiyat, sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, sescim_aktif: pricing.sescim_aktif }
+          }
+          return { ...p, sescim_aktif: true }
+        }).filter((p: any) => p.sescim_aktif)
+      } catch (e) {
+        return data
+      }
+    }
+    return data || []
+  },
+  ['product-cross-sell'],
+  { revalidate: 3600, tags: ['products'] }
+)

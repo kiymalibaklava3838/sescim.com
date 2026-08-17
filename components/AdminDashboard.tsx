@@ -26,7 +26,6 @@ const COLORS = ['#DA291C', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6']
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [siparisler, setSiparisler] = useState<Siparis[]>([])
-  const [bayiCount, setBayiCount] = useState(0)
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('bu_ay')
   const supabase = useRef(createClient()).current
 
@@ -38,16 +37,12 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [{ data: sData }, { count: bCount }] = await Promise.all([
-        supabase
+      const { data: sData } = await supabase
           .from('siparisler')
           .select('id, toplam_tutar, durum, odeme_durumu, dekont_url, created_at, urunler')
           .order('created_at', { ascending: false })
-          .limit(100),
-        supabase.from('bayiler').select('*', { count: 'exact', head: true }).eq('onaylandi', true)
-      ])
+          .limit(100)
       setSiparisler(sData || [])
-      setBayiCount(bCount || 0)
     } catch (e) {
       console.error(e)
     } finally {
@@ -87,8 +82,8 @@ export default function AdminDashboard() {
     const kargoBekleyenler = filteredSiparisler.filter(s => s.durum === 'onaylandi').length
     const dekontBekleyenler = filteredSiparisler.filter(s => s.dekont_url && s.odeme_durumu !== 'odendi').length
 
-    return { ciro: gerceklesenCiro, bekleyen: bekleyenSayisi, kargoBekleyen: kargoBekleyenler, bayiSayisi: bayiCount, dekontBekleyen: dekontBekleyenler }
-  }, [filteredSiparisler, bayiCount])
+    return { ciro: gerceklesenCiro, bekleyen: bekleyenSayisi, kargoBekleyen: kargoBekleyenler, dekontBekleyen: dekontBekleyenler }
+  }, [filteredSiparisler])
 
   // En Çok Satan Ürünler (Top 5)
   const topProducts = useMemo(() => {
@@ -205,11 +200,7 @@ export default function AdminDashboard() {
           <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.kargoBekleyen}</div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-6 border-l-2 border-l-yellow-500 relative overflow-hidden group">
-          <Users size={80} className="absolute -right-4 -bottom-4 text-yellow-500/5 group-hover:scale-110 transition-transform" />
-          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Onaylı Bayiler</div>
-          <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.bayiSayisi}</div>
-        </div>
+
 
         <div className={`bg-white border border-slate-200 p-6 border-l-2 relative overflow-hidden group ${stats.dekontBekleyen > 0 ? 'border-l-orange-500' : 'border-l-white/10'}`}>
           <FileText size={80} className="absolute -right-4 -bottom-4 text-orange-500/5 group-hover:scale-110 transition-transform" />

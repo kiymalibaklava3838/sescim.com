@@ -118,7 +118,7 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-4 md:gap-6 shrink-0">
-          <Link href={user ? '/uye/panel' : '/uye'} className="hidden lg:flex items-center gap-2 text-slate-700 hover:text-brand-red transition-colors group">
+          <Link href={user ? '/hesabim' : '/uye'} className="hidden lg:flex items-center gap-2 text-slate-700 hover:text-brand-red transition-colors group">
             <div className="p-2 bg-slate-100 rounded-full group-hover:bg-brand-red/10 group-hover:text-brand-red transition-colors">
               <User size={20} />
             </div>
@@ -155,7 +155,7 @@ export default function Navbar() {
               {kat.name}
             </Link>
           ))}
-          <Link href={user ? '/uye/panel' : '/uye'} className="py-2 text-sm font-semibold text-brand-red flex items-center gap-2 mt-2 border-t border-slate-100 pt-4">
+          <Link href={user ? '/hesabim' : '/uye'} className="py-2 text-sm font-semibold text-brand-red flex items-center gap-2 mt-2 border-t border-slate-100 pt-4">
             <User size={18} />
             {user ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
           </Link>

@@ -186,9 +186,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       fiyat: fiyatTL,
       fiyat_doviz: finalFiyat,
       para_birimi: pb,
-      bayi_fiyati: null,
-      bayi_fiyat_doviz: null,
-      bayi_para_birimi: pb,
+      indirimli_fiyat: null,
+      indirimli_fiyat_doviz: null,
     })
     setCartAdded(true)
     setTimeout(() => setCartAdded(false), 2000)
@@ -202,6 +201,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
         <div className="aspect-square bg-slate-50 relative overflow-hidden">
           {product.fotograflar?.[0] ? (
             <Image src={product.fotograflar[0]} alt={product.ad} fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               className="object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -244,18 +244,13 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             {aktifFiyat ? (
               <>
                 <div className="font-display font-black text-lg text-slate-800">
-                  {formatFiyat(aktifFiyat, pb)}
+                  {formatFiyat(normalFiyatTL || 0, 'TRY')}
                   {product.sescim_indirimli_fiyat && (
                     <span className="text-xs text-red-500 ml-2 line-through">
-                      {formatFiyat(product.fiyat ?? 0, pb)}
+                      {formatFiyat(dovizToTL(product.fiyat ?? 0, pb, kurData), 'TRY')}
                     </span>
                   )}
                 </div>
-                {pb !== 'TRY' && normalFiyatTL && (
-                  <div className="font-body text-slate-500 text-xs">
-                    ≈ {normalFiyatTL.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
-                  </div>
-                )}
               </>
             ) : (
               <span className="font-body text-slate-500 text-xs">Fiyat Yok</span>
@@ -291,13 +286,16 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       {/* Alt butonlar — Favori, Karşılaştır, Sepete Ekle */}
       <div className="border-t border-slate-200 p-2">
         <div className="grid grid-cols-3 gap-1.5">
-          <button
+          <motion.button
+            whileTap={{ scale: 0.9 }}
             type="button"
-            className={`flex items-center justify-center px-2 py-1.5 border text-xs transition-all duration-200 ${fav ? 'border-brand-red text-brand-red bg-brand-red/10' : 'border-slate-200 text-slate-500 hover:border-brand-red hover:text-brand-red'}`}
+            className={`flex items-center justify-center px-2 py-1.5 border text-xs transition-all duration-300 ${fav ? 'border-brand-red text-brand-red bg-brand-red/10' : 'border-slate-200 text-slate-500 hover:border-brand-red hover:text-brand-red'}`}
             onClick={(e) => { e.stopPropagation(); setFav(toggleFavorite(asSaved())) }}
           >
-            <Heart size={12} />
-          </button>
+            <motion.div animate={{ scale: fav ? [1, 1.3, 1] : 1 }} transition={{ duration: 0.3 }}>
+              <Heart size={12} fill={fav ? 'currentColor' : 'none'} className={fav ? 'text-brand-red' : ''} />
+            </motion.div>
+          </motion.button>
           <button
             type="button"
             className={`flex items-center justify-center px-2 py-1.5 border text-xs transition-all duration-200 ${cmp ? 'border-brand-red text-brand-red bg-brand-red/10' : 'border-slate-200 text-slate-500 hover:border-brand-red hover:text-brand-red'}`}

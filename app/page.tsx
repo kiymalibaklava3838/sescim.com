@@ -50,10 +50,10 @@ export default function HomePage() {
       <BrandCarousel />
 
       {/* ÇOK SATANLAR */}
-      <FeaturedProducts title="Çok Satanlar" sortBy="fiyat" ascending={true} />
+      <FeaturedProducts title="En Çok Satanlar" sortBy="fiyat" ascending={false} filterByFeatured={false} />
 
-      {/* HAFTANIN İNDİRİMLERİ */}
-      <FeaturedProducts title="Haftanın Fırsatları" sortBy="created_at" ascending={true} />
+      {/* YENİ EKLENENLER */}
+      <FeaturedProducts title="Yeni Eklenenler" sortBy="created_at" ascending={false} filterByFeatured={false} />
 
       {/* TRUST BADGES */}
       <TrustBadges />

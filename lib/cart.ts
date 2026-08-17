@@ -6,9 +6,8 @@ export interface CartItem {
   fiyat: number           // TL karşılığı (ödeme için)
   fiyat_doviz?: number    // Orijinal döviz fiyatı (gösterim için)
   para_birimi?: string    // USD / EUR / TRY
-  bayi_fiyati: number | null      // TL karşılığı
-  bayi_fiyat_doviz?: number | null // Orijinal döviz
-  bayi_para_birimi?: string
+  indirimli_fiyat: number | null      // TL karşılığı
+  indirimli_fiyat_doviz?: number | null // Orijinal döviz
   adet: number
 }
 
@@ -37,7 +36,7 @@ export async function pullCartFromSupabase() {
   if (!uid) return
   
   const supabase = createClient()
-  const { data: sepetData } = await supabase.from('sepet').select('*, urunler(ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi)').eq('user_id', uid)
+  const { data: sepetData } = await supabase.from('sepet').select('*, urunler(ad, kategori, fotograflar, fiyat, indirimli_fiyat, para_birimi)').eq('user_id', uid)
   
   if (sepetData && sepetData.length > 0) {
     const localCart = getCart()
@@ -58,9 +57,8 @@ export async function pullCartFromSupabase() {
           fiyat: u.fiyat,
           fiyat_doviz: u.fiyat,
           para_birimi: u.para_birimi || 'TRY',
-          bayi_fiyati: u.bayi_fiyati,
-          bayi_fiyat_doviz: u.bayi_fiyati,
-          bayi_para_birimi: u.bayi_para_birimi || u.para_birimi || 'TRY',
+          indirimli_fiyat: u.indirimli_fiyat,
+          indirimli_fiyat_doviz: u.indirimli_fiyat,
           adet: dbItem.adet
         })
         changed = true
@@ -89,7 +87,7 @@ function syncCartToSupabase(items: CartItem[]) {
     
     if (itemIds.length > 0) {
       // Önce sepetten çıkarılan ürünleri temizle
-      await supabase.from('sepet').delete().eq('user_id', uid).not('urun_id', 'in', itemIds)
+      await supabase.from('sepet').delete().eq('user_id', uid).not('urun_id', 'in', `(${itemIds.join(',')})`)
       
       // Sonra güncel ürünleri/adetleri kaydet
       const upsertData = items.map(i => ({ user_id: uid, urun_id: i.id, adet: i.adet }))
@@ -119,7 +117,7 @@ export function addToCart(item: Omit<CartItem, 'adet'>) {
     // Kur güncellenmiş olabilir, fiyatı güncelle
     existing.adet += 1
     existing.fiyat = item.fiyat
-    existing.bayi_fiyati = item.bayi_fiyati
+    existing.indirimli_fiyat = item.indirimli_fiyat
   } else {
     cart.push({ ...item, adet: 1 })
   }
@@ -133,7 +131,7 @@ export function addManyToCart(items: Array<Omit<CartItem, 'adet'> & { adet: numb
     if (existing) {
       existing.adet += incoming.adet
       existing.fiyat = incoming.fiyat
-      existing.bayi_fiyati = incoming.bayi_fiyati
+      existing.indirimli_fiyat = incoming.indirimli_fiyat
     } else {
       cart.push({ ...incoming })
     }
@@ -158,9 +156,9 @@ export function getCartCount(): number {
   return getCart().reduce((sum, i) => sum + i.adet, 0)
 }
 
-export function getCartTotal(isBayi: boolean): number {
+export function getCartTotal(): number {
   return Math.ceil(getCart().reduce((sum, i) => {
-    const price = isBayi && i.bayi_fiyati ? i.bayi_fiyati : i.fiyat
+    const price = i.indirimli_fiyat ? i.indirimli_fiyat : i.fiyat
     return sum + price * i.adet
   }, 0))
 }

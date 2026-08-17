@@ -4,13 +4,18 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck } from 'lucide-react'
 import { KATEGORILER } from '@/lib/categories'
+import { usePathname } from 'next/navigation'
 
 export default function Footer() {
   const displayCategories = KATEGORILER.slice(0, 8)
+  const pathname = usePathname()
+  
+  const hideNewsletter = pathname?.startsWith('/hesabim') || pathname?.startsWith('/admin')
 
   return (
     <footer className="bg-white border-t border-slate-200">
       {/* Footer top: Newsletter */}
+      {!hideNewsletter && (
       <div className="bg-slate-50 py-12 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
@@ -29,6 +34,7 @@ export default function Footer() {
           </form>
         </div>
       </div>
+      )}
 
       {/* Main Footer Links */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">

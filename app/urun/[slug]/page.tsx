@@ -15,7 +15,8 @@ import { getBreadcrumbs } from '@/lib/categories'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-import { getProductBySlug } from '@/lib/product-service'
+import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
+import { ProductCard } from '@/components/ProductGrid'
 
 interface Props { params: { slug: string } }
 
@@ -61,18 +62,10 @@ export default async function UrunDetayPage({ params }: Props) {
     redirect(`/urun/${product.slug}`)
   }
 
-  const { data: { session } } = await supabase.auth.getSession()
-  let isBayi = false
-  if (session?.user) {
-    const { data: bayi } = await supabase.from('bayiler').select('onaylandi').eq('user_id', session.user.id).maybeSingle()
-    if (bayi?.onaylandi) isBayi = true
-  }
 
-  const akdag = await createAkdagServerClient()
-  const { data: related } = await akdag
-    .from('urunler')
-    .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi')
-    .eq('kategori', product.kategori).neq('id', product.id).limit(4)
+
+  const related = await getRelatedProducts(product.kategori, product.id)
+  const crossSellData = await getCrossSellProducts(product.kategori)
 
   const stok = product.stok_durumu || 'stokta'
   const base = getSiteUrl()
@@ -136,13 +129,11 @@ export default async function UrunDetayPage({ params }: Props) {
 
             {/* Fiyat — client component ile kur dönüşümü */}
             <UrunFiyatGosterge
-              fiyat={product.fiyat}
-              bayiFiyati={product.bayi_fiyati}
+              fiyat={(product as any).sescim_fiyat ?? product.fiyat}
+              indirimliFiyat={(product as any).sescim_indirimli_fiyat ?? null}
               paraBirimi={product.para_birimi || 'TRY'}
-              bayiParaBirimi={product.bayi_para_birimi || product.para_birimi || 'TRY'}
               fiyatGuncelleme={product.fiyat_guncelleme}
               urunAdi={product.ad}
-              isBayi={isBayi}
             />
 
             {/* Stok */}
@@ -171,11 +162,11 @@ export default async function UrunDetayPage({ params }: Props) {
                   ad: product.ad,
                   kategori: product.kategori,
                   fotograflar: product.fotograflar || [],
-                  fiyat: product.fiyat,
-                  bayi_fiyati: product.bayi_fiyati,
+                  fiyat: (product as any).sescim_fiyat ?? product.fiyat,
+                  indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? null,
+                  indirimli_fiyat_doviz: null,
                   para_birimi: product.para_birimi || 'TRY',
-                  bayi_para_birimi: product.bayi_para_birimi || product.para_birimi || 'TRY',
-                }} isBayi={isBayi} />
+                }} />
               ) : stok === 'tukendi' ? (
                 <div className="space-y-3">
                   <div className="font-display font-bold text-sm uppercase text-center text-slate-500 tracking-widest py-3 border border-slate-200 bg-white">
@@ -204,36 +195,35 @@ export default async function UrunDetayPage({ params }: Props) {
           </div>
         </div>
 
+        {/* Birlikte Alınanlar / Aksesuarlar */}
+        {crossSellData && crossSellData.length > 0 && (
+          <div className="mt-16 pt-12 border-t border-slate-200">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-px bg-slate-800" />
+              <span className="font-display font-black text-sm tracking-[0.2em] uppercase text-slate-800">Sıkça Birlikte Alınanlar</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {crossSellData.map((r: any) => (
+                <div key={r.id} className="h-full">
+                  <ProductCard product={r} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Benzer ürünler */}
         {related && related.length > 0 && (
-          <div className="mt-24 pt-12 border-t border-slate-200">
+          <div className="mt-16 pt-12 border-t border-slate-200">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-8 h-px bg-brand-red" />
               <span className="font-display font-semibold text-xs tracking-[0.3em] uppercase text-brand-red">BENZER ÜRÜNLER</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {related.map((r: any) => (
-                <Link key={r.id} href={`/urun/${r.slug}`}
-                  className="product-card group bg-white border border-slate-200 overflow-hidden hover:border-brand-red/30">
-                  <div className="aspect-square bg-slate-50 relative overflow-hidden">
-                    {r.fotograflar?.[0] ? (
-                      <Image
-                        src={r.fotograflar[0]}
-                        alt={r.ad}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-200 text-4xl">📦</div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <div className="font-display font-bold text-sm uppercase text-slate-900 group-hover:text-brand-red transition-colors truncate">{r.ad}</div>
-                    <div className="font-body text-slate-500 text-[10px] mt-1 uppercase tracking-widest">{r.kategori}</div>
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-500" />
-                </Link>
+                <div key={r.id} className="h-full">
+                  <ProductCard product={r} />
+                </div>
               ))}
             </div>
           </div>

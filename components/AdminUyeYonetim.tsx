@@ -25,7 +25,12 @@ export default function AdminUyeYonetim() {
     setLoading(true)
     try {
       // Fetch users via admin API (requires service role in production)
-      const res = await fetch('/api/admin/uyeler')
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/uyeler', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      })
       if (res.ok) {
         const data = await res.json()
         setUyeler(data.users || [])

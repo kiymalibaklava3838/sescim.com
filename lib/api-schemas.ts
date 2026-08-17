@@ -10,17 +10,17 @@ export const siparisUrunSchema = z.object({
 
 export const siparisOlusturSchema = z.object({
   user_id: z.string().uuid().nullable().optional(),
-  bayi_id: z.string().uuid().nullable().optional(),
   urunler: z.array(siparisUrunSchema).min(1).max(100),
   toplam_tutar: z.number().min(0).max(50_000_000),
+  kupon_kodu: z.string().max(100).optional().nullable(),
+  indirim_tutari: z.number().min(0).max(50_000_000).optional().nullable(),
   ad_soyad: z.string().max(200).optional().nullable(),
   email: z.string().email().max(320),
   telefon: z.string().max(50).optional().nullable(),
   notlar: z.string().max(2000).optional().nullable(),
   odeme_tipi: z.string().max(50).optional().nullable(),
   teslimat_tipi: z.enum(['kargo', 'depo']).optional().default('kargo'),
-  bayi_adi: z.string().max(200).optional().nullable(),
-  is_bayi: z.boolean().optional(),
+
   fatura_tipi: z.enum(['bireysel', 'kurumsal']).optional().default('bireysel'),
   firma_unvani: z.string().max(300).optional().nullable(),
   vergi_dairesi: z.string().max(100).optional().nullable(),
@@ -46,13 +46,7 @@ export const paytrTokenSchema = z.object({
     .max(100),
 })
 
-export const bayiDavetSchema = z.object({
-  email: z.string().email().max(320),
-  firma_adi: z.string().min(1).max(200),
-  yetkili_adi: z.string().min(1).max(200).optional().nullable(),
-  sehir: z.string().max(100).optional().nullable(),
-  telefon: z.string().max(50).optional().nullable(),
-})
+
 
 export const sifreSifirlaSchema = z.object({
   email: z.string().email().max(320),

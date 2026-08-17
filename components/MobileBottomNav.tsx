@@ -3,9 +3,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, LayoutGrid, ShoppingCart, User } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { getCartCount } from '@/lib/cart'
 
 export default function MobileBottomNav() {
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    setMounted(true)
+    const updateCount = () => setCount(getCartCount())
+    updateCount()
+    window.addEventListener('cart-updated', updateCount)
+    return () => window.removeEventListener('cart-updated', updateCount)
+  }, [])
 
   const tabs = [
     {
@@ -25,7 +37,7 @@ export default function MobileBottomNav() {
     },
     {
       name: 'Hesabım',
-      href: '/uye/panel',
+      href: '/hesabim',
       icon: User,
     },
   ]
@@ -57,6 +69,11 @@ export default function MobileBottomNav() {
                     isActive ? 'fill-brand-red/10 text-brand-red' : 'fill-transparent'
                   }`}
                 />
+                {tab.name === 'Sepet' && mounted && count > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-red text-white text-[8px] font-bold flex items-center justify-center rounded-full">
+                    {count > 9 ? '9+' : count}
+                  </span>
+                )}
               </div>
               <span
                 className={`text-[10px] font-display uppercase tracking-wider transition-all duration-300 ${

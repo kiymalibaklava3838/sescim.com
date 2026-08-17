@@ -4,15 +4,23 @@ import { ShoppingBag } from 'lucide-react'
 import { motion, useAnimation } from 'framer-motion'
 import { useCartStore } from '@/store/useCartStore'
 import { useEffect, useState } from 'react'
+import { getCartCount } from '@/lib/cart'
 
 export default function CartIcon() {
-  const { items, toggleDrawer } = useCartStore()
+  const { toggleDrawer } = useCartStore()
   
   // Hydration fix for client side state
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [count, setCount] = useState(0)
+  
+  useEffect(() => {
+    setMounted(true)
+    const updateCount = () => setCount(getCartCount())
+    updateCount()
+    window.addEventListener('cart-updated', updateCount)
+    return () => window.removeEventListener('cart-updated', updateCount)
+  }, [])
 
-  const count = items.reduce((acc, item) => acc + item.qty, 0)
   const controls = useAnimation()
 
   useEffect(() => {

@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
 
     const {
       user_id,
-      bayi_id,
       urunler,
       toplam_tutar,
       ad_soyad,
@@ -40,22 +39,55 @@ export async function POST(req: NextRequest) {
       notlar,
       odeme_tipi,
       teslimat_tipi,
-      bayi_adi,
-      is_bayi,
       fatura_tipi,
       firma_unvani,
       vergi_dairesi,
       vergi_no,
       teslimat_adresi,
+      kupon_kodu,
+      indirim_tutari,
     } = parsed.data
 
-    const hesaplanan = urunler.reduce((s, u) => s + u.fiyat * u.adet, 0)
-    if (Math.abs(hesaplanan - toplam_tutar) > 0.05) {
-      return NextResponse.json({ error: 'Tutar doğrulanamadı' }, { status: 400 })
-    }
+    let hesaplanan = urunler.reduce((s, u) => s + u.fiyat * u.adet, 0)
+    let appliedDiscount = 0
 
     const db = supabaseAdmin()
     const akdagDb = akdagAdmin()
+
+    if (kupon_kodu) {
+      const { data: kupon, error: kErr } = await db.from('kuponlar').select('*').eq('kod', kupon_kodu).eq('aktif', true).single()
+      if (kErr || !kupon) {
+        return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kupon' }, { status: 400 })
+      }
+      
+      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
+      if (isExpired) return NextResponse.json({ error: 'Kuponun süresi dolmuş' }, { status: 400 })
+      
+      if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
+        return NextResponse.json({ error: 'Kupon kullanım limiti dolmuş' }, { status: 400 })
+      }
+
+      if (kupon.min_tutar && hesaplanan < kupon.min_tutar) {
+        return NextResponse.json({ error: `Bu kupon en az ${kupon.min_tutar} ₺ alışverişte geçerlidir.` }, { status: 400 })
+      }
+
+      if (kupon.indirim_tipi === 'yuzde') {
+        appliedDiscount = hesaplanan * (kupon.indirim_miktari / 100)
+      } else {
+        appliedDiscount = kupon.indirim_miktari
+      }
+      
+      // Güvenlik: Frontend'den gelen indirim tutarı ile bizim hesapladığımız uyuşuyor mu?
+      if (indirim_tutari !== undefined && indirim_tutari !== null && Math.abs(appliedDiscount - indirim_tutari) > 0.05) {
+        return NextResponse.json({ error: 'Kupon tutarı doğrulanamadı' }, { status: 400 })
+      }
+
+      hesaplanan = Math.max(0, hesaplanan - appliedDiscount)
+    }
+
+    if (Math.abs(hesaplanan - toplam_tutar) > 0.05) {
+      return NextResponse.json({ error: 'Tutar doğrulanamadı' }, { status: 400 })
+    }
 
     // Döviz kurlarını al (Geçmişe dönük değer takibi için)
     let dolarKuru = 32.5
@@ -73,7 +105,6 @@ export async function POST(req: NextRequest) {
       .from('siparisler')
       .insert({
         user_id: user_id || null,
-        bayi_id: bayi_id || null,
         urunler,
         toplam_tutar,
         ad_soyad,
@@ -89,6 +120,8 @@ export async function POST(req: NextRequest) {
         vergi_dairesi: vergi_dairesi || null,
         vergi_no: vergi_no || null,
         teslimat_adresi: teslimat_adresi || null,
+        kupon_kodu: kupon_kodu || null,
+        indirim_tutari: appliedDiscount,
         dolar_kuru: dolarKuru,
         euro_kuru: euroKuru,
         ip_adresi: ip,
@@ -142,6 +175,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Kupon kullanım sayısını artır
+    if (kupon_kodu) {
+      const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: kupon_kodu })
+      if (rpcErr) {
+        // Fallback if rpc is missing
+        const { data: kData } = await db.from('kuponlar').select('kullanim_sayisi').eq('kod', kupon_kodu).single()
+        if (kData) {
+          await db.from('kuponlar').update({ kullanim_sayisi: kData.kullanim_sayisi + 1 }).eq('kod', kupon_kodu)
+        }
+      }
+    }
+
     const emailData = {
       siparis_no: siparis.siparis_no,
       ad_soyad: ad_soyad || 'Müşteri',
@@ -151,8 +196,6 @@ export async function POST(req: NextRequest) {
       toplam_tutar,
       odeme_tipi: odeme_tipi || 'havale',
       notlar: notlar ?? undefined,
-      is_bayi,
-      bayi_adi: bayi_adi ?? undefined,
     }
 
     // E-postaları ayrı try/catch ile gönder — mail hatası siparişi engellemesin

@@ -10,4 +10,4 @@ export const LIGHT_PRODUCT_FIELDS = 'id, slug, ad, kategori, fotograflar, fiyat,
 /**
  * Arama önerileri (dropdown) için daha da hafifletilmiş kolon seti.
  */
-export const SEARCH_SUGGESTION_FIELDS = 'id, slug, ad, kategori, fotograflar, bayi_fiyati, para_birimi'.replace(/\s+/g, '').trim()
+export const SEARCH_SUGGESTION_FIELDS = 'id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi'.replace(/\s+/g, '').trim()

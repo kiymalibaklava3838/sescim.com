@@ -1,5 +1,7 @@
 import { MetadataRoute } from 'next'
 import { getSiteUrl } from '@/lib/site-url'
+
+export const dynamic = 'force-dynamic'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

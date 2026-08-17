@@ -67,15 +67,19 @@ export const getRelatedProducts = unstable_cache(
       .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
       .eq('kategori', kategori)
       .neq('id', excludeId)
-      .limit(4)
+      .limit(50) // Daha fazla ürün çek
 
     if (data && data.length > 0) {
+      // Rastgele karıştır ve ilk 4 tanesini al
+      const shuffled = data.sort(() => 0.5 - Math.random())
+      const selected = shuffled.slice(0, 4)
+
       try {
         const { getSescimPricingMap } = await import('./sescim-pricing')
-        const urunIds = data.map((p: any) => p.id)
+        const urunIds = selected.map((p: any) => p.id)
         const pricingMap = await getSescimPricingMap(urunIds)
         
-        return data.map((p: any) => {
+        return selected.map((p: any) => {
           const pricing = pricingMap.get(p.id)
           if (pricing) {
             return { ...p, sescim_fiyat: pricing.sescim_fiyat, sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, sescim_aktif: pricing.sescim_aktif }
@@ -83,7 +87,7 @@ export const getRelatedProducts = unstable_cache(
           return { ...p, sescim_aktif: true }
         }).filter((p: any) => p.sescim_aktif)
       } catch (e) {
-        return data
+        return selected
       }
     }
     return data || []

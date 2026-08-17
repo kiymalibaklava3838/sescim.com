@@ -161,11 +161,11 @@ export default function AdminDashboard() {
     <div className="space-y-8 pb-10">
 
       {/* Kontrol Çubuğu */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#141414] border border-white/5 p-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 p-4">
         <div className="flex items-center gap-3">
-          <Calendar size={18} className="text-white/40" />
+          <Calendar size={18} className="text-slate-900/40" />
           <select
-            className="bg-transparent border border-white/10 text-white text-sm font-display uppercase tracking-widest p-2 outline-none focus:border-brand-red"
+            className="bg-transparent border border-slate-300 text-slate-900 text-sm font-display uppercase tracking-widest p-2 outline-none focus:border-brand-red"
             value={timeFilter}
             onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
           >
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={exportToExcel}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-display font-bold uppercase tracking-widest transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-slate-900 text-xs font-display font-bold uppercase tracking-widest transition-colors"
         >
           <Download size={14} /> Rapor İndir (Excel)
         </button>
@@ -187,34 +187,34 @@ export default function AdminDashboard() {
 
       {/* Üst Kartlar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#141414] border border-white/5 p-6 border-l-2 border-l-green-500 relative overflow-hidden group">
+        <div className="bg-white border border-slate-200 p-6 border-l-2 border-l-green-500 relative overflow-hidden group">
           <TrendingUp size={80} className="absolute -right-4 -bottom-4 text-green-500/5 group-hover:scale-110 transition-transform" />
-          <div className="text-white/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Toplam Ciro</div>
-          <div className="font-display font-black text-3xl text-white relative z-10">{stats.ciro.toLocaleString('tr-TR')} ₺</div>
+          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Toplam Ciro</div>
+          <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.ciro.toLocaleString('tr-TR')} ₺</div>
         </div>
 
-        <div className="bg-[#141414] border border-white/5 p-6 border-l-2 border-l-brand-red relative overflow-hidden group">
+        <div className="bg-white border border-slate-200 p-6 border-l-2 border-l-brand-red relative overflow-hidden group">
           <Clock size={80} className="absolute -right-4 -bottom-4 text-brand-red/5 group-hover:scale-110 transition-transform" />
-          <div className="text-white/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Bekleyen Sipariş</div>
-          <div className="font-display font-black text-3xl text-white relative z-10">{stats.bekleyen}</div>
+          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Bekleyen Sipariş</div>
+          <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.bekleyen}</div>
         </div>
 
-        <div className="bg-[#141414] border border-white/5 p-6 border-l-2 border-l-blue-500 relative overflow-hidden group">
+        <div className="bg-white border border-slate-200 p-6 border-l-2 border-l-blue-500 relative overflow-hidden group">
           <Package size={80} className="absolute -right-4 -bottom-4 text-blue-500/5 group-hover:scale-110 transition-transform" />
-          <div className="text-white/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Kargo Bekleyen</div>
-          <div className="font-display font-black text-3xl text-white relative z-10">{stats.kargoBekleyen}</div>
+          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Kargo Bekleyen</div>
+          <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.kargoBekleyen}</div>
         </div>
 
-        <div className="bg-[#141414] border border-white/5 p-6 border-l-2 border-l-yellow-500 relative overflow-hidden group">
+        <div className="bg-white border border-slate-200 p-6 border-l-2 border-l-yellow-500 relative overflow-hidden group">
           <Users size={80} className="absolute -right-4 -bottom-4 text-yellow-500/5 group-hover:scale-110 transition-transform" />
-          <div className="text-white/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Onaylı Bayiler</div>
-          <div className="font-display font-black text-3xl text-white relative z-10">{stats.bayiSayisi}</div>
+          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Onaylı Bayiler</div>
+          <div className="font-display font-black text-3xl text-slate-900 relative z-10">{stats.bayiSayisi}</div>
         </div>
 
-        <div className={`bg-[#141414] border border-white/5 p-6 border-l-2 relative overflow-hidden group ${stats.dekontBekleyen > 0 ? 'border-l-orange-500' : 'border-l-white/10'}`}>
+        <div className={`bg-white border border-slate-200 p-6 border-l-2 relative overflow-hidden group ${stats.dekontBekleyen > 0 ? 'border-l-orange-500' : 'border-l-white/10'}`}>
           <FileText size={80} className="absolute -right-4 -bottom-4 text-orange-500/5 group-hover:scale-110 transition-transform" />
-          <div className="text-white/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Dekont Onayı Bekleyen</div>
-          <div className="font-display font-black text-3xl text-white relative z-10">
+          <div className="text-slate-900/40 mb-2 font-display font-semibold text-xs tracking-widest uppercase relative z-10">Dekont Onayı Bekleyen</div>
+          <div className="font-display font-black text-3xl text-slate-900 relative z-10">
             {stats.dekontBekleyen}
             {stats.dekontBekleyen > 0 && <span className="ml-2 text-xs font-body text-orange-500 animate-pulse">Onay Gerekli</span>}
           </div>
@@ -224,37 +224,37 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
         {/* Sol Sütun: Grafik */}
-        <div className="bg-[#141414] border border-white/5 p-6">
+        <div className="bg-white border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-px bg-brand-red" />
-            <h2 className="font-display font-bold text-sm tracking-[0.2em] uppercase text-white">Son 6 Aylık Ciro (₺)</h2>
+            <h2 className="font-display font-bold text-sm tracking-[0.2em] uppercase text-slate-900">Son 6 Aylık Ciro (₺)</h2>
           </div>
           <div className="h-[300px] w-full min-h-[300px] min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis dataKey="isim" stroke="#ffffff40" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#ffffff40" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="isim" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0F0F0F', border: '1px solid #ffffff10', borderRadius: '0' }}
+                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0' }}
                   itemStyle={{ color: '#DA291C', fontWeight: 'bold' }}
                   formatter={(value: any) => [`${Number(value).toLocaleString('tr-TR')} ₺`, 'Ciro']}
                 />
-                <Line type="monotone" dataKey="ciro" stroke="#DA291C" strokeWidth={3} dot={{ r: 4, fill: '#0A0A0A', stroke: '#DA291C', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="ciro" stroke="#DA291C" strokeWidth={3} dot={{ r: 4, fill: '#f8fafc', stroke: '#DA291C', strokeWidth: 2 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Sağ Sütun: En Çok Satanlar */}
-        <div className="bg-[#141414] border border-white/5 p-6">
+        <div className="bg-white border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-px bg-brand-red" />
-            <h2 className="font-display font-bold text-sm tracking-[0.2em] uppercase text-white">En Çok Satan Ürünler</h2>
+            <h2 className="font-display font-bold text-sm tracking-[0.2em] uppercase text-slate-900">En Çok Satan Ürünler</h2>
           </div>
 
           {topProducts.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-white/30 text-sm font-body">Bu tarihte veri bulunamadı.</div>
+            <div className="h-[300px] flex items-center justify-center text-slate-900/30 text-sm font-body">Bu tarihte veri bulunamadı.</div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-6 h-[300px]">
               <div className="h-[250px] min-w-0">
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#0F0F0F', border: '1px solid #ffffff10', borderRadius: '0', color: 'white' }}
+                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0', color: 'white' }}
                       itemStyle={{ color: 'white', fontSize: '12px' }}
                       formatter={(value: any) => [`${value} Adet`, 'Satış']}
                     />
@@ -290,8 +290,8 @@ export default function AdminDashboard() {
                   <div key={i} className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                     <div className="flex-1 min-w-0">
-                      <div className="font-display font-semibold text-xs text-white truncate" title={prod.ad}>{prod.ad}</div>
-                      <div className="font-body text-white/40 text-[10px]">{prod.adet} satıldı • {prod.ciro.toLocaleString('tr-TR')} ₺</div>
+                      <div className="font-display font-semibold text-xs text-slate-900 truncate" title={prod.ad}>{prod.ad}</div>
+                      <div className="font-body text-slate-900/40 text-[10px]">{prod.adet} satıldı • {prod.ciro.toLocaleString('tr-TR')} ₺</div>
                     </div>
                   </div>
                 ))}

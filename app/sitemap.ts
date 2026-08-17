@@ -1,10 +1,10 @@
 import { MetadataRoute } from 'next'
 import { getSiteUrl } from '@/lib/site-url'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAkdagServerClient } from '@/lib/supabase-akdag'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteUrl()
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createAkdagServerClient()
   
   const { data: products } = await supabase.from('urunler').select('slug')
   

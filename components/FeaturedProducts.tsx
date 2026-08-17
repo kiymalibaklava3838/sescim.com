@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Package, ArrowRight, Star } from 'lucide-react'
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler", sortBy = "created_at", ascending = false }: Props = {}) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createAkdagServerClient()
   
   // Sadece is_featured = true olan ürünleri getir
   const { data } = await supabase

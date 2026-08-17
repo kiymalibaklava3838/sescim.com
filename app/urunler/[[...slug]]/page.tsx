@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import ProductSearch from '@/components/ProductSearch'
 import ProductGrid from '@/components/ProductGrid'
 import Pagination from '@/components/Pagination'
@@ -22,7 +22,7 @@ const PER_PAGE = 16
 // Filtre seçeneklerini cache-leyerek egress tasarrufu yapıyoruz
 const getCachedFilters = unstable_cache(
   async () => {
-    const supabase = await createServerSupabaseClient()
+    const supabase = await createAkdagServerClient()
     const { data } = await supabase
       .from('urunler')
       .select('marka, kullanim_alani')
@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function UrunlerPage({ params, searchParams }: Props) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = await createAkdagServerClient()
   const slugArray = params.slug || []
   
   // Kategori Bulma
@@ -92,7 +92,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
   // Ürün sorgusu - sayfa zaten force-dynamic olduğundan ayrıca cache gerekmez
   const fetchProducts = async () => {
-    const sb = await createServerSupabaseClient()
+    const sb = await createAkdagServerClient()
     let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
 
     if (filters.q) q = q.ilike('ad', `%${filters.q}%`)

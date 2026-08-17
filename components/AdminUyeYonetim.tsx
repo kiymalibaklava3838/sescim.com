@@ -73,7 +73,7 @@ export default function AdminUyeYonetim() {
   if (loading) {
     return (
       <div className="py-20 flex justify-center">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-brand-red rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" />
       </div>
     )
   }
@@ -84,13 +84,13 @@ export default function AdminUyeYonetim() {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-px bg-brand-red" />
-            <span className="font-display font-semibold text-xs tracking-[0.3em] uppercase text-brand-red">Kullanıcı Yönetimi</span>
+            <span className="font-display font-semibold text-xs tracking-[0.3em] bg-slate-50 uppercase text-brand-red">Kullanıcı Yönetimi</span>
           </div>
-          <h2 className="font-display font-black text-2xl uppercase text-white">Üye Yönetimi</h2>
-          <p className="font-body text-white/30 text-sm mt-1">Kayıtlı üye listesi</p>
+          <h2 className="font-display font-black text-2xl uppercase text-slate-900">Üye Yönetimi</h2>
+          <p className="font-body text-slate-900/30 text-sm mt-1">Kayıtlı üye listesi</p>
         </div>
         <button onClick={loadUyeler}
-          className="flex items-center gap-2 border border-white/10 text-white/50 hover:border-brand-red/30 hover:text-white px-4 py-2 font-display text-xs tracking-widest uppercase transition-all">
+          className="flex items-center gap-2 border border-slate-300 text-slate-900/50 hover:border-brand-red/30 hover:text-slate-900 px-4 py-2 font-display text-xs tracking-widest uppercase transition-all">
           <RefreshCw size={14} /> Yenile
         </button>
       </div>
@@ -101,23 +101,23 @@ export default function AdminUyeYonetim() {
           { label: 'Toplam Üye', value: uyeler.length, icon: Users },
           { label: 'Bu Ay', value: uyeler.filter(u => new Date(u.created_at) > new Date(Date.now() - 30 * 86400000)).length, icon: Calendar },
         ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-[#141414] border border-white/5 p-5">
+          <div key={label} className="bg-white border border-slate-200 p-5">
             <Icon size={18} className="text-brand-red mb-3" />
-            <div className="font-display font-black text-3xl text-white">{value}</div>
-            <div className="font-body text-white/40 text-sm mt-1">{label}</div>
+            <div className="font-display font-black text-3xl text-slate-900">{value}</div>
+            <div className="font-body text-slate-900/40 text-sm mt-1">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-900/30" />
         <input
           type="text"
           value={searchQ}
           onChange={e => setSearchQ(e.target.value)}
           placeholder="Üye ara (ad, e-posta)..."
-          className="w-full bg-[#141414] border border-white/10 text-white pl-11 pr-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 transition-colors"
+          className="w-full bg-white border border-slate-300 text-slate-900 pl-11 pr-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 transition-colors"
         />
       </div>
 
@@ -125,38 +125,38 @@ export default function AdminUyeYonetim() {
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-slate-200">
               {['Ad Soyad', 'E-posta', 'Telefon', 'Kayıt Tarihi', 'Son Giriş'].map(h => (
-                <th key={h} className="text-left py-3 px-4 font-display font-semibold text-[10px] tracking-widest uppercase text-white/30">{h}</th>
+                <th key={h} className="text-left py-3 px-4 font-display font-semibold text-[10px] tracking-widest uppercase text-slate-900/30">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((uye) => (
-              <tr key={uye.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+              <tr key={uye.id} className="border-b border-slate-200 hover:bg-slate-100 transition-colors">
                 <td className="py-4 px-4">
-                  <div className="font-display font-semibold text-sm text-white">
+                  <div className="font-display font-semibold text-sm text-slate-900">
                     {uye.user_metadata?.full_name || '—'}
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-2 font-body text-sm text-white/60">
-                    <Mail size={12} className="text-white/30" />
+                  <div className="flex items-center gap-2 font-body text-sm text-slate-900/60">
+                    <Mail size={12} className="text-slate-900/30" />
                     {uye.email}
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="font-body text-sm text-white/40">
+                  <div className="font-body text-sm text-slate-900/40">
                     {uye.user_metadata?.phone || '—'}
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="font-body text-xs text-white/30">
+                  <div className="font-body text-xs text-slate-900/30">
                     {new Date(uye.created_at).toLocaleDateString('tr-TR')}
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="font-body text-xs text-white/30">
+                  <div className="font-body text-xs text-slate-900/30">
                     {uye.last_sign_in_at ? new Date(uye.last_sign_in_at).toLocaleDateString('tr-TR') : '—'}
                   </div>
                 </td>
@@ -165,7 +165,7 @@ export default function AdminUyeYonetim() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-white/20 font-body">
+          <div className="py-12 text-center text-slate-900/20 font-body">
             <Users size={32} className="mx-auto mb-3 opacity-30" />
             Üye bulunamadı
           </div>

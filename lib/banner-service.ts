@@ -13,6 +13,7 @@ export interface StoreBanner {
 
 export async function getActiveBanners(): Promise<StoreBanner[]> {
   const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
   
   const { data, error } = await supabase
     .from('store_banners')

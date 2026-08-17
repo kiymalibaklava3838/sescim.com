@@ -50,14 +50,14 @@ export default function AdminLoginForm({ onSuccess }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <label className="font-display font-semibold text-xs tracking-widest uppercase text-white/40 block mb-2">
+        <label className="font-display font-semibold text-xs tracking-widest uppercase text-slate-500 block mb-2">
           E-posta
         </label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="input-dark"
+          className="input-light"
           placeholder="admin@akdagelektronik.com"
           onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
           autoComplete="email"
@@ -66,12 +66,12 @@ export default function AdminLoginForm({ onSuccess }: Props) {
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="font-display font-semibold text-xs tracking-widest uppercase text-white/40">
+          <label className="font-display font-semibold text-xs tracking-widest uppercase text-slate-500">
             Şifre
           </label>
           <button
             onClick={handleReset}
-            className="font-body text-white/25 hover:text-brand-red text-xs transition-colors"
+            className="font-body text-slate-400 hover:text-brand-red text-xs transition-colors"
           >
             Şifremi unuttum
           </button>
@@ -81,13 +81,13 @@ export default function AdminLoginForm({ onSuccess }: Props) {
             type={showPass ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="input-dark pr-12"
+            className="input-light pr-12"
             placeholder="••••••••"
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             autoComplete="current-password"
           />
           <button type="button" onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors">
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
             {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
@@ -105,7 +105,7 @@ export default function AdminLoginForm({ onSuccess }: Props) {
         className="btn-primary w-full justify-center text-sm disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {loading
-          ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
           : <LogIn size={15} />
         }
         {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}

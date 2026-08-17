@@ -11,7 +11,10 @@ const supabaseAdmin = () =>
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-
+const akdagAdmin = () =>
+  createClient(process.env.NEXT_PUBLIC_AKDAG_SUPABASE_URL!, process.env.AKDAG_SERVICE_ROLE_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = supabaseAdmin()
+    const akdagDb = akdagAdmin()
 
     // Döviz kurlarını al (Geçmişe dönük değer takibi için)
     let dolarKuru = 32.5
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest) {
       if (!item.urun_id) continue
 
       // Önce mevcut durumu al (siparise_gore mantığı için gerekli)
-      const { data: urun } = await db
+      const { data: urun } = await akdagDb
         .from('urunler')
         .select('stok_durumu, stok_adedi')
         .eq('id', item.urun_id)
@@ -110,7 +114,7 @@ export async function POST(req: NextRequest) {
       if (typeof urun?.stok_adedi === 'number') {
         // Atomic stok düşürme — PostgreSQL fonksiyonu ile race condition olmadan güncelle
         // Supabase SQL: UPDATE urunler SET stok_adedi = GREATEST(stok_adedi - p_adet, 0) WHERE id = p_urun_id
-        const { error: rpcErr } = await db.rpc('atomic_stok_dusur', {
+        const { error: rpcErr } = await akdagDb.rpc('atomic_stok_dusur', {
           p_urun_id: item.urun_id,
           p_adet: item.adet,
         })
@@ -120,7 +124,7 @@ export async function POST(req: NextRequest) {
           console.warn('[stok] atomic_stok_dusur RPC bulunamadı, fallback kullanılıyor. Lütfen stok-migration.sql dosyasını Supabase SQL Editor\'da çalıştırın.', rpcErr.message)
           const kalan = Math.max(0, urun.stok_adedi - item.adet)
           const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-          await db.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
+          await akdagDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
         }
       }
 
@@ -133,7 +137,7 @@ export async function POST(req: NextRequest) {
           .filter('urunler', 'cs', JSON.stringify([{ urun_id: item.urun_id }]))
 
         if ((count || 0) >= 5) {
-          await db.from('urunler').update({ stok_durumu: 'siparise_gore' }).eq('id', item.urun_id)
+          await akdagDb.from('urunler').update({ stok_durumu: 'siparise_gore' }).eq('id', item.urun_id)
         }
       }
     }

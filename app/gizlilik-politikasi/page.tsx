@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, Shield, Eye, Lock, Database, UserCheck, Trash2, ShieldCheck } from 'lucide-react'
 
 export const metadata = {
-  title: 'KVKK ve Gizlilik Politikası | Akdağ Elektronik',
-  description: 'Akdağ Elektronik kişisel verilerin korunması ve gizlilik politikası — KVKK aydınlatma metni.',
+  title: 'KVKK ve Gizlilik Politikası | Sescim',
+  description: 'Sescim kişisel verilerin korunması ve gizlilik politikası — KVKK aydınlatma metni.',
 }
 
 export default function GizlilikPolitikasi() {
@@ -29,7 +29,7 @@ export default function GizlilikPolitikasi() {
             <div>
               <div className="font-display font-bold text-sm uppercase text-slate-800 mb-2">6698 Sayılı KVKK Aydınlatma Metni</div>
               <p className="font-body text-slate-600 text-sm leading-relaxed">
-                Akdağ Elektronik olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu (&quot;KVKK&quot;) kapsamında kişisel verilerinizin korunmasına büyük önem veriyoruz. Bu aydınlatma metni, kişisel verilerinizin nasıl toplandığı, işlendiği ve korunduğu hakkında sizi bilgilendirmek amacıyla hazırlanmıştır.
+                Sescim olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu (&quot;KVKK&quot;) kapsamında kişisel verilerinizin korunmasına büyük önem veriyoruz. Bu aydınlatma metni, kişisel verilerinizin nasıl toplandığı, işlendiği ve korunduğu hakkında sizi bilgilendirmek amacıyla hazırlanmıştır.
               </p>
             </div>
           </div>
@@ -41,10 +41,10 @@ export default function GizlilikPolitikasi() {
             <h2 className="text-2xl font-display font-bold text-slate-800 mb-6 flex items-center gap-2"><UserCheck className="text-brand-red" size={24} /> Veri Sorumlusu</h2>
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 text-slate-600 font-body">
               <ul className="space-y-2">
-                <li><strong className="text-slate-800">Unvan:</strong> Akdağ Elektronik</li>
+                <li><strong className="text-slate-800">Unvan:</strong> Sescim</li>
                 <li><strong className="text-slate-800">Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
                 <li><strong className="text-slate-800">Telefon:</strong> +90 352 231 69 15</li>
-                <li><strong className="text-slate-800">E-posta:</strong> info@akdagelektronik.com</li>
+                <li><strong className="text-slate-800">E-posta:</strong> info@sescim.com</li>
               </ul>
             </div>
           </section>
@@ -173,7 +173,7 @@ export default function GizlilikPolitikasi() {
                 <Mail size={16} className="text-brand-red shrink-0 mt-0.5" />
                 <div>
                   <div className="font-display font-bold text-xs uppercase text-slate-800 mb-1">E-posta</div>
-                  <div className="text-slate-500 font-body text-sm">info@akdagelektronik.com</div>
+                  <div className="text-slate-500 font-body text-sm">info@sescim.com</div>
                 </div>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-start gap-3">
@@ -192,7 +192,7 @@ export default function GizlilikPolitikasi() {
             <div className="font-display font-bold text-sm uppercase tracking-widest text-slate-800 mb-3">Verileriniz Güvende</div>
             <p className="font-body text-slate-500 text-sm mb-6">KVKK kapsamında tüm haklarınız saklıdır.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <a href="mailto:info@akdagelektronik.com" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-red text-white font-medium rounded-lg hover:bg-brand-red/90 transition-colors text-sm"><Mail size={16} />KVKK Başvurusu</a>
+              <a href="mailto:info@sescim.com" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-red text-white font-medium rounded-lg hover:bg-brand-red/90 transition-colors text-sm"><Mail size={16} />KVKK Başvurusu</a>
               <Link href="/iletisim" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 font-medium rounded-lg hover:bg-slate-50 transition-colors text-sm">İletişim Formu</Link>
             </div>
           </div>

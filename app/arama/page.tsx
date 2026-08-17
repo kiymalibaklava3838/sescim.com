@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import ProductGrid from '@/components/ProductGrid'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { Metadata } from 'next'
@@ -21,7 +21,7 @@ export default async function AramaPage({
   let products: any[] = []
   
   if (q.trim()) {
-    const supabase = await createServerSupabaseClient()
+    const supabase = await createAkdagServerClient()
     const { data } = await supabase
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)

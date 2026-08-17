@@ -5,7 +5,7 @@ import { Search, X, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { SEARCH_SUGGESTION_FIELDS } from '@/lib/product-queries'
 
 interface Product {
@@ -25,7 +25,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
-  const supabase = useRef(createClient()).current
+  const supabase = useRef(createAkdagBrowserClient()).current
 
   useEffect(() => {
     if (!query.trim()) {
@@ -42,7 +42,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
         .ilike('ad', `%${query}%`)
         .limit(6)
 
-      setResults(data || [])
+      setResults((data as any) || [])
       setOpen(true)
       setLoading(false)
     }, 350)

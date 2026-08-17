@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, RotateCcw, Clock, CheckCircle, XCircle, Package, RefreshCcw } from 'lucide-react'
 
 export const metadata = {
-  title: 'İptal ve İade Koşulları | Akdağ Elektronik',
-  description: 'Akdağ Elektronik iptal ve iade koşulları — cayma hakkı, iade süreci ve para iadesi bilgileri.',
+  title: 'İptal ve İade Koşulları | Sescim',
+  description: 'Sescim iptal ve iade koşulları — cayma hakkı, iade süreci ve para iadesi bilgileri.',
 }
 
 export default function IptalVeIade() {
@@ -68,7 +68,7 @@ export default function IptalVeIade() {
                 <Mail size={16} className="text-brand-red shrink-0 mt-0.5" />
                 <div>
                   <div className="font-display font-bold text-xs uppercase text-slate-800 mb-1">E-posta</div>
-                  <div className="text-slate-500">info@akdagelektronik.com</div>
+                  <div className="text-slate-500">info@sescim.com</div>
                 </div>
               </div>
             </div>

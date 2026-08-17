@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import Link from 'next/link'
 import { LogOut, Package, Phone, Clock, CheckCircle, XCircle, Search, X, RotateCcw, FileText, Settings, LayoutDashboard, Box, ChevronDown, ChevronUp } from 'lucide-react'
 import { ProductCard } from './ProductGrid'
@@ -82,10 +83,11 @@ export default function BayiPanel({ user }: { user: User }) {
       }
 
       // İstatistikleri çek (Veriyi indirmeden sadece say)
+      const akdag = createAkdagBrowserClient()
       const [{ count: total }, { count: withPrice }, { count: recent }] = await Promise.all([
-        supabase.from('urunler').select('*', { count: 'exact', head: true }),
-        supabase.from('urunler').select('*', { count: 'exact', head: true }).not('bayi_fiyati', 'is', null),
-        supabase.from('urunler').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        akdag.from('urunler').select('*', { count: 'exact', head: true }),
+        akdag.from('urunler').select('*', { count: 'exact', head: true }).not('bayi_fiyati', 'is', null),
+        akdag.from('urunler').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       ])
       
       setCounts({ 

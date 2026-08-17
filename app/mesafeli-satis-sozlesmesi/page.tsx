@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Phone, Mail, MapPin } from 'lucide-react'
 
 export const metadata = {
-  title: 'Mesafeli Satış Sözleşmesi | Akdağ Elektronik',
-  description: 'Akdağ Elektronik mesafeli satış sözleşmesi — alıcı ve satıcı hakları, ürün teslimat koşulları.',
+  title: 'Mesafeli Satış Sözleşmesi | Sescim',
+  description: 'Sescim mesafeli satış sözleşmesi — alıcı ve satıcı hakları, ürün teslimat koşulları.',
 }
 
 export default function MesafeliSatisSozlesmesi() {
@@ -30,10 +30,10 @@ export default function MesafeliSatisSozlesmesi() {
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
                 <div className="font-display font-bold text-sm uppercase text-brand-red mb-3">SATICI</div>
                 <ul className="space-y-2 text-sm font-body text-slate-600">
-                  <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Unvan: Akdağ Elektronik</li>
+                  <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Unvan: Sescim</li>
                   <li className="flex gap-2"><MapPin size={13} className="text-brand-red shrink-0 mt-0.5" />Adres: Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
                   <li className="flex gap-2"><Phone size={13} className="text-brand-red shrink-0 mt-0.5" />Telefon: +90 352 231 69 15</li>
-                  <li className="flex gap-2"><Mail size={13} className="text-brand-red shrink-0 mt-0.5" />E-posta: info@akdagelektronik.com</li>
+                  <li className="flex gap-2"><Mail size={13} className="text-brand-red shrink-0 mt-0.5" />E-posta: info@sescim.com</li>
                 </ul>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
@@ -52,13 +52,13 @@ export default function MesafeliSatisSozlesmesi() {
               <li><strong className="text-slate-800">Hizmet:</strong> Bir ücret karşılığında yapılan her türlü tüketici işlemi.</li>
               <li><strong className="text-slate-800">Satıcı:</strong> Ticari amaçlarla tüketiciye mal sunan gerçek veya tüzel kişi.</li>
               <li><strong className="text-slate-800">Alıcı:</strong> Ticari veya mesleki olmayan amaçlarla hareket eden gerçek veya tüzel kişi.</li>
-              <li><strong className="text-slate-800">Site:</strong> akdagelektronik.com alan adlı web sitesi.</li>
+              <li><strong className="text-slate-800">Site:</strong> sescim.com alan adlı web sitesi.</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-2xl font-display font-bold text-slate-800 mb-6">Madde 3 — Sözleşmenin Konusu</h2>
-            <p className="text-slate-600 leading-relaxed font-body mb-4">İşbu sözleşmenin konusu; ALICI&apos;nın SATICI&apos;ya ait akdagelektronik.com internet sitesinden elektronik ortamda sipariş verdiği ürün/ürünlerin satışı ve teslimi ile ilgili olarak 6502 sayılı Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.</p>
+            <p className="text-slate-600 leading-relaxed font-body mb-4">İşbu sözleşmenin konusu; ALICI&apos;nın SATICI&apos;ya ait sescim.com internet sitesinden elektronik ortamda sipariş verdiği ürün/ürünlerin satışı ve teslimi ile ilgili olarak 6502 sayılı Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.</p>
           </section>
 
           <section>
@@ -118,7 +118,7 @@ export default function MesafeliSatisSozlesmesi() {
           <div className="border border-slate-200 rounded-2xl bg-slate-50 p-8 text-center mt-12">
             <div className="font-display font-bold text-sm uppercase tracking-widest text-slate-800 mb-4">Sorularınız İçin</div>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <a href="mailto:info@akdagelektronik.com" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-red text-white font-medium rounded-lg hover:bg-brand-red/90 transition-colors text-sm">E-Posta Gönder</a>
+              <a href="mailto:info@sescim.com" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-red text-white font-medium rounded-lg hover:bg-brand-red/90 transition-colors text-sm">E-Posta Gönder</a>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { Phone, Mail, ChevronRight, Bell } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -67,7 +68,8 @@ export default async function UrunDetayPage({ params }: Props) {
     if (bayi?.onaylandi) isBayi = true
   }
 
-  const { data: related } = await supabase
+  const akdag = await createAkdagServerClient()
+  const { data: related } = await akdag
     .from('urunler')
     .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi')
     .eq('kategori', product.kategori).neq('id', product.id).limit(4)

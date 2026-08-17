@@ -211,7 +211,7 @@ export default function AdminSiparisler() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-brand-red rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" />
       </div>
     )
   }
@@ -226,9 +226,9 @@ export default function AdminSiparisler() {
           { val: stats.bugun,   label: 'Bugün',           color: 'border-l-blue-500' },
           { val: `${stats.gelir.toLocaleString('tr-TR')} ₺`, label: 'Teslim Geliri', color: 'border-l-green-500' },
         ].map(s => (
-          <div key={s.label} className={`bg-[#141414] border border-white/5 p-4 border-l-2 ${s.color}`}>
-            <div className="font-display font-black text-2xl text-white">{s.val}</div>
-            <div className="font-body text-white/30 text-xs mt-1">{s.label}</div>
+          <div key={s.label} className={`bg-white border border-slate-200 p-4 border-l-2 ${s.color}`}>
+            <div className="font-display font-black text-2xl text-slate-900">{s.val}</div>
+            <div className="font-body text-slate-900/30 text-xs mt-1">{s.label}</div>
           </div>
         ))}
       </div>
@@ -245,7 +245,7 @@ export default function AdminSiparisler() {
             className="input-dark pl-10 pr-10"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-900/20 hover:text-slate-900">
               <X size={14} />
             </button>
           )}
@@ -258,18 +258,18 @@ export default function AdminSiparisler() {
           ].map(f => (
             <button key={f.id} onClick={() => setFilterDurum(f.id)}
               className={`font-display font-semibold text-xs tracking-widest uppercase px-3 py-2 border transition-all duration-200 ${
-                filterDurum === f.id ? 'bg-brand-red border-brand-red text-white' : 'border-white/10 text-white/40 hover:border-white/30'
+                filterDurum === f.id ? 'bg-brand-red border-brand-red text-slate-900' : 'border-slate-300 text-slate-900/40 hover:border-white/30'
               }`}>
               {f.label}
             </button>
           ))}
         </div>
-        <button onClick={() => loadSiparisler(0)} className="flex items-center gap-2 text-white/30 hover:text-white text-xs font-display uppercase tracking-widest transition-colors px-3">
+        <button onClick={() => loadSiparisler(0)} className="flex items-center gap-2 text-slate-900/30 hover:text-slate-900 text-xs font-display uppercase tracking-widest transition-colors px-3">
           <RefreshCw size={12} />Yenile
         </button>
       </div>
 
-      <div className="font-body text-white/30 text-sm mb-4">{filtered.length} sipariş</div>
+      <div className="font-body text-slate-900/30 text-sm mb-4">{filtered.length} sipariş</div>
 
       <div className="space-y-1">
         {filtered.map(siparis => {
@@ -278,7 +278,7 @@ export default function AdminSiparisler() {
           const expanded = expandedId === siparis.id
 
           return (
-            <div key={siparis.id} className="bg-[#141414] border border-white/5 overflow-hidden hover:border-white/10 transition-colors">
+            <div key={siparis.id} className="bg-white border border-slate-200 overflow-hidden hover:border-slate-300 transition-colors">
               <div className="flex items-center gap-4 p-4">
                 <div className={`w-9 h-9 flex items-center justify-center flex-shrink-0 border ${cfg.bg}`}>
                   <Icon size={15} className={cfg.color} />
@@ -286,19 +286,19 @@ export default function AdminSiparisler() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-display font-black text-sm text-white tracking-wide">{siparis.siparis_no}</span>
+                    <span className="font-display font-black text-sm text-slate-900 tracking-wide">{siparis.siparis_no}</span>
                     <span className={`font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-                    <span className="font-body text-white/20 text-xs">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span>
+                    <span className="font-body text-slate-900/20 text-xs">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span>
                     {siparis.odeme_durumu === 'odendi' && (
                       <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400">Ödendi</span>
                     )}
                     {siparis.dekont_url && (
-                      <span className="font-display font-black text-[10px] bg-brand-red text-white px-2 py-0.5 animate-pulse">DEKONT YÜKLÜ</span>
+                      <span className="font-display font-black text-[10px] bg-brand-red text-slate-900 px-2 py-0.5 animate-pulse">DEKONT YÜKLÜ</span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 mt-0.5 flex-wrap">
-                    <span className="font-body text-white/50 text-sm">{siparis.ad_soyad}</span>
-                    <span className="font-body text-white/20 text-xs">
+                    <span className="font-body text-slate-900/50 text-sm">{siparis.ad_soyad}</span>
+                    <span className="font-body text-slate-900/20 text-xs">
                       {new Date(siparis.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -306,47 +306,47 @@ export default function AdminSiparisler() {
 
                 <div className="text-right flex-shrink-0">
                   <div className="font-display font-black text-lg text-brand-red">{siparis.toplam_tutar?.toLocaleString('tr-TR')} ₺</div>
-                  <div className="font-body text-white/30 text-[10px] uppercase font-bold tracking-tighter">
+                  <div className="font-body text-slate-900/30 text-[10px] uppercase font-bold tracking-tighter">
                     $ {siparis.dolar_kuru ? (siparis.toplam_tutar / siparis.dolar_kuru).toFixed(2) : (siparis.toplam_tutar / 34.5).toFixed(2)}
                   </div>
-                  <div className="font-body text-white/20 text-[10px]">{Array.isArray(siparis.urunler) ? siparis.urunler.reduce((s, u) => s + u.adet, 0) : 0} ürün</div>
+                  <div className="font-body text-slate-900/20 text-[10px]">{Array.isArray(siparis.urunler) ? siparis.urunler.reduce((s, u) => s + u.adet, 0) : 0} ürün</div>
                 </div>
 
                 <button onClick={() => toggleExpand(siparis.id)}
-                  className="w-8 h-8 border border-white/10 flex items-center justify-center text-white/30 hover:border-brand-red/40 hover:text-brand-red transition-all flex-shrink-0">
+                  className="w-8 h-8 border border-slate-300 flex items-center justify-center text-slate-900/30 hover:border-brand-red/40 hover:text-brand-red transition-all flex-shrink-0">
                   {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
               </div>
 
               {expanded && (
-                <div className="border-t border-white/5 p-5 space-y-6 bg-[#111111]">
+                <div className="border-t border-slate-200 p-5 space-y-6 bg-slate-50">
                   <div className="grid md:grid-cols-3 gap-8">
                     {/* 1. Müşteri & Fatura Bilgileri */}
                     <div>
-                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-white/40 mb-4 flex items-center gap-2">
+                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-4 flex items-center gap-2">
                         <UserIcon size={12} className="text-brand-red" /> Müşteri & Fatura
                       </h4>
                       <div className="space-y-3 text-sm font-body">
-                        <div className="bg-white/3 p-3 space-y-2 border border-white/5">
-                           <div className="text-white/80 font-bold">{siparis.ad_soyad}</div>
-                           <div className="text-white/40 text-xs">{siparis.email}</div>
-                           <div className="text-white/40 text-xs">{siparis.telefon}</div>
+                        <div className="bg-slate-100 p-3 space-y-2 border border-slate-200">
+                           <div className="text-slate-900/80 font-bold">{siparis.ad_soyad}</div>
+                           <div className="text-slate-900/40 text-xs">{siparis.email}</div>
+                           <div className="text-slate-900/40 text-xs">{siparis.telefon}</div>
                         </div>
                         
                         <div className="bg-brand-red/5 p-3 border border-brand-red/10">
                            <div className="flex items-center gap-2 mb-2">
                               {siparis.fatura_tipi === 'kurumsal' ? <Briefcase size={13} className="text-brand-red" /> : <UserIcon size={13} className="text-brand-red" />}
-                              <span className="font-display font-bold text-[10px] uppercase tracking-widest text-white/60">
+                              <span className="font-display font-bold text-[10px] uppercase tracking-widest text-slate-900/60">
                                 {siparis.fatura_tipi === 'kurumsal' ? 'Kurumsal Fatura' : 'Bireysel Fatura'}
                               </span>
                            </div>
                            {siparis.fatura_tipi === 'kurumsal' ? (
-                             <div className="text-xs text-white/70 space-y-1">
-                                <div className="font-bold uppercase text-white">{siparis.firma_unvani}</div>
+                             <div className="text-xs text-slate-900/70 space-y-1">
+                                <div className="font-bold uppercase text-slate-900">{siparis.firma_unvani}</div>
                                 <div>{siparis.vergi_dairesi} / {siparis.vergi_no}</div>
                              </div>
                            ) : (
-                             <div className="text-xs text-white/50">Şahıs faturası kesilecektir.</div>
+                             <div className="text-xs text-slate-900/50">Şahıs faturası kesilecektir.</div>
                            )}
                         </div>
 
@@ -356,14 +356,14 @@ export default function AdminSiparisler() {
                               <MapPin size={13} className="text-blue-400" />
                               <span className="font-display font-bold text-[10px] uppercase tracking-widest text-blue-400">Kargo Adresi</span>
                             </div>
-                            <div className="text-xs text-white/60 leading-relaxed font-body">
+                            <div className="text-xs text-slate-900/60 leading-relaxed font-body">
                               {siparis.teslimat_adresi}
                             </div>
                           </div>
                         )}
 
                         {siparis.notlar && (
-                          <div className="text-xs text-white/40 italic bg-black/20 p-2 border-l-2 border-white/10">
+                          <div className="text-xs text-slate-900/40 italic bg-slate-100 p-2 border-l-2 border-slate-300">
                             " {siparis.notlar} "
                           </div>
                         )}
@@ -372,13 +372,13 @@ export default function AdminSiparisler() {
 
                     {/* 2. Ödeme & Dekont */}
                     <div>
-                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-white/40 mb-4 flex items-center gap-2">
+                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-4 flex items-center gap-2">
                         <CreditCard size={12} className="text-brand-red" /> Ödeme Bilgisi
                       </h4>
                       <div className="space-y-4">
-                        <div className="bg-white/3 p-4 border border-white/5">
-                           <div className="font-body text-xs text-white/40 mb-1">Yöntem: <span className="text-white/80">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span></div>
-                           <div className="font-body text-xs text-white/40">Durum: <span className={siparis.odeme_durumu === 'odendi' ? 'text-green-400 font-bold' : 'text-yellow-400'}>
+                        <div className="bg-slate-100 p-4 border border-slate-200">
+                           <div className="font-body text-xs text-slate-900/40 mb-1">Yöntem: <span className="text-slate-900/80">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span></div>
+                           <div className="font-body text-xs text-slate-900/40">Durum: <span className={siparis.odeme_durumu === 'odendi' ? 'text-green-400 font-bold' : 'text-yellow-400'}>
                              {siparis.odeme_durumu === 'odendi' ? 'ÖDEME ALINDI' : 'ÖDEME BEKLENİYOR'}
                            </span></div>
                         </div>
@@ -392,7 +392,7 @@ export default function AdminSiparisler() {
                                href={siparis.dekont_url} 
                                target="_blank" 
                                rel="noreferrer" 
-                               className="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-white font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-700 transition-colors"
+                               className="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-slate-900 font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-700 transition-colors"
                              >
                                DEKONTU GÖRÜNTÜLE <ExternalLink size={12} />
                              </a>
@@ -411,40 +411,40 @@ export default function AdminSiparisler() {
 
                     {/* 3. Ürünler */}
                     <div>
-                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-white/40 mb-4 flex items-center gap-2">
+                      <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-4 flex items-center gap-2">
                         <Package size={12} className="text-brand-red" /> Ürünler
                       </h4>
                       <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
                         {loadingItems[siparis.id] ? (
-                          <div className="flex items-center gap-2 py-4 text-white/20">
+                          <div className="flex items-center gap-2 py-4 text-slate-900/20">
                             <RefreshCw size={14} className="animate-spin" />
                             <span className="text-[10px] font-display uppercase tracking-widest">Yükleniyor...</span>
                           </div>
                         ) : Array.isArray(siparis.urunler) && siparis.urunler.length > 0 ? (
                           siparis.urunler.map((u, i) => (
-                            <div key={i} className="flex items-center gap-3 bg-white/3 p-2">
+                            <div key={i} className="flex items-center gap-3 bg-slate-100 p-2">
                               {u.fotograf && <img src={u.fotograf} alt={u.ad} className="w-10 h-10 object-cover bg-black flex-shrink-0" />}
                               <div className="flex-1 min-w-0">
-                                <div className="font-display font-bold text-[10px] uppercase text-white truncate">{u.ad}</div>
-                                <div className="font-body text-white/30 text-[10px]">×{u.adet} — {u.fiyat?.toLocaleString('tr-TR')} ₺</div>
+                                <div className="font-display font-bold text-[10px] uppercase text-slate-900 truncate">{u.ad}</div>
+                                <div className="font-body text-slate-900/30 text-[10px]">×{u.adet} — {u.fiyat?.toLocaleString('tr-TR')} ₺</div>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-[10px] text-white/20 italic py-4">Ürün bilgisi bulunamadı.</div>
+                          <div className="text-[10px] text-slate-900/20 italic py-4">Ürün bilgisi bulunamadı.</div>
                         )}
                       </div>
-                      <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                         <span className="font-display font-bold text-xs uppercase text-white/40">Toplam Tutar</span>
+                      <div className="mt-4 pt-3 border-t border-slate-300 flex justify-between items-center">
+                         <span className="font-display font-bold text-xs uppercase text-slate-900/40">Toplam Tutar</span>
                          <span className="font-display font-black text-xl text-brand-red">{siparis.toplam_tutar?.toLocaleString('tr-TR')} ₺</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Alt İşlemler: Durum ve Kargo */}
-                  <div className="grid md:grid-cols-2 gap-8 pt-6 border-t border-white/5">
+                  <div className="grid md:grid-cols-2 gap-8 pt-6 border-t border-slate-200">
                      <div>
-                        <h4 className="font-display font-bold text-xs uppercase tracking-widest text-white/40 mb-3">Sipariş Durumu</h4>
+                        <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-3">Sipariş Durumu</h4>
                         <div className="flex flex-wrap gap-2">
                            {Object.entries(DURUM_CONFIG).map(([durum, cfg]) => (
                              <button
@@ -452,7 +452,7 @@ export default function AdminSiparisler() {
                                onClick={() => siparis.durum !== durum && updateDurum(siparis.id, durum)}
                                disabled={siparis.durum === durum || updatingId === siparis.id}
                                className={`flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-display font-bold uppercase tracking-widest transition-all ${
-                                 siparis.durum === durum ? `${cfg.bg} ${cfg.color}` : 'border-white/10 text-white/30 hover:border-brand-red/40 hover:text-white'
+                                 siparis.durum === durum ? `${cfg.bg} ${cfg.color}` : 'border-slate-300 text-slate-900/30 hover:border-brand-red/40 hover:text-slate-900'
                                }`}
                              >
                                <cfg.icon size={11} /> {cfg.label}
@@ -462,7 +462,7 @@ export default function AdminSiparisler() {
                      </div>
 
                      <div>
-                        <h4 className="font-display font-bold text-xs uppercase tracking-widest text-white/40 mb-3">Lojistik & Takip</h4>
+                        <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-3">Lojistik & Takip</h4>
                         {siparis.teslimat_tipi === 'depo' ? (
                            <div className="bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-3">
                               <Store size={16} className="text-orange-400" />
@@ -503,7 +503,7 @@ export default function AdminSiparisler() {
             className="btn-outline text-xs py-3 px-10 min-w-[200px] justify-center"
           >
             {loadingMore ? (
-              <div className="w-4 h-4 border-2 border-white/10 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin" />
             ) : (
               <>DAHA FAZLA YÜKLE</>
             )}

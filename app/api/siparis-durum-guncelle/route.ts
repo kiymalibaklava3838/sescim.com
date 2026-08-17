@@ -14,6 +14,11 @@ const supabaseAdmin = () =>
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+const akdagAdmin = () =>
+  createClient(process.env.NEXT_PUBLIC_AKDAG_SUPABASE_URL!, process.env.AKDAG_SERVICE_ROLE_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
 /** Gelen Authorization: Bearer <token> token'ından admin olup olmadığını doğrular. */
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get('Authorization')
@@ -39,6 +44,7 @@ export async function POST(req: NextRequest) {
 
     const { id, durum, kargo_takip_no } = await req.json()
     const db = supabaseAdmin()
+    const akdagDb = akdagAdmin()
 
     // 1. Sipariş bilgilerini al
     const { data: siparis, error: getErr } = await db
@@ -59,10 +65,10 @@ export async function POST(req: NextRequest) {
       // Sipariş iptal: stokları geri yükle
       for (const item of (siparis.urunler as any[])) {
         if (!item.urun_id) continue
-        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
+        const { data: urun } = await akdagDb.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
         if (urun) {
           const yeniStok = (urun.stok_adedi || 0) + item.adet
-          await db.from('urunler').update({
+          await akdagDb.from('urunler').update({
             stok_adedi: yeniStok,
             stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
           }).eq('id', item.urun_id)
@@ -72,10 +78,10 @@ export async function POST(req: NextRequest) {
       // İptal edilmiş sipariş tekrar aktif: stokları düş
       for (const item of (siparis.urunler as any[])) {
         if (!item.urun_id) continue
-        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
+        const { data: urun } = await akdagDb.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
         if (urun) {
           const yeniStok = Math.max(0, (urun.stok_adedi || 0) - item.adet)
-          await db.from('urunler').update({
+          await akdagDb.from('urunler').update({
             stok_adedi: yeniStok,
             stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
           }).eq('id', item.urun_id)

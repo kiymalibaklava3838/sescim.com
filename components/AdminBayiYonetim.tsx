@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { CheckCircle, XCircle, Clock, Trash2, UserCheck, UserX, RefreshCw, DollarSign, X } from 'lucide-react'
 
 interface Bayi {
@@ -69,7 +70,8 @@ export default function AdminBayiYonetim({ activeTab }: Props) {
     const from = (page - 1) * PRICE_PER_PAGE
     const to = from + PRICE_PER_PAGE - 1
 
-    let q = supabase.from('urunler').select('id, ad', { count: 'exact' })
+    const akdag = createAkdagBrowserClient()
+    let q = akdag.from('urunler').select('id, ad', { count: 'exact' })
     if (search) q = q.ilike('ad', `%${search}%`)
     
     const { data: urunler, count } = await q.order('ad', { ascending: true }).range(from, to)

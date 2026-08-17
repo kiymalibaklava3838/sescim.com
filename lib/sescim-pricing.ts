@@ -1,4 +1,4 @@
-import { createSescimServerClient } from './supabase-sescim'
+import { createServerSupabaseClient } from './supabase-server'
 
 export interface SescimPricing {
   urun_id: string
@@ -12,7 +12,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
   const map = new Map<string, SescimPricing>()
   if (!urunIds.length) return map
 
-  const supabase = createSescimServerClient()
+  const supabase = await createServerSupabaseClient()
   if (!supabase) return map
 
   try {
@@ -44,7 +44,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
 }
 
 export async function getSescimPricing(urunId: string): Promise<SescimPricing | null> {
-  const supabase = createSescimServerClient()
+  const supabase = await createServerSupabaseClient()
   if (!supabase) return null
 
   try {
@@ -79,7 +79,7 @@ export async function upsertSescimPricing(
   urunId: string, 
   data: { sescim_fiyat?: number | null, sescim_indirimli_fiyat?: number | null, sescim_aktif?: boolean }
 ): Promise<boolean> {
-  const supabase = createSescimServerClient()
+  const supabase = await createServerSupabaseClient()
   if (!supabase) return false
 
   try {

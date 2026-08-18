@@ -15,7 +15,7 @@ import { cookies } from 'next/headers'
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/bayi/sifrele'
+  const next = searchParams.get('next') ?? '/uye/panel'
   // Supabase hata durumunda error ve error_description parametresi gönderir
   const errorParam = searchParams.get('error')
   const errorDescription = searchParams.get('error_description') || ''
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     console.error('[auth/callback] Supabase hata parametresi:', errorParam, errorDescription)
 
     // Link süresi dolmuş veya geçersizse şifre sıfırlama sayfasına yönlendir
-    const sifreSifirlaUrl = new URL(`${origin}/bayi/sifrele`)
+    const sifreSifirlaUrl = new URL(`${origin}/uye/sifre-sifirla`)
     sifreSifirlaUrl.searchParams.set('error', 'link_suresi_doldu')
     return NextResponse.redirect(sifreSifirlaUrl.toString())
   }

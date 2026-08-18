@@ -29,6 +29,7 @@ interface Siparis {
   notlar: string
   teslimat_tipi?: string
   kargo_takip_no?: string
+  kargo_firmasi?: string
   dekont_url?: string
   fatura_tipi?: 'bireysel' | 'kurumsal'
   firma_unvani?: string
@@ -70,6 +71,7 @@ export default function AdminSiparisler() {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [updatingKargo, setUpdatingKargo] = useState<string | null>(null)
   const [kargoInputs, setKargoInputs] = useState<Record<string, string>>({})
+  const [kargoFirmaInputs, setKargoFirmaInputs] = useState<Record<string, string>>({})
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
   const supabase = useRef(createClient()).current
 
@@ -84,7 +86,7 @@ export default function AdminSiparisler() {
 
     const { data } = await supabase
       .from('siparisler')
-      .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, teslimat_tipi, kargo_takip_no, dekont_url, fatura_tipi, firma_unvani, vergi_dairesi, vergi_no, teslimat_adresi, dolar_kuru, euro_kuru, created_at')
+      .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, teslimat_tipi, kargo_takip_no, kargo_firmasi, dekont_url, fatura_tipi, firma_unvani, vergi_dairesi, vergi_no, teslimat_adresi, dolar_kuru, euro_kuru, created_at')
       .order('created_at', { ascending: false })
       .range(from, to)
     
@@ -131,7 +133,7 @@ export default function AdminSiparisler() {
     await loadSiparisler(0)
   }
 
-  const kaydetKargoNo = async (id: string, no: string) => {
+  const kaydetKargoNo = async (id: string, no: string, firma: string) => {
     setUpdatingKargo(id)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -141,7 +143,7 @@ export default function AdminSiparisler() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({ id, durum: 'kargolandi', kargo_takip_no: no })
+        body: JSON.stringify({ id, durum: 'kargolandi', kargo_takip_no: no, kargo_firmasi: firma })
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -469,21 +471,39 @@ export default function AdminSiparisler() {
                               <span className="font-display font-bold text-[10px] uppercase tracking-widest text-orange-400">Mağazadan Teslim Edilecek</span>
                            </div>
                         ) : (
-                           <div className="flex gap-2">
-                              <input 
-                                type="text" 
-                                className="input-dark text-xs flex-1" 
-                                placeholder="Kargo Takip No" 
-                                value={kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || '')}
-                                onChange={(e) => setKargoInputs({...kargoInputs, [siparis.id]: e.target.value})}
-                              />
-                              <button 
-                                onClick={() => kaydetKargoNo(siparis.id, kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || ''))}
-                                disabled={updatingKargo === siparis.id}
-                                className="btn-primary text-[10px] py-2"
+                           <div className="flex flex-col gap-2">
+                              <select
+                                className="input-dark text-xs p-2"
+                                value={kargoFirmaInputs[siparis.id] !== undefined ? kargoFirmaInputs[siparis.id] : (siparis.kargo_firmasi || 'HepsiJet')}
+                                onChange={(e) => setKargoFirmaInputs({...kargoFirmaInputs, [siparis.id]: e.target.value})}
                               >
-                                {updatingKargo === siparis.id ? '...' : 'TAKİP NO KAYDET'}
-                              </button>
+                                <option value="HepsiJet">HepsiJet</option>
+                                <option value="Yurtiçi Kargo">Yurtiçi Kargo</option>
+                                <option value="Aras Kargo">Aras Kargo</option>
+                                <option value="MNG Kargo">MNG Kargo</option>
+                                <option value="Sürat Kargo">Sürat Kargo</option>
+                                <option value="PTT Kargo">PTT Kargo</option>
+                              </select>
+                              <div className="flex gap-2">
+                                <input 
+                                  type="text" 
+                                  className="input-dark text-xs flex-1" 
+                                  placeholder="Kargo Takip No" 
+                                  value={kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || '')}
+                                  onChange={(e) => setKargoInputs({...kargoInputs, [siparis.id]: e.target.value})}
+                                />
+                                <button 
+                                  onClick={() => kaydetKargoNo(
+                                    siparis.id, 
+                                    kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || ''),
+                                    kargoFirmaInputs[siparis.id] !== undefined ? kargoFirmaInputs[siparis.id] : (siparis.kargo_firmasi || 'HepsiJet')
+                                  )}
+                                  disabled={updatingKargo === siparis.id}
+                                  className="btn-primary text-[10px] py-2 whitespace-nowrap"
+                                >
+                                  {updatingKargo === siparis.id ? '...' : 'KAYDET'}
+                                </button>
+                              </div>
                            </div>
                         )}
                      </div>

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Mail, Send, Image as ImageIcon, Link as LinkIcon, History, Users, CheckSquare, XSquare, Plus, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Mail, Send, Image as ImageIcon, Link as LinkIcon, History, Users, CheckSquare, Plus, ArrowLeft, RefreshCw } from 'lucide-react'
 
-interface Bayi {
+interface Uye {
   id: string
-  firma_adi: string
+  email: string
+  ad_soyad?: string
 }
 
 interface KampanyaGecmisi {
@@ -21,11 +22,11 @@ interface KampanyaGecmisi {
 export default function AdminCampaignManager() {
   const [view, setView] = useState<'history' | 'compose'>('history')
   const [history, setHistory] = useState<KampanyaGecmisi[]>([])
-  const [bayiler, setBayiler] = useState<Bayi[]>([])
+  const [uyeler, setUyeler] = useState<Uye[]>([])
   
   // Form State
   const [targetType, setTargetType] = useState<'all' | 'selected'>('all')
-  const [selectedBayiler, setSelectedBayiler] = useState<string[]>([])
+  const [selectedUyeler, setSelectedUyeler] = useState<string[]>([])
   const [konu, setKonu] = useState('')
   const [baslik, setBaslik] = useState('')
   const [icerik, setIcerik] = useState('')
@@ -41,7 +42,7 @@ export default function AdminCampaignManager() {
 
   useEffect(() => {
     loadHistory()
-    loadBayiler()
+    loadUyeler()
   }, [])
 
   const loadHistory = async () => {
@@ -56,19 +57,31 @@ export default function AdminCampaignManager() {
     setLoading(false)
   }
 
-  const loadBayiler = async () => {
-    const { data } = await supabase
-      .from('bayiler')
-      .select('id, firma_adi')
-      .eq('onaylandi', true)
-      .order('firma_adi')
-    
-    if (data) setBayiler(data)
+  const loadUyeler = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/uyeler', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const fetchedUyeler = data.users.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          ad_soyad: u.user_metadata?.full_name || u.email
+        }))
+        setUyeler(fetchedUyeler)
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
-  const toggleBayi = (id: string) => {
-    setSelectedBayiler(prev => 
-      prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
+  const toggleUye = (id: string) => {
+    setSelectedUyeler(prev => 
+      prev.includes(id) ? prev.filter(u => u !== id) : [...prev, id]
     )
   }
 
@@ -81,8 +94,8 @@ export default function AdminCampaignManager() {
       return
     }
 
-    if (targetType === 'selected' && selectedBayiler.length === 0) {
-      setError('Lütfen en az bir bayi seçin.')
+    if (targetType === 'selected' && selectedUyeler.length === 0) {
+      setError('Lütfen en az bir üye seçin.')
       return
     }
 
@@ -101,7 +114,7 @@ export default function AdminCampaignManager() {
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          hedef_bayiler: targetType === 'all' ? 'all' : selectedBayiler,
+          hedef_kullanicilar: targetType === 'all' ? 'all' : selectedUyeler,
           konu,
           baslik,
           icerik,
@@ -115,7 +128,7 @@ export default function AdminCampaignManager() {
       if (!res.ok) throw new Error(data.error || 'Bir hata oluştu')
 
       setSuccess(data.mesaj || 'Kampanya başarıyla gönderildi.')
-      setKonu(''); setBaslik(''); setIcerik(''); setResimUrl(''); setLinkUrl(''); setSelectedBayiler([]);
+      setKonu(''); setBaslik(''); setIcerik(''); setResimUrl(''); setLinkUrl(''); setSelectedUyeler([]);
       setView('history')
       loadHistory()
     } catch (e: any) {
@@ -132,15 +145,15 @@ export default function AdminCampaignManager() {
         <div className="flex items-center justify-between mb-8">
           <button 
             onClick={() => setView('history')}
-            className="flex items-center gap-2 text-white/50 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-slate-900/50 hover:text-slate-900 transition-colors font-display text-sm tracking-widest uppercase"
           >
             <ArrowLeft size={16} /> Geri Dön
           </button>
-          <h2 className="font-display font-bold text-xl uppercase tracking-wide text-white">Yeni Kampanya</h2>
+          <h2 className="font-display font-bold text-xl uppercase tracking-wide text-slate-900">Yeni Kampanya</h2>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-600 px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -148,11 +161,11 @@ export default function AdminCampaignManager() {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Sol Kolon: Form */}
           <div className="space-y-6">
-            <div className="bg-[#141414] border border-white/5 p-6 space-y-6">
+            <div className="bg-white border border-slate-200 p-6 space-y-6">
               
               {/* Hedef Kitle */}
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">Hedef Kitle</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-3">Hedef Kitle</label>
                 <div className="flex gap-4 mb-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
@@ -161,7 +174,7 @@ export default function AdminCampaignManager() {
                       onChange={() => setTargetType('all')}
                       className="accent-brand-red"
                     />
-                    <span className="text-sm text-white">Tüm Bayiler ({bayiler.length})</span>
+                    <span className="text-sm text-slate-900">Tüm Üyeler ({uyeler.length})</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
@@ -170,25 +183,25 @@ export default function AdminCampaignManager() {
                       onChange={() => setTargetType('selected')}
                       className="accent-brand-red"
                     />
-                    <span className="text-sm text-white">Seçili Bayiler ({selectedBayiler.length})</span>
+                    <span className="text-sm text-slate-900">Seçili Üyeler ({selectedUyeler.length})</span>
                   </label>
                 </div>
 
                 {targetType === 'selected' && (
-                  <div className="max-h-48 overflow-y-auto border border-white/10 p-2 space-y-1 bg-black/50">
-                    <div className="flex gap-2 mb-2 pb-2 border-b border-white/10">
-                      <button type="button" onClick={() => setSelectedBayiler(bayiler.map(b => b.id))} className="text-xs text-brand-red hover:text-white transition-colors">Tümünü Seç</button>
-                      <button type="button" onClick={() => setSelectedBayiler([])} className="text-xs text-white/50 hover:text-white transition-colors">Seçimi Temizle</button>
+                  <div className="max-h-48 overflow-y-auto border border-slate-200 p-2 space-y-1 bg-slate-50 custom-scrollbar">
+                    <div className="flex gap-2 mb-2 pb-2 border-b border-slate-200">
+                      <button type="button" onClick={() => setSelectedUyeler(uyeler.map(u => u.id))} className="text-xs text-brand-red hover:text-red-700 transition-colors">Tümünü Seç</button>
+                      <button type="button" onClick={() => setSelectedUyeler([])} className="text-xs text-slate-900/50 hover:text-slate-900 transition-colors">Seçimi Temizle</button>
                     </div>
-                    {bayiler.map(b => (
-                      <label key={b.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/5 p-1 rounded">
+                    {uyeler.map(u => (
+                      <label key={u.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 p-1 rounded">
                         <input 
                           type="checkbox" 
-                          checked={selectedBayiler.includes(b.id)}
-                          onChange={() => toggleBayi(b.id)}
+                          checked={selectedUyeler.includes(u.id)}
+                          onChange={() => toggleUye(u.id)}
                           className="accent-brand-red"
                         />
-                        <span className="text-sm text-white/80">{b.firma_adi}</span>
+                        <span className="text-sm text-slate-900/80">{u.ad_soyad}</span>
                       </label>
                     ))}
                   </div>
@@ -197,59 +210,59 @@ export default function AdminCampaignManager() {
 
               {/* E-Posta Bilgileri */}
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">E-Posta Konusu (Gelen Kutusunda Görünür)</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-2">E-Posta Konusu (Gelen Kutusunda Görünür)</label>
                 <input 
                   type="text" 
                   value={konu} onChange={e => setKonu(e.target.value)}
                   placeholder="Örn: Hafta Sonu Fırsatı: Seçili Ürünlerde %20 İndirim"
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-white text-sm focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all placeholder:text-white/20"
+                  className="input-base"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">E-Posta İçi Başlık</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-2">E-Posta İçi Başlık</label>
                 <input 
                   type="text" 
                   value={baslik} onChange={e => setBaslik(e.target.value)}
                   placeholder="Örn: Hafta Sonuna Özel Dev İndirimler"
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-white text-sm focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all placeholder:text-white/20"
+                  className="input-base"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">İçerik</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-2">İçerik</label>
                 <textarea 
                   value={icerik} onChange={e => setIcerik(e.target.value)}
                   rows={6}
                   placeholder="Kampanya detaylarını buraya yazın..."
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-white text-sm focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all placeholder:text-white/20 resize-y"
+                  className="input-base resize-y"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2 flex items-center gap-2"><ImageIcon size={14}/> Resim URL (Opsiyonel)</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-2 flex items-center gap-2"><ImageIcon size={14}/> Resim URL (Opsiyonel)</label>
                 <input 
                   type="url" 
                   value={resimUrl} onChange={e => setResimUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-white text-sm focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all placeholder:text-white/20"
+                  className="input-base"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-2 flex items-center gap-2"><LinkIcon size={14}/> Yönlendirme Linki (Opsiyonel)</label>
+                <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-2 flex items-center gap-2"><LinkIcon size={14}/> Yönlendirme Linki (Opsiyonel)</label>
                 <input 
                   type="url" 
                   value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
-                  placeholder="https://www.akdagelektronik.com/urunler/..."
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-white text-sm focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all placeholder:text-white/20"
+                  placeholder="https://www.sescim.com/urunler/..."
+                  className="input-base"
                 />
               </div>
 
               <button 
                 onClick={handleSend}
                 disabled={sending}
-                className="w-full bg-brand-red hover:bg-brand-red/90 text-white font-bold py-4 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
+                className="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-4 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-sm disabled:opacity-50"
               >
                 {sending ? <><RefreshCw size={18} className="animate-spin" /> GÖNDERİLİYOR...</> : <><Send size={18} /> KAMPANYAYI GÖNDER</>}
               </button>
@@ -260,39 +273,39 @@ export default function AdminCampaignManager() {
           {/* Sağ Kolon: Canlı Önizleme */}
           <div>
             <div className="sticky top-6">
-              <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-4">E-Posta Önizlemesi</label>
+              <label className="block text-xs font-semibold text-slate-900/50 uppercase tracking-widest mb-4">E-Posta Önizlemesi</label>
               
-              <div className="bg-white rounded-md overflow-hidden text-black font-sans border border-gray-200">
-                <div className="bg-gray-100 border-b border-gray-200 p-3 text-sm">
-                  <div className="flex mb-1"><span className="text-gray-500 w-16">Kimden:</span> <span className="font-semibold">Akdağ Elektronik Kampanya</span></div>
-                  <div className="flex mb-1"><span className="text-gray-500 w-16">Kime:</span> <span>Bayiler</span></div>
-                  <div className="flex"><span className="text-gray-500 w-16">Konu:</span> <span className="font-bold">{konu || '(Konu Girilmedi)'}</span></div>
+              <div className="bg-white rounded-md overflow-hidden text-black font-sans border border-slate-200 shadow-sm">
+                <div className="bg-slate-100 border-b border-slate-200 p-3 text-sm">
+                  <div className="flex mb-1"><span className="text-slate-500 w-16">Kimden:</span> <span className="font-semibold">Sescim.com Kampanya</span></div>
+                  <div className="flex mb-1"><span className="text-slate-500 w-16">Kime:</span> <span>Üyeler</span></div>
+                  <div className="flex"><span className="text-slate-500 w-16">Konu:</span> <span className="font-bold">{konu || '(Konu Girilmedi)'}</span></div>
                 </div>
                 
-                <div className="p-6 bg-[#0a0a0a] text-white">
-                  {/* Akdağ Header */}
-                  <div className="mb-6 pb-6 border-b border-white/10 text-center">
-                    <div className="font-display font-black text-2xl tracking-widest uppercase text-white">
-                      AKDAĞ <span className="text-brand-red">ELEKTRONİK</span>
+                <div className="p-6 bg-slate-50 text-slate-900">
+                  {/* Header */}
+                  <div className="mb-6 pb-6 border-b border-slate-200 text-center">
+                    <div className="font-display font-black text-2xl tracking-widest uppercase text-slate-900">
+                      SESCİM<span className="text-brand-red">.COM</span>
                     </div>
                   </div>
 
-                  <h1 className="text-xl font-bold mb-4 text-center">{baslik || 'Başlık Buraya Gelecek'}</h1>
+                  <h1 className="text-xl font-bold mb-4 text-center text-slate-900">{baslik || 'Başlık Buraya Gelecek'}</h1>
                   
-                  <div className="bg-[#141414] border border-[#222] p-6">
+                  <div className="bg-white border border-slate-200 p-6">
                     {resimUrl && (
                       <div className="mb-5 text-center">
-                        <img src={resimUrl} alt="Kampanya" className="max-w-full h-auto rounded border border-[#222]" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        <img src={resimUrl} alt="Kampanya" className="max-w-full h-auto rounded border border-slate-200" onError={(e) => (e.currentTarget.style.display = 'none')} />
                       </div>
                     )}
                     
-                    <div className="text-[#ddd] text-[15px] leading-relaxed whitespace-pre-wrap">
+                    <div className="text-slate-700 text-[15px] leading-relaxed whitespace-pre-wrap">
                       {icerik || 'E-posta içeriğiniz burada görüntülenecektir.'}
                     </div>
 
                     {linkUrl && (
                       <div className="mt-6 text-center">
-                        <a href="#" className="inline-block px-8 py-3 bg-[#DA291C] text-white no-underline font-bold text-sm uppercase tracking-wider rounded-sm">
+                        <a href={linkUrl} className="inline-block px-8 py-3 bg-[#DA291C] text-white no-underline font-bold text-sm uppercase tracking-wider rounded-sm">
                           Hemen İncele →
                         </a>
                       </div>
@@ -312,62 +325,65 @@ export default function AdminCampaignManager() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="font-display font-bold text-xl uppercase tracking-wide text-white red-line">Toplu Mail & Kampanyalar</h2>
-          <p className="text-white/50 text-sm mt-1">Bayilerinize duyuru ve kampanyalar gönderin.</p>
+          <h2 className="font-display font-bold text-xl uppercase tracking-wide text-slate-900 flex items-center gap-2">
+            <div className="w-8 h-px bg-brand-red hidden sm:block" />
+            Toplu Mail & Kampanyalar
+          </h2>
+          <p className="text-slate-900/50 text-sm mt-1 sm:ml-10">Üyelerinize duyuru ve kampanyalar gönderin.</p>
         </div>
         <button 
           onClick={() => setView('compose')}
-          className="bg-brand-red hover:bg-brand-red/90 text-white font-bold py-3 px-6 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-sm"
+          className="bg-brand-red hover:bg-red-700 text-white font-bold py-3 px-6 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-sm shadow-sm"
         >
           <Plus size={16} /> YENİ KAMPANYA
         </button>
       </div>
 
       {success && (
-        <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg text-sm mb-6 flex items-center gap-2">
+        <div className="bg-green-500/10 border border-green-500/20 text-green-600 px-4 py-3 rounded-lg text-sm mb-6 flex items-center gap-2">
           <CheckSquare size={16} /> {success}
         </div>
       )}
 
-      <div className="bg-[#141414] border border-white/5 overflow-hidden">
+      <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-white/50">Yükleniyor...</div>
+          <div className="p-8 text-center text-slate-900/50">Yükleniyor...</div>
         ) : history.length === 0 ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center border-dashed border border-white/10 m-4 bg-black/20">
-            <Mail size={48} className="text-white/10 mb-4" />
-            <h3 className="text-white font-display uppercase tracking-widest mb-2">Henüz Kampanya Yok</h3>
-            <p className="text-white/40 text-sm max-w-md">Bayilerinize kampanya ve duyuru e-postaları göndererek satışlarınızı artırabilirsiniz.</p>
-            <button onClick={() => setView('compose')} className="mt-6 text-brand-red text-sm uppercase tracking-widest hover:text-white transition-colors">
+          <div className="p-12 text-center flex flex-col items-center justify-center border-dashed border border-slate-200 m-4 bg-slate-50">
+            <Mail size={48} className="text-slate-900/10 mb-4" />
+            <h3 className="text-slate-900 font-display uppercase tracking-widest mb-2 font-bold">Henüz Kampanya Yok</h3>
+            <p className="text-slate-900/50 text-sm max-w-md">Üyelerinize kampanya ve duyuru e-postaları göndererek satışlarınızı artırabilirsiniz.</p>
+            <button onClick={() => setView('compose')} className="mt-6 text-brand-red font-bold text-sm uppercase tracking-widest hover:text-red-700 transition-colors">
               İlk Kampanyayı Oluştur →
             </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/50 text-white/50 text-xs uppercase tracking-widest border-b border-white/5">
+              <thead className="bg-slate-50 text-slate-900/50 text-xs uppercase tracking-widest border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 font-normal">Tarih</th>
-                  <th className="px-6 py-4 font-normal">Konu / Başlık</th>
-                  <th className="px-6 py-4 font-normal">Hedef Kitle</th>
-                  <th className="px-6 py-4 font-normal text-right">Ulaşılan</th>
+                  <th className="px-6 py-4 font-semibold">Tarih</th>
+                  <th className="px-6 py-4 font-semibold">Konu / Başlık</th>
+                  <th className="px-6 py-4 font-semibold">Hedef Kitle</th>
+                  <th className="px-6 py-4 font-semibold text-right">Ulaşılan</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 text-white/80">
+              <tbody className="divide-y divide-slate-200 text-slate-900/80">
                 {history.map(item => (
-                  <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-white/50">
+                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-slate-900/50">
                       {new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute:'2-digit' })}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-white truncate max-w-xs">{item.konu}</div>
-                      <div className="text-white/40 text-xs truncate max-w-xs mt-1">{item.baslik}</div>
+                      <div className="font-semibold text-slate-900 truncate max-w-xs">{item.konu}</div>
+                      <div className="text-slate-900/50 text-xs truncate max-w-xs mt-1">{item.baslik}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 text-white/70 text-xs">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 border border-slate-200 text-slate-900/70 text-xs">
                         <Users size={12} /> {item.hedef_kitle}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right font-display text-brand-red">
+                    <td className="px-6 py-4 text-right font-display font-bold text-brand-red">
                       {item.gonderilen_kisi_sayisi} Kişi
                     </td>
                   </tr>

@@ -61,4 +61,9 @@ body {
     @apply w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400
            px-4 py-3 rounded-md focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
   }
+  
+  .input-dark {
+    @apply w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400
+           px-4 py-2 text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
+  }
 }

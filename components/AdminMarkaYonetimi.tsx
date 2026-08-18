@@ -112,15 +112,15 @@ export default function AdminMarkaYonetimi() {
   return (
     <div className="space-y-8">
       {/* Header Info */}
-      <div className="bg-[#141414] border border-white/5 p-6 relative overflow-hidden group">
+      <div className="bg-white border border-slate-200 p-6 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-red/5 rounded-full blur-[80px] -mr-32 -mt-32 transition-transform duration-700 group-hover:scale-150" />
         <div className="relative z-10 flex gap-4">
-          <div className="w-12 h-12 bg-white/5 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
             <Merge className="text-brand-red" size={24} />
           </div>
           <div>
-            <h2 className="font-display font-bold text-xl uppercase tracking-wide text-white mb-2">Marka Birleştirme Aracı</h2>
-            <p className="font-body text-white/50 text-sm leading-relaxed max-w-3xl">
+            <h2 className="font-display font-bold text-xl uppercase tracking-wide text-slate-900 mb-2">Marka Birleştirme Aracı</h2>
+            <p className="font-body text-slate-900/50 text-sm leading-relaxed max-w-3xl">
               Farklı yazılmış veya yanlış girilmiş marka isimlerini tek bir standart marka adı altında toplayabilirsiniz. 
               Örneğin: "Apple", "apple", "APPLE" gibi farklı yazımları seçip hedef olarak "Apple" belirleyebilirsiniz.
             </p>
@@ -129,7 +129,7 @@ export default function AdminMarkaYonetimi() {
       </div>
 
       {message && (
-        <div className={`p-4 border ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'} flex items-start gap-3`}>
+        <div className={`p-4 border ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-red-500/10 border-red-500/20 text-red-600'} flex items-start gap-3`}>
           {message.type === 'success' ? <Check size={20} className="shrink-0 mt-0.5" /> : <AlertTriangle size={20} className="shrink-0 mt-0.5" />}
           <div className="font-body text-sm">{message.text}</div>
         </div>
@@ -139,60 +139,60 @@ export default function AdminMarkaYonetimi() {
         {/* Source Brands (Left Column) */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-display font-bold text-lg uppercase tracking-wide text-white flex items-center gap-2">
+            <h3 className="font-display font-bold text-lg uppercase tracking-wide text-slate-900 flex items-center gap-2">
               1. Kaynak Markaları Seçin
-              <span className="bg-white/10 text-white/70 text-xs py-0.5 px-2 rounded-full font-body">
+              <span className="bg-slate-100 border border-slate-200 text-slate-900/70 text-xs py-0.5 px-2 rounded-full font-body">
                 {selectedBrands.length} seçili
               </span>
             </h3>
             <button 
               onClick={fetchBrands}
-              className="p-2 hover:bg-white/5 text-white/50 hover:text-white transition-colors"
+              className="p-2 hover:bg-slate-100 text-slate-900/50 hover:text-slate-900 transition-colors"
               title="Yenile"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
 
-          <div className="bg-[#141414] border border-white/5 p-4 flex items-center gap-3">
-            <Search size={18} className="text-white/30" />
+          <div className="bg-white border border-slate-200 p-4 flex items-center gap-3">
+            <Search size={18} className="text-slate-900/30" />
             <input
               type="text"
               placeholder="Marka ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-transparent border-none outline-none text-white font-body text-sm w-full placeholder:text-white/30"
+              className="bg-transparent border-none outline-none text-slate-900 font-body text-sm w-full placeholder:text-slate-900/30"
             />
           </div>
 
-          <div className="bg-[#141414] border border-white/5 flex flex-col h-[500px]">
-            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+          <div className="bg-white border border-slate-200 flex flex-col h-[500px]">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <label className="flex items-center gap-3 cursor-pointer group">
-                <div className={`w-5 h-5 border flex items-center justify-center transition-colors ${selectedBrands.length > 0 && selectedBrands.length === filteredBrands.length ? 'bg-brand-red border-brand-red' : 'border-white/20 group-hover:border-white/40'}`}>
+                <div className={`w-5 h-5 border flex items-center justify-center transition-colors ${selectedBrands.length > 0 && selectedBrands.length === filteredBrands.length ? 'bg-brand-red border-brand-red' : 'border-slate-300 bg-white group-hover:border-brand-red/40'}`}>
                   {selectedBrands.length > 0 && selectedBrands.length === filteredBrands.length && <Check size={14} className="text-white" />}
                 </div>
-                <span className="font-display text-xs tracking-wider uppercase text-white/70 group-hover:text-white transition-colors">Tümünü Seç</span>
+                <span className="font-display text-xs tracking-wider uppercase text-slate-900/70 group-hover:text-slate-900 transition-colors">Tümünü Seç</span>
               </label>
-              <span className="font-display text-xs tracking-wider uppercase text-white/50">Ürün Sayısı</span>
+              <span className="font-display text-xs tracking-wider uppercase text-slate-900/50">Ürün Sayısı</span>
             </div>
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
               {loading ? (
-                <div className="h-full flex items-center justify-center text-white/30 font-display text-sm tracking-widest uppercase">Yükleniyor...</div>
+                <div className="h-full flex items-center justify-center text-slate-900/30 font-display text-sm tracking-widest uppercase">Yükleniyor...</div>
               ) : filteredBrands.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-white/30 font-display text-sm tracking-widest uppercase">Marka bulunamadı</div>
+                <div className="h-full flex items-center justify-center text-slate-900/30 font-display text-sm tracking-widest uppercase">Marka bulunamadı</div>
               ) : (
                 filteredBrands.map((brand) => (
-                  <label key={brand.name} className="flex items-center justify-between p-3 hover:bg-white/5 cursor-pointer group transition-colors">
+                  <label key={brand.name} className="flex items-center justify-between p-3 hover:bg-slate-50 cursor-pointer group transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border flex items-center justify-center transition-colors ${selectedBrands.includes(brand.name) ? 'bg-brand-red border-brand-red' : 'border-white/20 group-hover:border-white/40'}`}>
+                      <div className={`w-5 h-5 border flex items-center justify-center transition-colors ${selectedBrands.includes(brand.name) ? 'bg-brand-red border-brand-red' : 'border-slate-300 bg-white group-hover:border-brand-red/40'}`}>
                         {selectedBrands.includes(brand.name) && <Check size={14} className="text-white" />}
                       </div>
-                      <span className={`font-body text-sm ${selectedBrands.includes(brand.name) ? 'text-white font-medium' : 'text-white/70 group-hover:text-white'}`}>
+                      <span className={`font-body text-sm ${selectedBrands.includes(brand.name) ? 'text-slate-900 font-medium' : 'text-slate-900/70 group-hover:text-slate-900'}`}>
                         {brand.name}
                       </span>
                     </div>
-                    <span className="bg-white/5 text-white/50 text-xs px-2 py-1 font-body">
+                    <span className="bg-slate-100 border border-slate-200 text-slate-900/50 text-xs px-2 py-1 font-body">
                       {brand.count}
                     </span>
                     <input 
@@ -210,17 +210,17 @@ export default function AdminMarkaYonetimi() {
 
         {/* Target Brand (Right Column) */}
         <div className="space-y-4">
-          <h3 className="font-display font-bold text-lg uppercase tracking-wide text-white">2. Hedef Markayı Belirle</h3>
+          <h3 className="font-display font-bold text-lg uppercase tracking-wide text-slate-900">2. Hedef Markayı Belirle</h3>
           
-          <div className="bg-[#141414] border border-white/5 p-6 space-y-6 relative overflow-hidden">
+          <div className="bg-white border border-slate-200 p-6 space-y-6 relative overflow-hidden">
             <div className="space-y-3">
-              <label className="font-display text-xs tracking-wider uppercase text-white/50">Yeni Marka Adı</label>
+              <label className="font-display text-xs tracking-wider uppercase text-slate-900/50">Yeni Marka Adı</label>
               <input
                 type="text"
                 value={targetBrand}
                 onChange={(e) => setTargetBrand(e.target.value)}
                 placeholder="Örn: Apple"
-                className="w-full bg-[#0A0A0A] border border-white/10 p-4 text-white font-body text-sm focus:border-brand-red focus:outline-none transition-colors"
+                className="input-base"
               />
             </div>
 
@@ -228,18 +228,18 @@ export default function AdminMarkaYonetimi() {
               <div className="flex items-center gap-2 text-brand-red font-display text-xs tracking-widest uppercase font-bold">
                 <Info size={14} /> Özet
               </div>
-              <p className="font-body text-sm text-white/70">
-                <strong className="text-white">{selectedBrands.length}</strong> adet farklı marka ismi, <strong className="text-white">'{targetBrand || '?'}'</strong> olarak değiştirilecek.
+              <p className="font-body text-sm text-slate-900/70">
+                <strong className="text-slate-900">{selectedBrands.length}</strong> adet farklı marka ismi, <strong className="text-slate-900">'{targetBrand || '?'}'</strong> olarak değiştirilecek.
               </p>
-              <p className="font-body text-sm text-white/70">
-                Toplam <strong className="text-white">{affectedCount}</strong> adet ürün güncellenecek.
+              <p className="font-body text-sm text-slate-900/70">
+                Toplam <strong className="text-slate-900">{affectedCount}</strong> adet ürün güncellenecek.
               </p>
             </div>
 
             <button
               onClick={handleMerge}
               disabled={merging || selectedBrands.length === 0 || !targetBrand.trim()}
-              className="w-full bg-brand-red text-white font-display font-bold text-sm tracking-widest uppercase py-4 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-brand-red text-white font-display font-bold text-sm tracking-widest uppercase py-4 hover:bg-brand-red/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {merging ? (
                 <>

@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
+import KargoTakip from '@/components/KargoTakip'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map, Plus, Trash2, Star, Ticket, Copy, MessageSquare } from 'lucide-react'
@@ -60,6 +62,7 @@ interface Siparis {
   odeme_tipi: string
   created_at: string
   kargo_takip_no?: string
+  kargo_firmasi?: string
   teslimat_tipi?: string
   dekont_url?: string
   teslimat_adresi?: string
@@ -78,6 +81,18 @@ const DURUM_MAP: Record<string, { label: string, color: string, bg: string, bord
   teslim_edildi: { label: 'Teslim Edildi',  color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle },
   iptal:         { label: 'İptal Edildi',   color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: XCircle },
   tamamlandi:    { label: 'Tamamlandı',     color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle },
+}
+
+const getKargoLink = (firma?: string, no?: string) => {
+  if (!no) return '#'
+  const f = firma?.toLowerCase() || ''
+  if (f.includes('hepsijet')) return `https://www.hepsijet.com/gonderi-takibi/${no}`
+  if (f.includes('yurtiçi') || f.includes('yurtici')) return `https://yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${no}`
+  if (f.includes('aras')) return `https://www.araskargo.com.tr/kargo-takip?KargoTakipNo=${no}`
+  if (f.includes('mng')) return `https://kargotakip.mngkargo.com.tr/?takipNo=${no}`
+  if (f.includes('sürat') || f.includes('surat')) return `https://suratkargo.com.tr/KargoTakip/?kargotakipno=${no}`
+  if (f.includes('ptt')) return `https://gonderitakip.ptt.gov.tr/Track/Verify?q=${no}`
+  return '#'
 }
 
 export default function HesabimPage() {
@@ -137,7 +152,7 @@ export default function HesabimPage() {
 
     const { data: orders } = await supabase
       .from('siparisler')
-      .select('id, siparis_no, created_at, toplam_tutar, durum, urunler, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_tipi, dekont_url, teslimat_adresi, fatura_tipi, firma_unvani, vergi_no, vergi_dairesi')
+      .select('id, siparis_no, created_at, toplam_tutar, durum, urunler, kargo_takip_no, kargo_firmasi, odeme_durumu, odeme_tipi, teslimat_tipi, dekont_url, teslimat_adresi, fatura_tipi, firma_unvani, vergi_no, vergi_dairesi')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -488,10 +503,30 @@ export default function HesabimPage() {
                               
                               <button 
                                 onClick={() => toggleOrderDetails(s.id)}
-                                className="text-xs font-display font-bold text-slate-600 hover:text-brand-red transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200"
+                                className="text-xs font-display font-bold text-slate-600 hover:text-brand-red transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 w-full justify-center"
                               >
                                 <Package size={14} /> {expandedOrders.includes(s.id) ? 'Detayları Gizle' : 'Ürünleri Gör'}
                               </button>
+                              
+                              {(s.durum === 'kargolandi' || s.durum === 'teslim_edildi') && s.kargo_takip_no && (
+                                <div className="mt-1">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      const el = document.getElementById(`kargo-takip-${s.id}`)
+                                      if (el) {
+                                        el.classList.toggle('hidden')
+                                      }
+                                    }}
+                                    className="text-xs font-display font-bold text-brand-red hover:bg-brand-red hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-brand-red/5 rounded-lg border border-brand-red/20 w-full justify-center"
+                                  >
+                                    <Truck size={14} /> Kargo Hareketleri
+                                  </button>
+                                  <div id={`kargo-takip-${s.id}`} className="hidden">
+                                    <KargoTakip firma={s.kargo_firmasi || 'Bilinmiyor'} takipNo={s.kargo_takip_no} />
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                           </div>

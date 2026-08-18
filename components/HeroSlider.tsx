@@ -63,6 +63,7 @@ export default function HeroSlider() {
                 alt={slide.title}
                 fill
                 priority={index === 0}
+                sizes="100vw"
                 className="object-cover object-center opacity-60"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-transparent" />

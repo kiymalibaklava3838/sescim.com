@@ -211,13 +211,13 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-display font-bold text-slate-900 uppercase tracking-widest">Kampanya & Banner Yönetimi</h2>
-          <p className="text-slate-900/50 text-sm mt-1">Ürünler sayfasının üst kısmında çıkacak görselleri buradan yönetebilirsiniz.</p>
+          <p className="text-slate-500 text-sm mt-1">Ürünler sayfasının üst kısmında çıkacak görselleri buradan yönetebilirsiniz.</p>
         </div>
         
         {!showForm && (
           <button 
             onClick={() => setShowForm(true)}
-            className="btn-primary"
+            className="flex items-center gap-2 bg-brand-red text-white px-4 py-2 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all shadow-sm"
           >
             <Plus size={18} />
             Yeni Kampanya Ekle
@@ -227,29 +227,29 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
 
       {/* NEW BANNER FORM */}
       {showForm && (
-        <div className="bg-[#1A1A1A] border border-brand-red/30 p-6 shadow-xl animate-fade-in relative overflow-hidden">
+        <div className="bg-white border border-slate-200 p-6 shadow-sm animate-fade-in relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 border-t border-r border-brand-red/10 pointer-events-none" />
           
-          <h3 className="text-brand-red font-display font-bold uppercase tracking-widest mb-6 border-b border-slate-200 pb-4">Yeni Banner Oluştur</h3>
+          <h3 className="text-brand-red font-display font-bold uppercase tracking-widest mb-6 border-b border-slate-100 pb-4">Yeni Banner Oluştur</h3>
           
           <div className="grid md:grid-cols-2 gap-8 relative z-10">
             {/* Left: Image Upload */}
             <div>
-              <label className="block text-xs font-display font-bold text-slate-900/50 tracking-widest uppercase mb-2">
+              <label className="block text-xs font-display font-bold text-slate-500 tracking-widest uppercase mb-2">
                 Kampanya Görseli
               </label>
 
               {/* Boyut Uyarısı */}
-              <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 p-3 mb-3 rounded-sm">
-                <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-400/90 leading-relaxed">
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 p-3 mb-3 rounded-sm">
+                <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800 leading-relaxed">
                   <span className="font-bold">Yatay (landscape) fotoğraf kullanın.</span><br />
                   Önerilen boyut: <span className="font-mono font-bold">1920 × 720 px</span> veya <span className="font-mono font-bold">1280 × 480 px</span><br />
-                  <span className="text-amber-400/60">Dikey fotoğraflar (örn. 1080×1920) kırpılır ve düzgün görünmez.</span>
+                  <span className="text-amber-700/80">Dikey fotoğraflar (örn. 1080×1920) kırpılır ve düzgün görünmez.</span>
                 </div>
               </div>
               
-              <div className="border-2 border-dashed border-slate-300 hover:border-brand-red/50 transition-colors bg-[#0F0F0F] rounded-sm p-4 text-center cursor-pointer relative group">
+              <div className="border-2 border-dashed border-slate-300 hover:border-brand-red/50 transition-colors bg-slate-50 rounded-sm p-4 text-center cursor-pointer relative group">
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -258,17 +258,17 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                 />
                 
                 {imagePreview ? (
-                  <div className="relative aspect-video w-full overflow-hidden">
+                  <div className="relative aspect-video w-full overflow-hidden border border-slate-200">
                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
                       <span className="text-slate-900 text-sm font-semibold">Resmi Değiştir</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="py-12 flex flex-col items-center justify-center text-slate-900/30 group-hover:text-slate-900/70">
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
                     <ImageIcon size={32} className="mb-3" />
                     <span className="text-sm">Görsel seçmek için tıklayın veya sürükleyin</span>
-                    <span className="text-xs mt-1 text-slate-900/20">PNG, JPG, WEBP — Yatay format</span>
+                    <span className="text-xs mt-1 text-slate-400">PNG, JPG, WEBP — Yatay format</span>
                   </div>
                 )}
               </div>
@@ -277,41 +277,41 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
             {/* Right: Details */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-display font-bold text-slate-900/50 tracking-widest uppercase mb-1">Başlık (Opsiyonel)</label>
+                <label className="block text-xs font-display font-bold text-slate-500 tracking-widest uppercase mb-1">Başlık (Opsiyonel)</label>
                 <input 
                   type="text" 
                   value={newBanner.title}
                   onChange={e => setNewBanner({...newBanner, title: e.target.value})}
-                  className="w-full bg-[#0F0F0F] border border-slate-300 text-slate-900 px-4 py-2 focus:border-brand-red outline-none"
+                  className="input-base"
                   placeholder="Örn: Yaza Özel İndirim"
                 />
               </div>
               
               <div>
-                <label className="block text-xs font-display font-bold text-slate-900/50 tracking-widest uppercase mb-1">Alt Başlık (Opsiyonel)</label>
+                <label className="block text-xs font-display font-bold text-slate-500 tracking-widest uppercase mb-1">Alt Başlık (Opsiyonel)</label>
                 <input 
                   type="text" 
                   value={newBanner.subtitle}
                   onChange={e => setNewBanner({...newBanner, subtitle: e.target.value})}
-                  className="w-full bg-[#0F0F0F] border border-slate-300 text-slate-900 px-4 py-2 focus:border-brand-red outline-none"
+                  className="input-base"
                   placeholder="Örn: Akustek ürünlerinde %20 indirim"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-display font-bold text-slate-900/50 tracking-widest uppercase mb-2">Tıklama Yönlendirmesi (Link)</label>
+                <label className="block text-xs font-display font-bold text-slate-500 tracking-widest uppercase mb-2">Tıklama Yönlendirmesi (Link)</label>
                 <div className="flex gap-2 mb-3">
                   <button 
                     onClick={() => setLinkType('none')}
-                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border ${linkType === 'none' ? 'bg-slate-200 border-white/30 text-slate-900' : 'bg-[#0F0F0F] border-slate-200 text-slate-900/40'}`}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border rounded-sm transition-colors ${linkType === 'none' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
                   >Yok</button>
                   <button 
                     onClick={() => setLinkType('product')}
-                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border ${linkType === 'product' ? 'bg-brand-red/20 border-brand-red/50 text-brand-red' : 'bg-[#0F0F0F] border-slate-200 text-slate-900/40'}`}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border rounded-sm transition-colors ${linkType === 'product' ? 'bg-brand-red/10 border-brand-red text-brand-red' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
                   >Ürün Seç</button>
                   <button 
                     onClick={() => setLinkType('custom')}
-                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border ${linkType === 'custom' ? 'bg-brand-red/20 border-brand-red/50 text-brand-red' : 'bg-[#0F0F0F] border-slate-200 text-slate-900/40'}`}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border rounded-sm transition-colors ${linkType === 'custom' ? 'bg-brand-red/10 border-brand-red text-brand-red' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
                   >Özel Link</button>
                 </div>
                 
@@ -327,7 +327,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                       }}
                       onFocus={() => setShowProductDropdown(true)}
                       onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
-                      className="w-full bg-[#0F0F0F] border border-slate-300 text-slate-900 px-4 py-2 focus:border-brand-red outline-none"
+                      className="input-base"
                       placeholder="Ürün arayın..."
                     />
                     {selectedProductId && (
@@ -336,7 +336,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                       </div>
                     )}
                     {showProductDropdown && (
-                      <div className="absolute z-50 w-full mt-1 bg-[#1A1A1A] border border-slate-300 max-h-60 overflow-y-auto shadow-2xl">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 max-h-60 overflow-y-auto shadow-xl">
                         {products
                           .filter(p => p.ad.toLowerCase().includes(productSearchTerm.toLowerCase()))
                           .map(p => (
@@ -347,13 +347,13 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                                 setProductSearchTerm(p.ad)
                                 setShowProductDropdown(false)
                               }}
-                              className="px-4 py-2 hover:bg-brand-red/20 hover:text-slate-900 cursor-pointer text-sm text-slate-900/70 transition-colors border-b border-slate-200 last:border-0"
+                              className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-700 transition-colors border-b border-slate-100 last:border-0"
                             >
                               {p.ad}
                             </div>
                           ))}
                         {products.filter(p => p.ad.toLowerCase().includes(productSearchTerm.toLowerCase())).length === 0 && (
-                          <div className="px-4 py-2 text-sm text-slate-900/40">Ürün bulunamadı.</div>
+                          <div className="px-4 py-2 text-sm text-slate-500">Ürün bulunamadı.</div>
                         )}
                       </div>
                     )}
@@ -365,24 +365,24 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                     type="text" 
                     value={newBanner.link_url}
                     onChange={e => setNewBanner({...newBanner, link_url: e.target.value})}
-                    className="w-full bg-[#0F0F0F] border border-slate-300 text-slate-900 px-4 py-2 focus:border-brand-red outline-none"
+                    className="input-base"
                     placeholder="Örn: https://akustek.com veya /iletisim"
                   />
                 )}
               </div>
               
-              <div className="pt-4 flex gap-3 border-t border-slate-200">
+              <div className="pt-4 flex gap-3 border-t border-slate-100">
                 <button 
                   onClick={handleSaveBanner}
                   disabled={uploading}
-                  className="btn-primary flex-1 justify-center"
+                  className="flex items-center gap-2 bg-brand-red text-white px-6 py-2.5 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all flex-1 justify-center rounded-sm"
                 >
                   {uploading ? 'Yükleniyor...' : <><Save size={16} /> Kaydet ve Yayınla</>}
                 </button>
                 <button 
                   onClick={() => { setShowForm(false); resetForm(); }}
                   disabled={uploading}
-                  className="px-4 border border-slate-300 hover:bg-slate-100 text-slate-900 transition-colors"
+                  className="px-6 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 font-display text-xs uppercase tracking-wider transition-all rounded-sm"
                 >
                   İptal
                 </button>
@@ -394,51 +394,51 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
 
       {/* EXISTING BANNERS */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading && <div className="text-slate-900/40 py-8 col-span-full text-center">Yükleniyor...</div>}
+        {loading && <div className="text-slate-500 py-8 col-span-full text-center">Yükleniyor...</div>}
         
         {!loading && banners.length === 0 && !showForm && (
-          <div className="col-span-full border border-dashed border-slate-300 py-16 flex flex-col items-center justify-center text-slate-900/40 bg-[#111]">
-            <ImageIcon size={48} className="mb-4 opacity-20" />
+          <div className="col-span-full border border-dashed border-slate-300 py-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+            <ImageIcon size={48} className="mb-4 opacity-30" />
             <p className="font-display uppercase tracking-widest text-sm mb-4">Henüz hiç banner eklenmemiş</p>
-            <button onClick={() => setShowForm(true)} className="btn-outline text-xs">İlk Kampanyayı Ekle</button>
+            <button onClick={() => setShowForm(true)} className="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold uppercase tracking-wider">İlk Kampanyayı Ekle</button>
           </div>
         )}
 
         {banners.map(banner => (
-          <div key={banner.id} className={`bg-white border silver-border overflow-hidden transition-all duration-300 ${!banner.is_active ? 'opacity-50 grayscale' : 'border-slate-300 hover:border-brand-red/30'}`}>
-            <div className="relative aspect-video w-full border-b border-slate-200">
+          <div key={banner.id} className={`bg-white border shadow-sm overflow-hidden transition-all duration-300 ${!banner.is_active ? 'opacity-60 grayscale' : 'border-slate-200 hover:border-brand-red/30 hover:shadow-md'}`}>
+            <div className="relative aspect-video w-full border-b border-slate-100">
               <img src={banner.image_url} alt={banner.title || 'Banner'} className="w-full h-full object-cover" />
               
               {!banner.is_active && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                  <span className="bg-black/80 px-3 py-1 font-display font-bold text-xs uppercase tracking-widest text-slate-900 border border-slate-300">Yayında Değil</span>
+                <div className="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-sm">
+                  <span className="bg-white px-3 py-1 font-display font-bold text-xs uppercase tracking-widest text-slate-900 border border-slate-200 shadow-sm rounded-sm">Yayında Değil</span>
                 </div>
               )}
             </div>
             
             <div className="p-4 relative">
               <div className="font-display font-bold text-slate-900 text-sm mb-1 truncate">{banner.title || 'Başlıksız Banner'}</div>
-              <div className="text-slate-900/40 text-xs mb-3 truncate">{banner.subtitle || 'Alt başlık yok'}</div>
+              <div className="text-slate-500 text-xs mb-3 truncate">{banner.subtitle || 'Alt başlık yok'}</div>
               
               {banner.link_url ? (
-                <a href={banner.link_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-red hover:text-slate-900 transition-colors">
+                <a href={banner.link_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-red hover:text-red-700 transition-colors font-medium">
                   <LinkIcon size={12} /> Linke Git
                 </a>
               ) : (
-                <div className="text-xs text-slate-900/20">Link Yok</div>
+                <div className="text-xs text-slate-400">Link Yok</div>
               )}
               
               <div className="absolute bottom-4 right-4 flex gap-2">
                 <button 
                   onClick={() => toggleActive(banner)}
-                  className="w-8 h-8 flex items-center justify-center bg-[#1A1A1A] border border-slate-300 hover:border-white/30 text-slate-900 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100 text-slate-600 transition-colors rounded-sm"
                   title={banner.is_active ? 'Yayından Kaldır' : 'Yayına Al'}
                 >
                   {banner.is_active ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
                 <button 
                   onClick={() => deleteBanner(banner.id)}
-                  className="w-8 h-8 flex items-center justify-center bg-[#1A1A1A] border border-slate-300 hover:border-brand-red hover:text-brand-red transition-colors"
+                  className="w-8 h-8 flex items-center justify-center bg-slate-50 border border-slate-200 hover:border-red-200 hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors rounded-sm"
                   title="Sil"
                 >
                   <Trash2 size={14} />
@@ -450,24 +450,24 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
       </div>
       {/* CROP MODAL */}
       {showCropModal && imagePreview && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 animate-fade-in">
-          <div className="bg-white border border-slate-300 w-full max-w-4xl flex flex-col shadow-2xl relative overflow-hidden h-[80vh] md:h-[600px]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-fade-in">
+          <div className="bg-white border border-slate-200 w-full max-w-4xl flex flex-col shadow-2xl relative overflow-hidden h-[80vh] md:h-[600px] rounded-md">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-300 bg-[#0F0F0F]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2 text-slate-900">
                 <Crop size={18} className="text-brand-red" />
                 <h3 className="font-display font-bold uppercase tracking-widest text-sm">Görseli Kırp ve Düzenle</h3>
               </div>
               <button 
                 onClick={() => { setShowCropModal(false); setImagePreview(null); setImageFile(null); }}
-                className="text-slate-900/40 hover:text-slate-900 transition-colors"
+                className="text-slate-400 hover:text-slate-900 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
             
             {/* Cropper Area */}
-            <div className="relative flex-1 bg-black overflow-hidden">
+            <div className="relative flex-1 bg-slate-100 overflow-hidden">
               <Cropper
                 image={imagePreview}
                 crop={crop}
@@ -480,9 +480,9 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
             </div>
             
             {/* Controls */}
-            <div className="p-4 bg-[#0F0F0F] border-t border-slate-300 flex flex-col sm:flex-row items-center gap-4 justify-between">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center gap-4 justify-between">
               <div className="flex items-center gap-3 w-full sm:w-1/2">
-                <ZoomIn size={16} className="text-slate-900/40" />
+                <ZoomIn size={16} className="text-slate-500" />
                 <input
                   type="range"
                   value={zoom}
@@ -497,7 +497,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
               
               <button 
                 onClick={handleCropSave}
-                className="btn-primary w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 bg-brand-red text-white px-6 py-2.5 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all w-full sm:w-auto rounded-sm"
               >
                 <Check size={16} /> Kırpmayı Onayla
               </button>

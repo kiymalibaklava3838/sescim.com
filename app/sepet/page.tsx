@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { Session, User } from '@supabase/supabase-js'
 import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
+import RecentlyViewed from '@/components/RecentlyViewed'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -663,28 +664,32 @@ export default function SepetPage() {
             </div>
           </div>
         )}
+
+        <div className="max-w-6xl mx-auto px-6 mb-12 mt-12">
+          <RecentlyViewed />
+        </div>
       </div>
 
-      {payToken && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <div>
-                <span className="font-display font-bold text-xs tracking-widest uppercase text-slate-800">Güvenli Ödeme</span>
-                <div className="text-[10px] text-amber-600 font-medium mt-1 flex items-center gap-1"><Info size={12}/> Ödemeyi tamamlamadan kapatmayınız.</div>
+        {payToken && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <div>
+                  <span className="font-display font-bold text-xs tracking-widest uppercase text-slate-800">Güvenli Ödeme</span>
+                  <div className="text-[10px] text-amber-600 font-medium mt-1 flex items-center gap-1"><Info size={12}/> Ödemeyi tamamlamadan kapatmayınız.</div>
+                </div>
+                <button
+                  type="button"
+                  className="text-slate-500 hover:text-brand-red hover:bg-brand-red/10 text-xs font-display font-bold uppercase tracking-wider border border-slate-200 hover:border-brand-red/30 rounded-lg px-4 py-2 transition-all"
+                  onClick={() => { setPayToken(null); setPayTrWarning(true) }}
+                >
+                  İptal Et
+                </button>
               </div>
-              <button
-                type="button"
-                className="text-slate-500 hover:text-brand-red hover:bg-brand-red/10 text-xs font-display font-bold uppercase tracking-wider border border-slate-200 hover:border-brand-red/30 rounded-lg px-4 py-2 transition-all"
-                onClick={() => { setPayToken(null); setPayTrWarning(true) }}
-              >
-                İptal Et
-              </button>
+              <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full flex-1 min-h-[560px] bg-white border-0" />
             </div>
-            <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full flex-1 min-h-[560px] bg-white border-0" />
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
   )
 }

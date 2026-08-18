@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
     }
 
-    const { id, durum, kargo_takip_no } = await req.json()
+    const { id, durum, kargo_takip_no, kargo_firmasi } = await req.json()
     const db = supabaseAdmin()
     const akdagDb = akdagAdmin()
 
@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
 
     // 3. Durumu güncelle
     const updateData: any = { durum: yeniDurum, updated_at: new Date().toISOString() }
-    if (kargo_takip_no) updateData.kargo_takip_no = kargo_takip_no
+    if (kargo_takip_no !== undefined) updateData.kargo_takip_no = kargo_takip_no
+    if (kargo_firmasi !== undefined) updateData.kargo_firmasi = kargo_firmasi
 
     const { error: updErr } = await db
       .from('siparisler')

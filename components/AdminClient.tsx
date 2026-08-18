@@ -23,9 +23,7 @@ const AdminCampaignManager = dynamic(() => import('./AdminCampaignManager'), {
 const AdminBanners = dynamic(() => import('./AdminBanners'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
-const AdminAkdagImport = dynamic(() => import('./AdminAkdagImport'), {
-  loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
-})
+
 const AdminUyeYonetim = dynamic(() => import('./AdminUyeYonetim'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
@@ -53,7 +51,7 @@ interface AdminClientProps {
   onSuccess?: () => void
 }
 
-type Tab = 'dashboard' | 'siparisler' | 'urunler' | 'markalar' | 'import' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
+type Tab = 'dashboard' | 'siparisler' | 'urunler' | 'markalar' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
 
 export default function AdminClient({ onSuccess }: AdminClientProps) {
   const [user, setUser] = useState<User | null>(null)
@@ -137,7 +135,6 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
     { id: 'siparisler' as Tab, label: 'Siparişler', icon: ShoppingBag, badge: bekleyenSiparis },
     { id: 'urunler' as Tab, label: 'Ürünler', icon: Package },
     { id: 'markalar' as Tab, label: 'Markalar', icon: Merge },
-    { id: 'import' as Tab, label: 'Akdağ\'dan İçe Aktar', icon: Download },
     { id: 'uyeler' as Tab, label: 'Üye Yönetimi', icon: Users },
     { id: 'kupon' as Tab, label: 'Kupon Yönetimi', icon: Tag },
     { id: 'kampanya' as Tab, label: 'Toplu Mail', icon: Mail },
@@ -208,7 +205,6 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
           </div>
         )}
 
-        {activeTab === 'import' && <AdminAkdagImport onImported={() => setRefreshTrigger(prev => prev + 1)} />}
         {activeTab === 'uyeler' && <AdminUyeYonetim />}
         {activeTab === 'kupon' && <AdminKuponYonetim />}
         {activeTab === 'kampanya' && <AdminCampaignManager />}

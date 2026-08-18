@@ -11,9 +11,9 @@ const supabaseAdmin = () =>
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { konu, baslik, icerik, resim_url, link_url, hedef_bayiler } = body
+    const { konu, baslik, icerik, resim_url, link_url, hedef_kullanicilar } = body
 
-    if (!konu || !baslik || !icerik || !hedef_bayiler) {
+    if (!konu || !baslik || !icerik || !hedef_kullanicilar) {
       return NextResponse.json({ error: 'Gerekli alanlar eksik' }, { status: 400 })
     }
 
@@ -41,43 +41,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin yetkisi gerekli' }, { status: 403 })
     }
 
-    // 2. Hedef Bayilerin E-postalarını Topla
-    let bayiUserIds: string[] = []
-    let hedefKitleMetni = 'Tüm Bayiler'
+    // 2. Hedef Kullanıcıların E-postalarını Topla
+    let emails: string[] = []
+    let hedefKitleMetni = 'Tüm Üyeler'
 
-    if (hedef_bayiler === 'all') {
-      const { data: bayiler } = await db.from('bayiler').select('user_id').eq('onaylandi', true)
-      if (bayiler) bayiUserIds = bayiler.map(b => b.user_id)
-    } else if (Array.isArray(hedef_bayiler)) {
-      // hedef_bayiler id'lerin array'i ise (bayiler.id)
-      const { data: bayiler } = await db.from('bayiler').select('user_id').in('id', hedef_bayiler).eq('onaylandi', true)
-      if (bayiler) bayiUserIds = bayiler.map(b => b.user_id)
-      hedefKitleMetni = `Seçili ${hedef_bayiler.length} Bayi`
-    }
-
-    if (bayiUserIds.length === 0) {
-      return NextResponse.json({ error: 'Gönderilecek bayi bulunamadı' }, { status: 404 })
-    }
-
-    // E-postaları al (Toplu sorgu)
-    // Auth users için admin.getUserById'yi map ile çağırıyoruz. Limitlere takılmamak için batch (20'şer)
-    const emails: string[] = []
+    const { data: usersData, error: listErr } = await db.auth.admin.listUsers({ perPage: 1000 })
     
-    // Güvenli işleme için 20'şerli parçalar
-    for (let i = 0; i < bayiUserIds.length; i += 20) {
-      const chunk = bayiUserIds.slice(i, i + 20)
-      const promises = chunk.map(id => db.auth.admin.getUserById(id))
-      const results = await Promise.all(promises)
-      results.forEach(res => {
-        if (res.data?.user?.email) {
-          emails.push(res.data.user.email)
-        }
-      })
+    if (listErr || !usersData) {
+      return NextResponse.json({ error: 'Kullanıcı listesi alınamadı' }, { status: 500 })
+    }
+
+    if (hedef_kullanicilar === 'all') {
+      emails = usersData.users.filter(u => u.email).map(u => u.email!)
+    } else if (Array.isArray(hedef_kullanicilar)) {
+      // hedef_kullanicilar = array of user_id
+      emails = usersData.users
+        .filter(u => hedef_kullanicilar.includes(u.id) && u.email)
+        .map(u => u.email!)
+      hedefKitleMetni = `Seçili ${emails.length} Üye`
     }
 
     if (emails.length === 0) {
-      return NextResponse.json({ error: 'Geçerli e-posta adresi bulunamadı' }, { status: 404 })
+      return NextResponse.json({ error: 'Gönderilecek üye bulunamadı' }, { status: 404 })
     }
+
+
 
     // 3. E-Postaları Gönder
     const htmlContent = kampanyaHTML({
@@ -108,7 +96,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       gonderilen: emails.length,
-      mesaj: `${emails.length} bayiye kampanya başarıyla gönderildi.`
+      mesaj: `${emails.length} üyeye kampanya başarıyla gönderildi.`
     })
 
   } catch (e) {

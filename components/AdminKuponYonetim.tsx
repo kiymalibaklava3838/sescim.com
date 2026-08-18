@@ -96,76 +96,76 @@ export default function AdminKuponYonetim() {
             <div className="w-8 h-px bg-brand-red" />
             <span className="font-display font-semibold text-xs tracking-[0.3em] uppercase text-brand-red">Promosyon</span>
           </div>
-          <h2 className="font-display font-black text-2xl uppercase text-white">Kupon Yönetimi</h2>
+          <h2 className="font-display font-black text-2xl uppercase text-slate-900">Kupon Yönetimi</h2>
         </div>
         <div className="flex gap-2">
-          <button onClick={loadKuponlar} className="flex items-center gap-2 border border-white/10 text-white/50 hover:border-white/20 hover:text-white px-4 py-2 font-display text-xs tracking-widest uppercase transition-all">
+          <button onClick={loadKuponlar} className="flex items-center gap-2 border border-slate-300 text-slate-900/50 hover:border-brand-red/30 hover:text-slate-900 px-4 py-2 font-display text-xs tracking-widest uppercase transition-all">
             <RefreshCw size={14} /> Yenile
           </button>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-brand-red text-white px-4 py-2 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all">
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-brand-red text-white px-4 py-2 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all shadow-sm">
             <Plus size={14} /> Yeni Kupon
           </button>
         </div>
       </div>
 
       {message && (
-        <div className="flex items-center gap-2 text-green-400 bg-green-400/10 border border-green-400/20 px-4 py-3 text-sm font-body">
+        <div className="flex items-center gap-2 text-green-600 bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm font-body rounded-sm">
           <Check size={14} /> {message}
         </div>
       )}
 
       {showForm && (
-        <form onSubmit={handleSave} className="bg-[#141414] border border-white/10 p-6 space-y-4">
-          <h3 className="font-display font-bold text-sm uppercase tracking-widest text-white">Yeni Kupon Oluştur</h3>
+        <form onSubmit={handleSave} className="bg-white border border-slate-200 p-6 space-y-4 shadow-sm">
+          <h3 className="font-display font-bold text-sm uppercase tracking-widest text-slate-900">Yeni Kupon Oluştur</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">Kupon Kodu</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Kupon Kodu</label>
               <div className="flex gap-2">
                 <input type="text" value={kod} onChange={e => setKod(e.target.value.toUpperCase())} placeholder="KODU_GIRINIZ"
-                  className="flex-1 bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50" />
+                  className="flex-1 bg-white border border-slate-200 text-slate-900 px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 focus:ring-1 focus:ring-brand-red/20" />
                 <button type="button" onClick={generateCode}
-                  className="px-3 bg-white/5 border border-white/10 text-white/50 hover:text-white font-display text-xs uppercase tracking-wider transition-all">
+                  className="px-3 bg-slate-50 border border-slate-200 text-slate-900/50 hover:text-slate-900 font-display text-xs uppercase tracking-wider transition-all">
                   Oto
                 </button>
               </div>
             </div>
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">İndirim Tipi</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">İndirim Tipi</label>
               <select value={indirimTipi} onChange={e => setIndirimTipi(e.target.value as 'yuzde' | 'sabit')}
-                className="w-full bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50">
+                className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 focus:ring-1 focus:ring-brand-red/20">
                 <option value="yuzde">Yüzde (%)</option>
                 <option value="sabit">Sabit Tutar (TL)</option>
               </select>
             </div>
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">İndirim Miktarı</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">İndirim Miktarı</label>
               <input type="number" value={miktar} onChange={e => setMiktar(e.target.value)} placeholder={indirimTipi === 'yuzde' ? '10 (%)' : '50 (TL)'}
-                className="w-full bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50" />
+                className="input-base" />
             </div>
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">Min. Sipariş Tutarı (TL)</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Min. Sipariş Tutarı (TL)</label>
               <input type="number" value={minTutar} onChange={e => setMinTutar(e.target.value)} placeholder="0 (isteğe bağlı)"
-                className="w-full bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50" />
+                className="input-base" />
             </div>
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">Maks. Kullanım</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Maks. Kullanım</label>
               <input type="number" value={maxKullanim} onChange={e => setMaxKullanim(e.target.value)} placeholder="Sınırsız (isteğe bağlı)"
-                className="w-full bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50" />
+                className="input-base" />
             </div>
             <div>
-              <label className="font-display text-xs tracking-widest uppercase text-white/40 block mb-2">Geçerlilik Tarihi</label>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Geçerlilik Tarihi</label>
               <input type="date" value={gecerlilik} onChange={e => setGecerlilik(e.target.value)}
-                className="w-full bg-[#0F0F0F] border border-white/10 text-white px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50" />
+                className="input-base" />
             </div>
           </div>
-          {error && <div className="flex items-center gap-2 text-red-400 text-sm font-body"><AlertCircle size={14} /> {error}</div>}
+          {error && <div className="flex items-center gap-2 text-red-600 text-sm font-body"><AlertCircle size={14} /> {error}</div>}
           <div className="flex gap-3">
             <button type="submit" disabled={saving}
               className="flex items-center gap-2 bg-brand-red text-white px-6 py-3 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all disabled:opacity-50">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Kaydet
             </button>
             <button type="button" onClick={() => setShowForm(false)}
-              className="px-6 py-3 border border-white/10 text-white/50 hover:text-white font-display text-xs uppercase tracking-wider transition-all">
+              className="px-6 py-3 border border-slate-200 text-slate-900/50 hover:text-slate-900 font-display text-xs uppercase tracking-wider transition-all">
               İptal
             </button>
           </div>
@@ -174,26 +174,26 @@ export default function AdminKuponYonetim() {
 
       {/* Kupon Listesi */}
       {loading ? (
-        <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-white/10 border-t-brand-red rounded-full animate-spin" /></div>
+        <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-200 border-t-brand-red rounded-full animate-spin" /></div>
       ) : (
         <div className="space-y-2">
           {kuponlar.map(kupon => (
-            <div key={kupon.id} className={`bg-[#141414] border p-4 flex items-center gap-4 ${
-              kupon.aktif ? 'border-white/5' : 'border-white/5 opacity-50'
+            <div key={kupon.id} className={`bg-white border p-4 flex items-center gap-4 shadow-sm transition-opacity ${
+              kupon.aktif ? 'border-slate-200' : 'border-slate-200 opacity-50'
             }`}>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <span className="font-display font-black text-lg text-white tracking-widest">{kupon.kod}</span>
-                  <button onClick={() => copyCode(kupon.kod)} className="text-white/30 hover:text-white transition-colors">
+                  <span className="font-display font-black text-lg text-slate-900 tracking-widest">{kupon.kod}</span>
+                  <button onClick={() => copyCode(kupon.kod)} className="text-slate-900/30 hover:text-slate-900 transition-colors">
                     <Copy size={14} />
                   </button>
-                  <span className={`font-display font-bold text-[10px] tracking-widest uppercase px-2 py-0.5 ${
-                    kupon.aktif ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-white/5 text-white/30 border border-white/10'
+                  <span className={`font-display font-bold text-[10px] tracking-widest uppercase px-2 py-0.5 rounded-sm ${
+                    kupon.aktif ? 'bg-green-500/10 text-green-600 border border-green-500/20' : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}>
                     {kupon.aktif ? 'Aktif' : 'Pasif'}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 mt-1.5 text-xs font-body text-white/40">
+                <div className="flex items-center gap-4 mt-1.5 text-xs font-body text-slate-500">
                   <span>{kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `${kupon.indirim_miktari} TL`} indirim</span>
                   {kupon.min_tutar && <span>Min. {kupon.min_tutar} TL</span>}
                   <span>{kupon.kullanim_sayisi}{kupon.max_kullanim ? `/${kupon.max_kullanim}` : ''} kullanım</span>
@@ -202,22 +202,22 @@ export default function AdminKuponYonetim() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => toggleAktif(kupon)}
-                  className={`px-3 py-1.5 font-display text-[10px] tracking-widest uppercase border transition-all ${
+                  className={`px-3 py-1.5 font-display text-[10px] tracking-widest uppercase border transition-all rounded-sm ${
                     kupon.aktif
-                      ? 'border-white/10 text-white/40 hover:border-red-500/30 hover:text-red-400'
-                      : 'border-green-500/20 text-green-400 hover:bg-green-500/10'
+                      ? 'border-slate-200 text-slate-500 hover:border-red-500/30 hover:text-red-600'
+                      : 'border-green-500/20 text-green-600 hover:bg-green-500/10'
                   }`}>
                   {kupon.aktif ? 'Pasifleştir' : 'Aktifleştir'}
                 </button>
                 <button onClick={() => deleteKupon(kupon.id)}
-                  className="w-8 h-8 flex items-center justify-center border border-white/10 text-white/30 hover:border-red-500/30 hover:text-red-400 transition-all">
+                  className="w-8 h-8 flex items-center justify-center border border-slate-200 text-slate-900/30 hover:border-red-500/30 hover:text-red-600 transition-all rounded-sm">
                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
           ))}
           {kuponlar.length === 0 && (
-            <div className="py-12 text-center text-white/20 font-body">
+            <div className="py-12 text-center text-slate-900/30 font-body">
               <Tag size={32} className="mx-auto mb-3 opacity-30" />
               Henüz kupon oluşturulmamış
             </div>

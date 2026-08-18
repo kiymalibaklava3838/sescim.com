@@ -17,6 +17,10 @@ export const revalidate = 0
 
 import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
 import { ProductCard } from '@/components/ProductGrid'
+import RecentlyViewed from '@/components/RecentlyViewed'
+import ProductViewTracker from '@/components/ProductViewTracker'
+import StockNotifyButton from '@/components/StockNotifyButton'
+import ProductReviews from '@/components/ProductReviews'
 
 interface Props { params: { slug: string } }
 
@@ -98,6 +102,15 @@ export default async function UrunDetayPage({ params }: Props) {
 
   return (
     <div className="min-h-screen pt-8 pb-24">
+      <ProductViewTracker product={{
+        id: product.id,
+        slug: product.slug,
+        name: product.ad,
+        image: product.fotograflar?.[0] || null,
+        price: product.fiyat,
+        currency: currency,
+        timestamp: Date.now()
+      }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <div className="max-w-7xl mx-auto px-6 py-12">
         
@@ -172,11 +185,7 @@ export default async function UrunDetayPage({ params }: Props) {
                   <div className="font-display font-bold text-sm uppercase text-center text-slate-500 tracking-widest py-3 border border-slate-200 bg-white">
                     TÜKENDİ
                   </div>
-                  {/* Stok Bildirim (Madde 7) */}
-                  <button className="w-full btn-outline justify-center gap-2 text-xs py-3 group">
-                    <Bell size={14} className="group-hover:animate-bounce" />
-                    Stok Gelince Haber Ver
-                  </button>
+                  <StockNotifyButton urun_id={product.id} urun_ad={product.ad} />
                 </div>
               ) : null}
               
@@ -228,6 +237,11 @@ export default async function UrunDetayPage({ params }: Props) {
             </div>
           </div>
         )}
+
+        {/* Değerlendirmeler / Yorumlar */}
+        <ProductReviews urun_id={product.id} />
+
+        <RecentlyViewed />
       </div>
     </div>
   )

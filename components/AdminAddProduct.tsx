@@ -39,6 +39,9 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
 
   const [fiyat, setFiyat] = useState(initialData?.fiyat || '')
   const [bayi_fiyati, setBayiF] = useState('')
+  const [sescim_fiyat, setSescimFiyat] = useState('')
+  const [sescim_indirimli_fiyat, setSescimIndirimli] = useState('')
+  const [is_featured, setIsFeatured] = useState(false)
   const [stok, setStok] = useState('stokta')
   const [paraBirimi, setParaBirimi] = useState(initialData?.paraBirimi || 'USD')
   const [bayiParaBirimi, setBayiParaBirimi] = useState('USD')
@@ -172,6 +175,9 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
       urun_tipi: detayCat?.name || null,
       fiyat: parseFloat(fiyat),
       bayi_fiyati: bayi_fiyati ? parseFloat(bayi_fiyati) : null,
+      sescim_fiyat: sescim_fiyat ? parseFloat(sescim_fiyat) : null,
+      sescim_indirimli_fiyat: sescim_indirimli_fiyat ? parseFloat(sescim_indirimli_fiyat) : null,
+      is_featured: is_featured,
       stok_durumu: stokDurumu,
       stok_adedi: stokAdetNum,
       kritik_stok: kritikStokNum,
@@ -233,7 +239,7 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     if (dbErr) { setError(`Kaydedilemedi: ${dbErr.message}`); return }
     setSuccess(true)
     setAd(''); setAciklama(''); setAnaCat(NEW_KATEGORI_HIYERARSI[0]); setAltCat(null); setDetayCat(null)
-    setFiyat(''); setBayiF(''); setStok('stokta'); setParaBirimi('USD'); setBayiParaBirimi('USD')
+    setFiyat(''); setBayiF(''); setSescimFiyat(''); setSescimIndirimli(''); setIsFeatured(false); setStok('stokta'); setParaBirimi('USD'); setBayiParaBirimi('USD')
     setMarka(''); setKullanimAlani(''); setStokAdedi('0'); setKritikStok('5')
     setEntries([])
     setTimeout(() => setSuccess(false), 3000)

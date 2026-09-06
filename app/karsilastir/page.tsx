@@ -4,10 +4,16 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { GitCompare, Trash2 } from 'lucide-react'
 import { clearCompareList, getCompareList, toggleCompare, type SavedProduct } from '@/lib/product-lists'
-import { formatFiyat } from '@/lib/kur'
+import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
+import { getKurClient } from '@/lib/kur-client'
 
 export default function KarsilastirPage() {
   const [items, setItems] = useState<SavedProduct[]>([])
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
+
+  useEffect(() => {
+    getKurClient().then(setKur).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const sync = () => setItems(getCompareList())
@@ -75,7 +81,7 @@ export default function KarsilastirPage() {
                 </thead>
                 <tbody>
                   {row('Kategori', items.map((i) => i.kategori))}
-                  {row('Fiyat', items.map((i) => (i.fiyat ? formatFiyat(i.fiyat, i.para_birimi || 'TRY') : '—')))}
+                  {row('Fiyat', items.map((i) => (i.fiyat ? formatFiyat(i.para_birimi && i.para_birimi !== 'TRY' ? dovizToTL(i.fiyat, i.para_birimi, kur) : i.fiyat, 'TRY') : '—')))}
                   {row('Stok Durumu', items.map((i) => i.stok_durumu || '—'))}
                   {row('Stok Adedi', items.map((i) => (i.stok_adedi ?? '—').toString()))}
                   {row('Kritik Seviye', items.map((i) => (i.kritik_stok ?? '—').toString()))}

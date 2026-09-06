@@ -92,7 +92,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           onFocus={() => query && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           placeholder="Ürün, kategori veya marka ara..."
-          className="flex-1 px-5 py-3 text-sm font-body font-medium text-slate-800 focus:outline-none placeholder:text-slate-400 bg-transparent"
+          className="flex-1 px-4 md:px-5 py-2.5 md:py-3 text-base md:text-sm font-body font-medium text-slate-800 focus:outline-none placeholder:text-slate-400 bg-transparent"
         />
         
         {query && !loading && (

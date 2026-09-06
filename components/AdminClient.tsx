@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { LogOut, Package, Users, ShoppingBag, LayoutDashboard, Layers, Mail, Download, Tag, MessageSquare, LifeBuoy, Zap, Merge, RotateCcw } from 'lucide-react'
+import { LogOut, Package, Users, ShoppingBag, LayoutDashboard, Layers, Mail, Download, Tag, MessageSquare, LifeBuoy, Zap, Merge, RotateCcw, Sparkles, Star } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const AdminDashboard = dynamic(() => import('./AdminDashboard'), {
@@ -24,6 +24,12 @@ const AdminCampaignManager = dynamic(() => import('./AdminCampaignManager'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
 const AdminBanners = dynamic(() => import('./AdminBanners'), {
+  loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
+})
+const AdminIlhamSetleri = dynamic(() => import('./AdminIlhamSetleri'), {
+  loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
+})
+const AdminProTercih = dynamic(() => import('./AdminProTercih'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
 
@@ -54,7 +60,7 @@ interface AdminClientProps {
   onSuccess?: () => void
 }
 
-type Tab = 'dashboard' | 'siparisler' | 'iadeler' | 'urunler' | 'markalar' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
+type Tab = 'dashboard' | 'siparisler' | 'iadeler' | 'urunler' | 'ilham_setleri' | 'pro_tercih' | 'markalar' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
 
 export default function AdminClient({ onSuccess }: AdminClientProps) {
   const [user, setUser] = useState<User | null>(null)
@@ -138,6 +144,8 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
     { id: 'siparisler' as Tab, label: 'Siparişler', icon: ShoppingBag, badge: bekleyenSiparis },
     { id: 'iadeler' as Tab, label: 'İade & Değişim', icon: RotateCcw },
     { id: 'urunler' as Tab, label: 'Ürünler', icon: Package },
+    { id: 'ilham_setleri' as Tab, label: 'İlham Setleri', icon: Sparkles },
+    { id: 'pro_tercih' as Tab, label: 'Pro Tercihleri', icon: Star },
     { id: 'markalar' as Tab, label: 'Markalar', icon: Merge },
     { id: 'uyeler' as Tab, label: 'Üye Yönetimi', icon: Users },
     { id: 'kupon' as Tab, label: 'Kupon Yönetimi', icon: Tag },
@@ -210,6 +218,8 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
           </div>
         )}
 
+        {activeTab === 'ilham_setleri' && <AdminIlhamSetleri supabase={supabase} />}
+        {activeTab === 'pro_tercih' && <AdminProTercih supabase={supabase} />}
         {activeTab === 'uyeler' && <AdminUyeYonetim />}
         {activeTab === 'kupon' && <AdminKuponYonetim />}
         {activeTab === 'kampanya' && <AdminCampaignManager />}

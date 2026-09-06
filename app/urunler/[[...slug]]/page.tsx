@@ -10,6 +10,9 @@ import { Filter, SlidersHorizontal, ChevronRight, X } from 'lucide-react'
 import { getActiveBanners } from '@/lib/banner-service'
 import BannerCarousel from '@/components/BannerCarousel'
 import ProductFilters from '@/components/ProductFilters'
+import { getActiveInspirationSets } from '@/lib/ilham-setleri'
+import { getProTercihProducts } from '@/lib/pro-tercih'
+import DiscoverCuratedSections from '@/components/DiscoverCuratedSections'
 
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { unstable_cache } from 'next/cache'
@@ -165,6 +168,8 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     sirala
   }
 
+  const isMainDiscoverPage = slugArray.length === 0 && !filters.q && !filters.marka && !filters.stok && !filters.min && !filters.max
+
   // Ürün sorgusu - sayfa zaten force-dynamic olduğundan ayrıca cache gerekmez
   const fetchProducts = async () => {
     const sb = await createAkdagServerClient()
@@ -194,7 +199,14 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     return q.range(from, to)
   }
 
-  let { data: products, count } = await fetchProducts() as any
+  let products: any[] = []
+  let count = 0
+
+  if (!isMainDiscoverPage) {
+    const res = await fetchProducts() as any
+    products = res.data || []
+    count = res.count || 0
+  }
 
   if (products && products.length > 0) {
     try {
@@ -228,6 +240,57 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
   // Aktif Bannerları Çek
   const banners = await getActiveBanners()
+
+  // Keşfet Sayfası Özel Vitrinleri (İlham Setleri, Pro Tercihi, Yeni Gelenler, Çok Satanlar, vb.)
+  let inspirationSets: any[] = []
+  let proTercihProducts: any[] = []
+  let newArrivals: any[] = []
+  let bestSellers: any[] = []
+  let forYouProducts: any[] = []
+
+  if (slugArray.length === 0) {
+    try {
+      const akdagClient = await createAkdagServerClient()
+      const [sets, proProds, newRes, bestRes, forYouRes] = await Promise.all([
+        getActiveInspirationSets(),
+        getProTercihProducts(),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).order('created_at', { ascending: false }).limit(8),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).gt('fiyat', 1000).order('fiyat', { ascending: false }).limit(8),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).in('kategori', ['Stüdyo Ekipmanları', 'Kulaklık & Monitör', 'DJ Ekipmanları']).limit(8),
+      ])
+
+      inspirationSets = sets || []
+      proTercihProducts = proProds || []
+      newArrivals = newRes.data || []
+      bestSellers = bestRes.data || []
+      forYouProducts = forYouRes.data || []
+
+      // Fiyatlandırma eşlemesi
+      const allCurated = [...newArrivals, ...bestSellers, ...forYouProducts]
+      const curIds = Array.from(new Set(allCurated.map((p: any) => p.id)))
+      if (curIds.length > 0) {
+        const pMap = await getSescimPricingMap(curIds)
+        const formatCurated = (list: any[]) => list.map((p: any) => {
+          const pr = pMap.get(p.id)
+          if (pr) {
+            return {
+              ...p,
+              sescim_fiyat: pr.sescim_fiyat,
+              sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
+              sescim_aktif: pr.sescim_aktif
+            }
+          }
+          return { ...p, sescim_aktif: true }
+        }).filter((p: any) => p.sescim_aktif === true)
+
+        newArrivals = formatCurated(newArrivals)
+        bestSellers = formatCurated(bestSellers)
+        forYouProducts = formatCurated(forYouProducts)
+      }
+    } catch (curErr) {
+      console.error('Discover curated load error:', curErr)
+    }
+  }
 
   const baseParams = new URLSearchParams()
   Object.entries(searchParams).forEach(([k, v]) => { if (v && k !== 'sayfa') baseParams.set(k, v) })
@@ -300,101 +363,119 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-[2px] bg-brand-red" />
           <span className="font-display font-black text-[10px] tracking-[0.4em] uppercase text-brand-red">
-            {activeCategory ? 'Kategori Kataloğu' : 'Tüm Ürünler'}
+            {activeCategory ? 'Kategori Kataloğu' : 'Keşfet & Çözüm Kataloğu'}
           </span>
         </div>
-        <div className="flex flex-col md:flex-row md:items-end gap-6 md:gap-12">
-          <h1 className="font-display font-black text-4xl md:text-6xl uppercase text-slate-900 tracking-tighter leading-none flex-shrink-0">
-            {activeCategory ? activeCategory.name : 'ÜRÜN KATALOĞU'}
-          </h1>
-          <div className="flex-1 max-w-xl">
-            <ProductSearch fullPage />
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display font-black text-4xl md:text-6xl uppercase text-slate-900 tracking-tighter leading-none">
+              {activeCategory ? activeCategory.name : 'KEŞFET'}
+            </h1>
+            {!activeCategory && (
+              <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl">
+                Aradığınız profesyonel ses, sahne ve stüdyo ekipmanlarını hazır çözümler, popüler tercihler ve uzman seçimleriyle keşfedin.
+              </p>
+            )}
           </div>
         </div>
+
+        {/* KEŞFET ÖZEL VİTRİNLERİ (Sadece Ana Keşfet Sayfasında Gösterilir) */}
+        {!activeCategory && (
+          <DiscoverCuratedSections
+            inspirationSets={inspirationSets}
+            proTercihProducts={proTercihProducts}
+            newArrivals={newArrivals}
+            bestSellers={bestSellers}
+            forYouProducts={forYouProducts}
+            markalar={markalar}
+          />
+        )}
       </div>
 
-      <div id="urun-listesi" className="max-w-7xl mx-auto px-6 pt-8 md:pt-16 flex flex-col lg:flex-row gap-8 scroll-mt-24">
-        
-        {/* Sidebar Filters */}
-        <div className="w-full lg:w-1/4 flex-shrink-0">
-          <ProductFilters 
-            markalar={markalar} 
-            kullanimAlanlari={kullanimAlanlari} 
-            searchParams={searchParams} 
-            slugArray={slugArray}
-          />
-        </div>
+      {!isMainDiscoverPage && (
+        <div id="tum-urunler-grid" className="max-w-7xl mx-auto px-6 pt-10 md:pt-16 flex flex-col lg:flex-row gap-8 scroll-mt-24">
+          
+          {/* Sidebar Filters */}
+          <div className="w-full lg:w-1/4 flex-shrink-0">
+            <ProductFilters 
+              markalar={markalar} 
+              kullanimAlanlari={kullanimAlanlari} 
+              searchParams={searchParams} 
+              slugArray={slugArray}
+            />
+          </div>
 
-        {/* Main Content */}
-        <div className="w-full lg:w-3/4 flex-1">
+          {/* Main Content */}
+          <div className="w-full lg:w-3/4 flex-1">
 
-        {/* Dinamik Kategori Gezgini */}
-        <div className="mb-12">
-          {!activeCategory ? (
-            <div className="flex flex-wrap gap-2">
-              {NEW_KATEGORI_HIYERARSI.map((kat) => (
-                <Link
-                  key={kat.slug}
-                  href={`/urunler/${kat.slug}`}
-                  className="font-display font-bold text-[10px] tracking-widest uppercase px-6 py-3 border border-slate-200 bg-white text-slate-500 hover:border-brand-red/40 hover:text-slate-900 transition-all duration-300"
-                >
-                  {kat.name}
-                </Link>
-              ))}
-            </div>
-          ) : activeCategory.children && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 text-slate-500">
-                <span className="font-display font-bold text-[9px] uppercase tracking-[0.3em] whitespace-nowrap">ALT KATEGORİLER</span>
-                <div className="h-px bg-slate-200 flex-1" />
-              </div>
+          {/* Dinamik Kategori Gezgini */}
+          <div className="mb-12">
+            {!activeCategory ? (
               <div className="flex flex-wrap gap-2">
-                {activeCategory.children.map((child: any) => (
+                {NEW_KATEGORI_HIYERARSI.map((kat) => (
                   <Link
-                    key={child.slug}
-                    href={`/urunler/${slugArray.join('/')}/${child.slug}`}
-                    className="font-display font-bold text-[10px] tracking-widest uppercase px-5 py-2.5 border border-brand-red/10 bg-brand-red/[0.02] text-brand-red/50 hover:bg-brand-red hover:text-white transition-all"
+                    key={kat.slug}
+                    href={`/urunler/${kat.slug}`}
+                    className="font-display font-bold text-[10px] tracking-widest uppercase px-6 py-3 border border-slate-200 bg-white text-slate-500 hover:border-brand-red/40 hover:text-slate-900 transition-all duration-300"
                   >
-                    {child.name}
+                    {kat.name}
                   </Link>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sonuç Sayacı */}
-        <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-200">
-          <div className="font-display font-bold text-[11px] tracking-widest text-slate-500 uppercase">
-             TOPLAM <span className="text-slate-900 ml-1">{count || 0}</span> ÜRÜN LİSTELENİYOR
+            ) : activeCategory.children && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 text-slate-500">
+                  <span className="font-display font-bold text-[9px] uppercase tracking-[0.3em] whitespace-nowrap">ALT KATEGORİLER</span>
+                  <div className="h-px bg-slate-200 flex-1" />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activeCategory.children.map((child: any) => (
+                    <Link
+                      key={child.slug}
+                      href={`/urunler/${slugArray.join('/')}/${child.slug}`}
+                      className="font-display font-bold text-[10px] tracking-widest uppercase px-5 py-2.5 border border-brand-red/10 bg-brand-red/[0.02] text-brand-red/50 hover:bg-brand-red hover:text-white transition-all"
+                    >
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          {count && count > 0 && (
-            <div className="font-body text-xs text-slate-500">
-              SAYFA {sayfa} / {totalPages}
+
+          {/* Sonuç Sayacı */}
+          <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-200">
+            <div className="font-display font-bold text-[11px] tracking-widest text-slate-500 uppercase">
+               TOPLAM <span className="text-slate-900 ml-1">{count || 0}</span> ÜRÜN LİSTELENİYOR
             </div>
-          )}
-        </div>
+            {count && count > 0 && (
+              <div className="font-body text-xs text-slate-500">
+                SAYFA {sayfa} / {totalPages}
+              </div>
+            )}
+          </div>
 
-        <Suspense key={`suspense-${categoryPath}-${sayfa}`} fallback={<GridSkeleton />}>
-          <ProductGrid 
-            key={`products-${categoryPath}-${sayfa}`}
-            products={products || []} 
-            searchQuery={searchParams.q} 
-          />
-        </Suspense>
-
-        {totalPages > 1 && (
-          <div className="mt-20">
-            <Pagination
-              currentPage={sayfa}
-              totalPages={totalPages}
-              baseParams={baseParams.toString()}
-              basePath={categoryPath}
+          <Suspense key={`suspense-${categoryPath}-${sayfa}`} fallback={<GridSkeleton />}>
+            <ProductGrid 
+              key={`products-${categoryPath}-${sayfa}`}
+              products={products || []} 
+              searchQuery={searchParams.q} 
             />
+          </Suspense>
+
+          {totalPages > 1 && (
+            <div className="mt-20">
+              <Pagination
+                currentPage={sayfa}
+                totalPages={totalPages}
+                baseParams={baseParams.toString()}
+                basePath={categoryPath}
+              />
+            </div>
+          )}
           </div>
-        )}
         </div>
-      </div>
+      )}
     </div>
   )
 }

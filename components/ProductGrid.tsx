@@ -38,6 +38,7 @@ interface Product {
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
   sescim_aktif?: boolean
+  created_at?: string | null
 }
 
 interface Props {
@@ -171,8 +172,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     slug: product.slug,
     ad: product.ad,
     kategori: product.kategori,
-    fiyat: product.sescim_fiyat ?? product.fiyat,
-    para_birimi: product.para_birimi,
+    fiyat: normalFiyatTL ?? (product.sescim_fiyat ?? product.fiyat),
+    para_birimi: 'TRY',
     stok_durumu: product.stok_durumu,
     stok_adedi: product.stok_adedi ?? null,
     kritik_stok: product.kritik_stok ?? null,
@@ -209,6 +210,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   }
 
   const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
+  const isNewProduct = product.created_at ? (Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000) : false
 
   return (
     <div 
@@ -234,8 +236,13 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             </div>
           )}
 
-          {/* Dinamik Rozetler (İndirim / Bugün Kargoda / Son X Ürün) */}
-          <div className="absolute top-2.5 left-2.5 z-10">
+          {/* Dinamik Rozetler (İndirim / YENİ / Stok) */}
+          <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
+            {isNewProduct && (
+              <span className="bg-blue-600 text-white text-[9px] font-display font-black uppercase px-2 py-0.5 rounded tracking-wider shadow-xs">
+                YENİ
+              </span>
+            )}
             <ProductBadges
               stokAdedi={product.stok_adedi}
               kritikStok={product.kritik_stok}
@@ -260,8 +267,22 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             <Eye size={12} /> Hızlı Bakış
           </button>
 
+          {/* Mobil Favori Butonu (Sağ Üst, Dokunmatik Dostu) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setFav(toggleFavorite(asSaved()))
+            }}
+            className="md:hidden absolute top-2 right-2 z-20 w-8 h-8 rounded-full bg-white/95 backdrop-blur-xs border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+            aria-label="Favoriye Ekle"
+          >
+            <Heart size={14} fill={fav ? '#DA291C' : 'none'} className={fav ? 'text-brand-red' : ''} />
+          </button>
+
           {isRecentUpdate && !indirimliFiyatTL && (
-            <div className="absolute top-2.5 right-2.5 bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs rounded-xs">
+            <div className="absolute top-2.5 right-2.5 hidden md:block bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs rounded-xs">
               YENİ FİYAT
             </div>
           )}
@@ -314,21 +335,21 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                 {new Date(product.fiyat_guncelleme).toLocaleDateString('tr-TR')}
               </div>
             )}
+            {/* Sade Mikro Bilgi (Stokta / Son X Adet) */}
             {stockCount !== null && (
-              <div className={`mt-2 font-display font-bold text-[10px] tracking-wider uppercase ${isCritical ? 'text-brand-red animate-pulse' : 'text-slate-400'}`}>
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
                 {stockCount <= 0 ? (
-                  <span className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-sm">
-                    <div className="w-1 h-1 rounded-full bg-red-500" />
-                    STOKTA YOK
+                  <span className="text-slate-400">Tükendi</span>
+                ) : isCritical ? (
+                  <span className="text-amber-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Son {stockCount} Adet
                   </span>
                 ) : (
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-1 h-1 rounded-full ${isCritical ? 'bg-brand-red' : 'bg-green-500'}`} />
-                      {stockCount > 20 ? 'STOKTA: 20+ ADET' : `STOKTA: ${stockCount} ADET`}
-                    </div>
-                    {isCritical && <span className="text-[9px] text-brand-red/60 leading-none">SON ÜRÜNLER!</span>}
-                  </div>
+                  <span className="text-emerald-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Stokta
+                  </span>
                 )}
               </div>
             )}
@@ -336,9 +357,41 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
         </div>
       </Link>
 
-      {/* Alt butonlar — Favori, Karşılaştır, Sepete Ekle */}
+      {/* Alt butonlar — Mobilde Geniş Dokunmatik Buton, Masaüstünde 3'lü Buton Grubu */}
       <div className="border-t border-slate-200 p-2">
-        <div className="grid grid-cols-3 gap-1.5">
+        {/* Mobilde Tam Genişlikte, Hatasız Dokunulabilir Buton */}
+        <div className="md:hidden">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            type="button"
+            onClick={handleAddToCart}
+            disabled={stok === 'tukendi'}
+            className={`w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
+              stok === 'tukendi'
+                ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                : cartAdded
+                ? 'bg-emerald-600 text-white'
+                : 'bg-brand-red hover:bg-brand-red-dark text-white'
+            }`}
+          >
+            {cartAdded ? (
+              <>
+                <Check size={14} />
+                <span>Eklendi</span>
+              </>
+            ) : stok === 'tukendi' ? (
+              <span>Tükendi</span>
+            ) : (
+              <>
+                <ShoppingCart size={14} />
+                <span>Sepete Ekle</span>
+              </>
+            )}
+          </motion.button>
+        </div>
+
+        {/* Masaüstünde: Mevcut 3'lü Buton Düzeni (Dokunulmadı) */}
+        <div className="hidden md:grid md:grid-cols-3 gap-1.5">
           <motion.button
             whileTap={{ scale: 0.9 }}
             type="button"

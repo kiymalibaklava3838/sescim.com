@@ -377,26 +377,26 @@ export default function SepetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-8 pb-24">
+    <div className="min-h-screen bg-slate-50 pt-4 sm:pt-8 pb-32 sm:pb-24 overflow-x-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 py-12 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6">
-          <Link href="/urunler" className="inline-flex items-center gap-2 font-body text-slate-500 hover:text-brand-red text-sm mb-6 transition-colors">
+      <div className="bg-white border-b border-slate-200 py-6 sm:py-12 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <Link href="/urunler" className="inline-flex items-center gap-2 font-body text-slate-500 hover:text-brand-red text-sm mb-4 sm:mb-6 transition-colors">
             <ArrowLeft size={14} /> Ürünlere dön
           </Link>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1 sm:mb-2">
             <div className="w-8 h-px bg-brand-red" />
             <span className="font-display font-semibold text-xs tracking-[0.3em] uppercase text-brand-red">Alışveriş</span>
           </div>
-          <h1 className="font-display font-black text-4xl md:text-6xl uppercase text-slate-900">Sepet</h1>
+          <h1 className="font-display font-black text-3xl sm:text-5xl md:text-6xl uppercase text-slate-900 tracking-tight">Sepet</h1>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 pt-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
         {doneNo && (
-          <div className="mb-10 bg-white border border-green-500/20 overflow-hidden relative shadow-lg rounded-xl">
+          <div className="mb-8 sm:mb-10 bg-white border border-green-500/20 overflow-hidden relative shadow-lg rounded-xl">
             <div className="absolute top-0 left-0 w-full h-1 bg-green-500" />
-            <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+            <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
@@ -417,10 +417,8 @@ export default function SepetPage() {
           </div>
         )}
 
-
-
         {!items.length && !doneNo ? (
-          <div className="text-center py-24 border border-slate-200 bg-white rounded-2xl shadow-sm">
+          <div className="text-center py-16 sm:py-24 border border-slate-200 bg-white rounded-2xl shadow-sm px-4">
             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <Store size={32} className="text-slate-300" />
             </div>
@@ -430,32 +428,39 @@ export default function SepetPage() {
         ) : null}
 
         {items.length > 0 && (
-          <div className="grid lg:grid-cols-3 gap-8 items-start">
+          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 items-start">
             
             {/* ÜRÜN LİSTESİ */}
             <div className="lg:col-span-2 space-y-4">
-              <h2 className="font-display font-black text-xl text-slate-800 mb-2 uppercase tracking-wide">Ürünleriniz</h2>
+              <h2 className="font-display font-black text-lg sm:text-xl text-slate-800 mb-2 uppercase tracking-wide">Ürünleriniz</h2>
               {items.map((i) => (
-                <div key={i.id} className="flex flex-col sm:flex-row gap-4 bg-white border border-slate-200 p-4 rounded-xl shadow-sm items-center hover:border-slate-300 transition-colors">
-                  <div className="relative w-24 h-24 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden border border-slate-100">
-                    {i.fotograf ? <Image src={i.fotograf} alt={i.ad} fill className="object-contain p-2" sizes="96px" /> : <div className="w-full h-full flex items-center justify-center"><Store className="text-slate-300" size={24}/></div>}
-                  </div>
-                  <div className="flex-1 min-w-0 text-center sm:text-left w-full">
-                    <Link href={`/urun/${i.id}`} className="font-display font-bold text-slate-800 text-sm hover:text-brand-red transition-colors uppercase tracking-wide truncate block">
-                      {i.ad}
-                    </Link>
-                    <div className="font-body text-slate-500 text-xs mt-1">{i.kategori}</div>
-                    <div className="font-display font-bold text-brand-red text-base mt-3 sm:mt-2">
-                      {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
-                      <span className="text-slate-400 font-body font-medium text-xs ml-2">({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})</span>
+                <div key={i.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white border border-slate-200 p-3.5 sm:p-4 rounded-xl shadow-xs hover:border-slate-300 transition-colors">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden border border-slate-100">
+                      {i.fotograf ? <Image src={i.fotograf} alt={i.ad} fill className="object-contain p-1.5" sizes="80px" /> : <div className="w-full h-full flex items-center justify-center"><Store className="text-slate-300" size={20}/></div>}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <Link href={`/urun/${i.id}`} className="font-display font-bold text-slate-800 text-xs sm:text-sm hover:text-brand-red transition-colors uppercase tracking-wide line-clamp-2 sm:truncate block">
+                        {i.ad}
+                      </Link>
+                      <div className="font-body text-slate-400 text-[11px] sm:text-xs mt-0.5 truncate">{i.kategori}</div>
+                      <div className="font-display font-bold text-brand-red text-sm sm:text-base mt-1">
+                        {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                        <span className="text-slate-400 font-body font-medium text-[11px] ml-1.5 hidden xs:inline">({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 mt-3 sm:mt-0 bg-slate-50 p-1 rounded-lg border border-slate-200">
-                    <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red hover:border-brand-red transition-colors shadow-sm" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }}><Minus size={14} /></button>
-                    <span className="w-6 text-center font-display font-bold text-sm text-slate-800">{i.adet}</span>
-                    <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red hover:border-brand-red transition-colors shadow-sm" onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }}><Plus size={14} /></button>
-                    <div className="w-px h-6 bg-slate-200 mx-1" />
-                    <button type="button" className="text-slate-400 hover:text-red-500 p-2 transition-colors" title="Ürünü Sil" onClick={() => { removeFromCart(i.id); refreshCart() }}><Trash2 size={16} /></button>
+                  <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
+                    <div className="sm:hidden font-display font-bold text-brand-red text-sm">
+                      {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-3 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                      <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red transition-colors shadow-xs" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }} aria-label="Azalt"><Minus size={12} /></button>
+                      <span className="w-5 text-center font-display font-bold text-xs sm:text-sm text-slate-800">{i.adet}</span>
+                      <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red transition-colors shadow-xs" onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }} aria-label="Artır"><Plus size={12} /></button>
+                      <div className="w-px h-5 bg-slate-200 mx-0.5" />
+                      <button type="button" className="text-slate-400 hover:text-red-500 p-1.5 transition-colors" title="Ürünü Sil" onClick={() => { removeFromCart(i.id); refreshCart() }} aria-label="Sil"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -466,7 +471,7 @@ export default function SepetPage() {
 
             {/* SİPARİŞ FORMU */}
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 lg:p-8 sticky top-24">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8 sticky top-24">
                 
                 {/* Kargo Bedava Barı */}
                 <div className="mb-6">
@@ -685,7 +690,7 @@ export default function SepetPage() {
                     <label className="font-display font-bold text-xs tracking-widest uppercase text-slate-600 block mb-2">Ad Soyad *</label>
                     <input className="input-base" placeholder="Adınız Soyadınız" value={adSoyad} onChange={(e) => setAdSoyad(e.target.value)} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="font-display font-bold text-xs tracking-widest uppercase text-slate-600 block mb-2">E-posta *</label>
                       <input type="email" className="input-base" placeholder="ornek@mail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -696,7 +701,7 @@ export default function SepetPage() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-5">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4 sm:space-y-5">
                     <div className="flex items-center justify-between">
                       <div className="font-display font-bold text-xs tracking-widest uppercase text-slate-600">Fatura Tipi</div>
                       <div className="flex bg-slate-200/50 p-1 rounded-lg border border-slate-200">
@@ -711,7 +716,7 @@ export default function SepetPage() {
                     {faturaTipi === 'kurumsal' && (
                       <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                         <input className="input-base text-sm py-2.5" value={firmaUnvani} onChange={e => setFirmaUnvani(e.target.value)} placeholder="Firma Ünvanı *" />
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <input className="input-base text-sm py-2.5" value={vergiDairesi} onChange={e => setVergiDairesi(e.target.value)} placeholder="Vergi Dairesi" />
                           <input className="input-base text-sm py-2.5" value={vergiNo} onChange={e => setVergiNo(e.target.value)} placeholder="Vergi No *" />
                         </div>
@@ -781,7 +786,7 @@ export default function SepetPage() {
                         )}
                         
                         <div className="space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
                                 İl (Şehir) *
@@ -915,18 +920,18 @@ export default function SepetPage() {
                 </div>
 
                 {/* Güven Rozetleri */}
-                <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 gap-2">
-                  <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-slate-50 border border-slate-100">
-                    <Check size={20} className="text-emerald-500 mb-1" />
-                    <span className="text-[10px] font-display font-bold uppercase text-slate-500">256-BİT SSL<br/>GÜVENLİ ÖDEME</span>
+                <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 gap-1.5 sm:gap-2">
+                  <div className="flex flex-col items-center justify-center text-center p-1.5 sm:p-2 rounded-lg bg-slate-50 border border-slate-100">
+                    <Check size={18} className="text-emerald-500 mb-1" />
+                    <span className="text-[9px] sm:text-[10px] font-display font-bold uppercase text-slate-500 leading-tight">256-BİT SSL<br/>GÜVENLİ ÖDEME</span>
                   </div>
-                  <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-slate-50 border border-slate-100">
-                    <Check size={20} className="text-emerald-500 mb-1" />
-                    <span className="text-[10px] font-display font-bold uppercase text-slate-500">DİSTRİBÜTÖR<br/>GARANTİLİ</span>
+                  <div className="flex flex-col items-center justify-center text-center p-1.5 sm:p-2 rounded-lg bg-slate-50 border border-slate-100">
+                    <Check size={18} className="text-emerald-500 mb-1" />
+                    <span className="text-[9px] sm:text-[10px] font-display font-bold uppercase text-slate-500 leading-tight">DİSTRİBÜTÖR<br/>GARANTİLİ</span>
                   </div>
-                  <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-slate-50 border border-slate-100">
-                    <Check size={20} className="text-emerald-500 mb-1" />
-                    <span className="text-[10px] font-display font-bold uppercase text-slate-500">HIZLI<br/>KARGO</span>
+                  <div className="flex flex-col items-center justify-center text-center p-1.5 sm:p-2 rounded-lg bg-slate-50 border border-slate-100">
+                    <Check size={18} className="text-emerald-500 mb-1" />
+                    <span className="text-[9px] sm:text-[10px] font-display font-bold uppercase text-slate-500 leading-tight">HIZLI<br/>KARGO</span>
                   </div>
                 </div>
               </div>
@@ -934,28 +939,30 @@ export default function SepetPage() {
           </div>
         )}
 
-        <div className="max-w-6xl mx-auto px-6 mb-12 mt-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 mb-12 mt-12">
           <RecentlyViewed />
         </div>
       </div>
 
         {payToken && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <div className="fixed inset-0 z-[100000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="shrink-0 flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50">
                 <div>
                   <span className="font-display font-bold text-xs tracking-widest uppercase text-slate-800">Güvenli Ödeme</span>
-                  <div className="text-[10px] text-amber-600 font-medium mt-1 flex items-center gap-1"><Info size={12}/> Ödemeyi tamamlamadan kapatmayınız.</div>
+                  <div className="text-[10px] text-amber-600 font-medium mt-0.5 flex items-center gap-1"><Info size={12}/> Ödemeyi tamamlamadan kapatmayınız.</div>
                 </div>
                 <button
                   type="button"
-                  className="text-slate-500 hover:text-brand-red hover:bg-brand-red/10 text-xs font-display font-bold uppercase tracking-wider border border-slate-200 hover:border-brand-red/30 rounded-lg px-4 py-2 transition-all"
+                  className="text-slate-500 hover:text-brand-red hover:bg-brand-red/10 text-xs font-display font-bold uppercase tracking-wider border border-slate-200 hover:border-brand-red/30 rounded-lg px-3 py-1.5 transition-all"
                   onClick={() => { setPayToken(null); setPayTrWarning(true) }}
                 >
                   İptal Et
                 </button>
               </div>
-              <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full flex-1 min-h-[560px] bg-white border-0" />
+              <div className="flex-1 min-h-0 w-full overflow-hidden">
+                <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full h-full bg-white border-0" />
+              </div>
             </div>
           </div>
         )}

@@ -26,6 +26,7 @@ import ProductViewTracker from '@/components/ProductViewTracker'
 import StockNotifyButton from '@/components/StockNotifyButton'
 import ProductReviews from '@/components/ProductReviews'
 import SmartBundleBuilder from '@/components/SmartBundleBuilder'
+import MobileStickyAddToCart from '@/components/MobileStickyAddToCart'
 
 interface Props { params: { slug: string } }
 
@@ -225,8 +226,9 @@ export default async function UrunDetayPage({ params }: Props) {
         slug: product.slug,
         name: product.ad,
         image: product.fotograflar?.[0] || null,
-        price: product.fiyat,
-        currency: pb,
+        price: priceTL,
+        currency: 'TRY',
+        category: product.kategori || product.urun_tipi || product.alt_kategori || null,
         timestamp: Date.now()
       }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
@@ -448,6 +450,9 @@ export default async function UrunDetayPage({ params }: Props) {
 
         <RecentlyViewed />
       </div>
+
+      {/* Mobilde ekran altına sabitlenen Satın Alma Çubuğu */}
+      <MobileStickyAddToCart product={product as any} />
     </div>
   )
 }

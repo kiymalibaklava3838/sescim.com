@@ -2,28 +2,20 @@
 
 import { useEffect } from 'react'
 import { ViewedProduct } from './RecentlyViewed'
+import { saveRecentlyViewed } from '@/lib/personalized-discover'
 
 export default function ProductViewTracker({ product }: { product: ViewedProduct }) {
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('sescim_recently_viewed')
-      let viewed: ViewedProduct[] = stored ? JSON.parse(stored) : []
-      
-      // Aynı ürün zaten varsa çıkar (en başa tekrar eklemek için)
-      viewed = viewed.filter((p) => p.id !== product.id)
-      
-      // En başa ekle
-      viewed.unshift(product)
-      
-      // Maksimum 12 ürün tut
-      if (viewed.length > 12) {
-        viewed = viewed.slice(0, 12)
-      }
-      
-      localStorage.setItem('sescim_recently_viewed', JSON.stringify(viewed))
-    } catch (e) {
-      console.error('Failed to save recently viewed product', e)
-    }
+    saveRecentlyViewed({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      currency: product.currency,
+      category: product.category,
+      timestamp: Date.now()
+    })
   }, [product])
 
   return null

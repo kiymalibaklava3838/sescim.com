@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
 import Script from 'next/script'
 import { GoogleAnalytics } from '@next/third-parties/google'
@@ -29,8 +29,15 @@ const barlowCondensed = Barlow_Condensed({
   display: 'swap',
 })
 
-const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false })
 const KvkkBanner = dynamic(() => import('@/components/KvkkBanner'), { ssr: false })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#0f172a',
+}
 
 export const metadata: Metadata = {
   title: {
@@ -145,10 +152,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartToast />
         <SpotlightSearch />
         <QuickViewModal />
-        <main>{children}</main>
+        <main className="flex-1 pb-16 lg:pb-0">{children}</main>
         <Footer />
         <MobileBottomNav />
-        <WhatsAppButton />
         <KvkkBanner />
         {/* Google Analytics - Yalnızca geçerli bir GA ID tanımlıysa yüklenir */}
         {hasValidGa && <GoogleAnalytics gaId={gaId} />}

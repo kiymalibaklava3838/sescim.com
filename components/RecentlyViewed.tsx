@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Package } from 'lucide-react'
-import { formatFiyat } from '@/lib/kur'
+import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
+import { getKurClient } from '@/lib/kur-client'
 
 export interface ViewedProduct {
   id: string
@@ -13,11 +14,17 @@ export interface ViewedProduct {
   image: string | null
   price: number | null
   currency: string
+  category?: string | null
   timestamp: number
 }
 
 export default function RecentlyViewed() {
   const [products, setProducts] = useState<ViewedProduct[]>([])
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
+
+  useEffect(() => {
+    getKurClient().then(setKur).catch(() => {})
+  }, [])
 
   useEffect(() => {
     try {
@@ -72,7 +79,14 @@ export default function RecentlyViewed() {
                 
                 <div className="mt-2 flex flex-col min-h-[24px] justify-end">
                   <span className="text-sm font-bold text-slate-900">
-                    {product.price ? formatFiyat(product.price, product.currency || 'TRY') : 'Fiyat Yok'}
+                    {product.price
+                      ? formatFiyat(
+                          product.currency && product.currency !== 'TRY'
+                            ? dovizToTL(product.price, product.currency, kur)
+                            : product.price,
+                          'TRY'
+                        )
+                      : 'Fiyat Yok'}
                   </span>
                 </div>
               </div>

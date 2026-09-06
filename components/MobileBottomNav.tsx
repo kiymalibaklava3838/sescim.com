@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutGrid, ShoppingCart, User } from 'lucide-react'
+import { Home, Compass, ShoppingCart, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getCartCount } from '@/lib/cart'
 
@@ -26,9 +26,9 @@ export default function MobileBottomNav() {
       icon: Home,
     },
     {
-      name: 'Kategoriler',
+      name: 'Keşfet',
       href: '/urunler',
-      icon: LayoutGrid,
+      icon: Compass,
     },
     {
       name: 'Sepet',
@@ -42,11 +42,16 @@ export default function MobileBottomNav() {
     },
   ]
 
+  // Ürün detay sayfasında alt çubuğu MobileStickyAddToCart devralır
+  if (pathname.startsWith('/urun/')) {
+    return null
+  }
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe">
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map((tab) => {
-          const isActive = tab.href !== '#' && pathname === tab.href
+          const isActive = tab.href === '/' ? pathname === '/' : pathname.startsWith(tab.href)
           const Icon = tab.icon
 
           return (

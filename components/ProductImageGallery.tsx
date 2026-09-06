@@ -2,17 +2,19 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Package, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
+import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProductImageGallery({ images, alt }: { images: string[]; alt: string }) {
   const [active, setActive] = useState(0)
-  const [direction, setDirection] = useState(0) // -1 for left, 1 for right
+  const [direction, setDirection] = useState(0)
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
   if (!images || images.length === 0) {
     return (
-      <div className="aspect-square bg-[#141414] border border-white/5 flex items-center justify-center">
-        <Package size={64} className="text-white/10" />
+      <div className="aspect-square bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center">
+        <Package size={64} className="text-slate-300" />
       </div>
     )
   }
@@ -32,10 +34,37 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
     setActive((prev) => (prev - 1 + images.length) % images.length)
   }
 
+  const minSwipeDistance = 45
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+    if (isLeftSwipe) {
+      nextImage()
+    } else if (isRightSwipe) {
+      prevImage()
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {/* Ana Görsel Alanı */}
-      <div className="relative aspect-square bg-[#141414] border border-white/5 overflow-hidden group">
+      <div 
+        className="relative aspect-square bg-white border border-slate-200/90 rounded-2xl overflow-hidden group select-none shadow-sm"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div
             key={active}
@@ -57,64 +86,62 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
               fill 
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-contain p-6 transition-transform duration-700 group-hover:scale-110" 
+              className="object-contain p-6 transition-transform duration-700 group-hover:scale-105" 
             />
           </motion.div>
         </AnimatePresence>
 
-        {/* Overlay Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-
-        {/* Navigasyon Okları */}
         {images.length > 1 && (
-          <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute top-3 right-3 z-20 bg-slate-900/70 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full font-mono">
+            {active + 1} / {images.length}
+          </div>
+        )}
+
+        {images.length > 1 && (
+          <div className="absolute inset-0 flex items-center justify-between px-3 pointer-events-none">
             <button
               onClick={prevImage}
-              className="w-10 h-10 bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-brand-red hover:border-brand-red transition-all transform hover:scale-110"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 md:bg-black/60 shadow-md md:backdrop-blur-md border border-slate-200 md:border-white/10 text-slate-800 md:text-white flex items-center justify-center hover:bg-brand-red hover:text-white md:hover:bg-brand-red md:hover:border-brand-red transition-all transform hover:scale-110 pointer-events-auto opacity-75 md:opacity-0 md:group-hover:opacity-100"
+              aria-label="Önceki Görsel"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={18} />
             </button>
             <button
               onClick={nextImage}
-              className="w-10 h-10 bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-brand-red hover:border-brand-red transition-all transform hover:scale-110"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 md:bg-black/60 shadow-md md:backdrop-blur-md border border-slate-200 md:border-white/10 text-slate-800 md:text-white flex items-center justify-center hover:bg-brand-red hover:text-white md:hover:bg-brand-red md:hover:border-brand-red transition-all transform hover:scale-110 pointer-events-auto opacity-75 md:opacity-0 md:group-hover:opacity-100"
+              aria-label="Sonraki Görsel"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={18} />
             </button>
           </div>
         )}
 
-        {/* Tam Ekran İkonu (Görsel amaçlı) */}
-        <div className="absolute bottom-4 right-4 text-white/20 group-hover:text-white/60 transition-colors">
-          <Maximize2 size={16} />
-        </div>
+        {images.length > 1 && (
+          <div className="md:hidden absolute bottom-3 inset-x-0 flex justify-center items-center gap-1.5 z-20 pointer-events-none">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={"h-1.5 rounded-full transition-all duration-300 " + (active === i ? "w-5 bg-brand-red" : "w-1.5 bg-slate-300")}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Küçük Resimler (Thumbnails) */}
       {images.length > 1 && (
-        <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide smooth-touch-scroll">
           {images.map((img, i) => (
             <button
               key={i}
               onClick={() => slideTo(i)}
-              className={`relative flex-shrink-0 w-20 h-20 border transition-all duration-300 ${
-                active === i 
-                  ? 'border-brand-red ring-1 ring-brand-red ring-offset-2 ring-offset-black' 
-                  : 'border-white/5 opacity-40 hover:opacity-100 hover:border-white/20'
-              }`}
+              className={"relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl border-2 transition-all duration-200 overflow-hidden bg-slate-50 " + (active === i ? "border-brand-red shadow-xs" : "border-slate-200 opacity-60 hover:opacity-100")}
             >
               <Image 
                 src={img} 
-                alt={`${alt} ${i + 1}`} 
+                alt={alt + " " + (i + 1)} 
                 fill 
-                className="object-cover" 
+                className="object-contain p-1" 
               />
-              {active === i && (
-                <motion.div 
-                  layoutId="activeThumb"
-                  className="absolute inset-0 border-2 border-brand-red z-10"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
-              )}
             </button>
           ))}
         </div>

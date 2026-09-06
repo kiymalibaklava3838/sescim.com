@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
-  Search, Phone, Heart, User, Menu, X, ChevronRight, 
+  Search, Phone, Heart, User, Menu, X, ChevronRight, Compass,
   Sparkles, Gift, Zap, Tag, Speaker, Lightbulb, Monitor, 
   Headphones, Music, Mic, Package, Plug, Truck, CircleDot 
 } from 'lucide-react'
@@ -31,7 +32,28 @@ export default function Navbar() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeMegaCategory, setActiveMegaCategory] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
   const supabase = useRef(createClient()).current
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setMobileMenuOpen(false)
+      }
+      window.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.body.style.overflow = ''
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    } else {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }: any) => {
@@ -95,6 +117,18 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
 
+  // Mobil menü açıkken arkadaki sayfanın kaydırılmasını kilitle
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
+
   return (
     <header className={`bg-white border-b border-slate-200 w-full z-50 sticky top-0 transition-all duration-500 ease-in-out ${
       isVisible ? 'translate-y-0' : '-translate-y-full'
@@ -133,6 +167,7 @@ export default function Navbar() {
           <button 
             className="md:hidden text-slate-700" 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Menüyü aç"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -187,28 +222,143 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Search & Menu Expanded */}
-      <div className={`md:hidden px-4 pb-4 ${mobileMenuOpen ? 'block' : 'hidden'}`}>
-        <div className="mb-4">
-          <ProductSearch fullPage />
-        </div>
-        
-        <div className="flex flex-col gap-2 border-t border-slate-100 pt-2">
-          {NEW_KATEGORI_HIYERARSI.map((kat) => (
-            <Link 
-              key={kat.slug} 
-              href={`/urunler/${kat.slug}`}
-              className="py-2 text-sm font-semibold text-slate-700 hover:text-brand-red transition-colors"
-            >
-              {kat.name}
-            </Link>
-          ))}
-          <Link href={user ? '/hesabim' : '/uye'} className="py-2 text-sm font-semibold text-brand-red flex items-center gap-2 mt-2 border-t border-slate-100 pt-4">
-            <User size={18} />
-            {user ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
-          </Link>
-        </div>
+      {/* Mobil Kalıcı Arama Çubuğu */}
+      <div className="md:hidden px-4 pb-3 pt-0.5 bg-white border-b border-slate-100">
+        <ProductSearch fullPage />
       </div>
+
+      {/* Mobil Kayar Menü Çekmecesi (Off-Canvas Drawer - React Portal ile Body'ye bağlanır) */}
+      {mounted && mobileMenuOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] md:hidden">
+          {/* Arka Plan Karartma (Tam Ekran) */}
+          <div 
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          {/* Çekmece Paneli (Tam Ekran Yüksekliği) */}
+          <div className="fixed inset-y-0 left-0 w-[85%] max-w-[320px] h-[100dvh] bg-white shadow-2xl flex flex-col z-[10000] animate-in slide-in-from-left duration-300">
+            {/* Çekmece Başlığı */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+                <Image 
+                  src="/logo.png" 
+                  alt="sescim.com" 
+                  width={120} 
+                  height={38} 
+                  className="object-contain h-7 w-auto" 
+                  priority
+                />
+              </Link>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-red active:scale-95 transition-all shadow-xs"
+                aria-label="Menüyü Kapat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Kullanıcı Giriş Durumu */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-brand-red/20 border border-brand-red/40 flex items-center justify-center text-brand-red shrink-0">
+                  <User size={20} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-400 font-medium leading-none mb-1">Hoş Geldiniz</div>
+                  <div className="text-sm font-bold truncate max-w-[150px]">
+                    {user ? (user.user_metadata?.full_name || user.email?.split('@')[0] || 'Hesabım') : 'Giriş Yap / Üye Ol'}
+                  </div>
+                </div>
+              </div>
+              <Link 
+                href={user ? '/hesabim' : '/uye'} 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded font-display uppercase tracking-wider font-semibold transition-colors shrink-0"
+              >
+                {user ? 'Hesap' : 'Giriş'}
+              </Link>
+            </div>
+
+            {/* Hızlı Kısayollar (Fırsatlar, Kuponlar, Outlet) */}
+            <div className="grid grid-cols-3 gap-1 p-2 bg-slate-100 border-b border-slate-200 text-center">
+              <Link
+                href="/firsatlar"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-1 rounded bg-white hover:bg-red-50 text-[11px] font-display font-bold uppercase text-slate-800 hover:text-brand-red flex flex-col items-center gap-1 shadow-xs transition-colors"
+              >
+                <Zap size={15} className="text-brand-red" />
+                <span>Fırsatlar</span>
+              </Link>
+              <Link
+                href="/kampanyalar"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-1 rounded bg-white hover:bg-amber-50 text-[11px] font-display font-bold uppercase text-slate-800 hover:text-amber-700 flex flex-col items-center gap-1 shadow-xs transition-colors"
+              >
+                <Gift size={15} className="text-amber-600" />
+                <span>Kuponlar</span>
+              </Link>
+              <Link
+                href="/outlet"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-1 rounded bg-white hover:bg-purple-50 text-[11px] font-display font-bold uppercase text-slate-800 hover:text-purple-700 flex flex-col items-center gap-1 shadow-xs transition-colors"
+              >
+                <Tag size={15} className="text-purple-600" />
+                <span>Outlet</span>
+              </Link>
+            </div>
+
+            {/* Kategoriler Listesi (Scroll edilebilir alan) */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 bg-white">
+              <div className="text-[10px] font-display font-bold uppercase tracking-widest text-slate-400 mb-2 px-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Compass size={13} className="text-brand-red" />
+                  Tüm Kategoriler
+                </span>
+                <span className="text-[9px] text-slate-400 font-mono">9 Kategori</span>
+              </div>
+              {NEW_KATEGORI_HIYERARSI.map((kat) => {
+                const Icon = categoryIcons[kat.name] || ChevronRight
+                return (
+                  <Link 
+                    key={kat.slug} 
+                    href={`/urunler/${kat.slug}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-red-50 hover:text-brand-red transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon size={16} className="text-slate-400 group-hover:text-brand-red" />
+                      <span>{kat.name}</span>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300" />
+                  </Link>
+                )
+              })}
+            </div>
+
+            {/* Alt Destek & İletişim */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 pb-safe">
+              <a 
+                href="https://wa.me/905323934370"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider shadow-xs transition-colors"
+              >
+                WhatsApp Ses Uzmanı
+              </a>
+              <a 
+                href="tel:+903522316915"
+                className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold font-display uppercase tracking-wider transition-colors"
+              >
+                <Phone size={13} className="text-brand-red" />
+                +90 352 231 69 15
+              </a>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Bottom Navbar (Categories) - Desktop */}
       <div className="border-t border-slate-200 hidden md:block bg-white shadow-sm relative z-40">

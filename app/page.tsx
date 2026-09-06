@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { Speaker, Lightbulb, Monitor, Headphones, Music, Mic, Package, Plug } from 'lucide-react'
 import FeaturedProducts from '@/components/FeaturedProducts'
 import HeroSlider from '@/components/HeroSlider'
-import BrandCarousel from '@/components/BrandCarousel'
 import TrustBadges from '@/components/TrustBadges'
+import WorldBrandsTrustBanner from '@/components/WorldBrandsTrustBanner'
 
 const categories = [
   { icon: Speaker, label: 'Ses Sistemleri', slug: 'ses-sistemleri' },
@@ -22,6 +22,9 @@ export default function HomePage() {
 
       {/* HERO SLIDER AREA */}
       <HeroSlider />
+
+      {/* DÜNYANIN MARKALARI SESCİM'DE — GÜVEN VİTRİNİ */}
+      <WorldBrandsTrustBanner />
 
       {/* CATEGORIES CIRCLES */}
       <section className="max-w-7xl mx-auto px-6 py-12">
@@ -45,9 +48,6 @@ export default function HomePage() {
 
       {/* ÖNE ÇIKAN ÜRÜNLER (Varsayılan) */}
       <FeaturedProducts />
-
-      {/* BRAND CAROUSEL */}
-      <BrandCarousel />
 
       {/* ÇOK SATANLAR */}
       <FeaturedProducts title="En Çok Satanlar" sortBy="fiyat" ascending={false} filterByFeatured={false} />

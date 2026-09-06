@@ -10,7 +10,7 @@ export const getProduct = unstable_cache(
   async (id: string) => {
     const supabase = await createAkdagServerClient()
     const result = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
+      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
       .eq('id', id)
       .single()
 
@@ -24,6 +24,8 @@ export const getProduct = unstable_cache(
       } catch (e) {
         console.error('Sescim pricing fetch failed for product', id, e)
       }
+      const { sanitizeProductForClient } = await import('./pricing-engine')
+      result.data = sanitizeProductForClient(result.data)
     }
     return result
   },
@@ -38,7 +40,7 @@ export const getProductBySlug = unstable_cache(
     const queryColumn = isUUID ? 'id' : 'slug'
 
     const result = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
+      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
       .eq(queryColumn, slug)
       .single()
 
@@ -52,6 +54,8 @@ export const getProductBySlug = unstable_cache(
       } catch (e) {
         console.error('Sescim pricing fetch failed for product slug', slug, e)
       }
+      const { sanitizeProductForClient } = await import('./pricing-engine')
+      result.data = sanitizeProductForClient(result.data)
     }
     return result
   },
@@ -64,7 +68,7 @@ export const getRelatedProducts = unstable_cache(
     const supabase = await createAkdagServerClient()
     const { data } = await supabase
       .from('urunler')
-      .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
+      .select('id, slug, ad, kategori, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
       .eq('kategori', kategori)
       .neq('id', excludeId)
       .limit(50) // Daha fazla ürün çek
@@ -102,7 +106,7 @@ export const getCrossSellProducts = unstable_cache(
     const supabase = await createAkdagServerClient()
     const { data } = await supabase
       .from('urunler')
-      .select('id, slug, ad, kategori, fotograflar, fiyat, bayi_fiyati, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
+      .select('id, slug, ad, kategori, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme')
       .eq('kategori', targetKategori)
       .limit(4)
 

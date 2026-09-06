@@ -9,7 +9,7 @@ export default function AdLogo({ size = 44 }: { size?: number }) {
   return (
     <Image
       src="/logo.png"
-      alt="Akdağ Elektronik Logo"
+      alt="sescim.com Logo"
       width={displayWidth}
       height={displayHeight}
       className="object-contain"

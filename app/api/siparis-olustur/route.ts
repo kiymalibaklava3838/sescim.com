@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/send-email'
 import { siparisOlusturSchema } from '@/lib/api-schemas'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
+import { calculateCouponDiscount } from '@/lib/coupon-helper'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -48,48 +49,10 @@ export async function POST(req: NextRequest) {
       indirim_tutari,
     } = parsed.data
 
-    let hesaplanan = urunler.reduce((s, u) => s + u.fiyat * u.adet, 0)
-    let appliedDiscount = 0
-
     const db = supabaseAdmin()
     const akdagDb = akdagAdmin()
 
-    if (kupon_kodu) {
-      const { data: kupon, error: kErr } = await db.from('kuponlar').select('*').eq('kod', kupon_kodu).eq('aktif', true).single()
-      if (kErr || !kupon) {
-        return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kupon' }, { status: 400 })
-      }
-      
-      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
-      if (isExpired) return NextResponse.json({ error: 'Kuponun süresi dolmuş' }, { status: 400 })
-      
-      if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
-        return NextResponse.json({ error: 'Kupon kullanım limiti dolmuş' }, { status: 400 })
-      }
-
-      if (kupon.min_tutar && hesaplanan < kupon.min_tutar) {
-        return NextResponse.json({ error: `Bu kupon en az ${kupon.min_tutar} ₺ alışverişte geçerlidir.` }, { status: 400 })
-      }
-
-      if (kupon.indirim_tipi === 'yuzde') {
-        appliedDiscount = hesaplanan * (kupon.indirim_miktari / 100)
-      } else {
-        appliedDiscount = kupon.indirim_miktari
-      }
-      
-      // Güvenlik: Frontend'den gelen indirim tutarı ile bizim hesapladığımız uyuşuyor mu?
-      if (indirim_tutari !== undefined && indirim_tutari !== null && Math.abs(appliedDiscount - indirim_tutari) > 0.05) {
-        return NextResponse.json({ error: 'Kupon tutarı doğrulanamadı' }, { status: 400 })
-      }
-
-      hesaplanan = Math.max(0, hesaplanan - appliedDiscount)
-    }
-
-    if (Math.abs(hesaplanan - toplam_tutar) > 0.05) {
-      return NextResponse.json({ error: 'Tutar doğrulanamadı' }, { status: 400 })
-    }
-
-    // Döviz kurlarını al (Geçmişe dönük değer takibi için)
+    // 1. Döviz kurlarını al
     let dolarKuru = 32.5
     let euroKuru = 35.2
     try {
@@ -101,12 +64,109 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
 
+    const kurObj = { USD: dolarKuru, EUR: euroKuru }
+
+    // 2. Sepetteki ürünlerin veritabanından yetkili gerçek fiyatlarını çek
+    const urunIds = Array.from(new Set(urunler.map((u) => u.urun_id).filter(Boolean)))
+    if (urunIds.length === 0) {
+      return NextResponse.json({ error: 'Sepette geçerli ürün bulunamadı' }, { status: 400 })
+    }
+
+    const { data: dbProducts, error: prodErr } = await akdagDb
+      .from('urunler')
+      .select('id, ad, kategori, alt_kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi')
+      .in('id', urunIds)
+
+    if (prodErr || !dbProducts) {
+      return NextResponse.json({ error: 'Ürün fiyatları doğrulanamadı' }, { status: 500 })
+    }
+
+    // Ürünlerin gerçek fiyatlarını hesapla ve doğrulanmış sepet dizisini oluştur
+    // Fiyat Hiyerarşisi:
+    // 1. Öncelik: sescim_fiyat (veya sescim_indirimli_fiyat)
+    // 2. Öncelik: fiyat (liste satış fiyatı) - Bayi fiyatı ASLA kullanılmaz
+    let serverAraToplam = 0
+    const verifiedUrunler: any[] = []
+
+    for (const item of urunler) {
+      const dbProd = dbProducts.find((p) => p.id === item.urun_id)
+      if (!dbProd) {
+        return NextResponse.json({ error: `Ürün bulunamadı: ${item.ad}` }, { status: 400 })
+      }
+
+      const basePrice = (dbProd.sescim_fiyat !== null && dbProd.sescim_fiyat !== undefined && Number(dbProd.sescim_fiyat) > 0)
+        ? Number(dbProd.sescim_fiyat)
+        : Number(dbProd.fiyat || 0)
+
+      const discountPrice = (dbProd.sescim_indirimli_fiyat !== null && dbProd.sescim_indirimli_fiyat !== undefined && Number(dbProd.sescim_indirimli_fiyat) > 0)
+        ? Number(dbProd.sescim_indirimli_fiyat)
+        : null
+
+      const finalUnitCurrencyPrice = discountPrice !== null ? discountPrice : basePrice
+      const pb = dbProd.para_birimi || 'TRY'
+
+      // Döviz to TL dönüşümü
+      let unitPriceTL = finalUnitCurrencyPrice
+      if (pb === 'USD') unitPriceTL = finalUnitCurrencyPrice * kurObj.USD
+      else if (pb === 'EUR') unitPriceTL = finalUnitCurrencyPrice * kurObj.EUR
+      unitPriceTL = Math.ceil(unitPriceTL)
+
+      const itemTotalTL = unitPriceTL * item.adet
+      serverAraToplam += itemTotalTL
+
+      verifiedUrunler.push({
+        ...item,
+        ad: dbProd.ad || item.ad,
+        kategori: dbProd.kategori || (item as any).kategori || null,
+        alt_kategori: dbProd.alt_kategori || (item as any).alt_kategori || null,
+        fiyat: unitPriceTL,
+        birim_fiyat_doviz: finalUnitCurrencyPrice,
+        para_birimi: pb,
+      })
+    }
+
+    let hesaplanan = serverAraToplam
+    let appliedDiscount = 0
+    const cleanKuponKodu = kupon_kodu ? kupon_kodu.trim().toUpperCase() : null
+
+    if (cleanKuponKodu) {
+      const { data: kupon, error: kErr } = await db.from('kuponlar').select('*').ilike('kod', cleanKuponKodu).eq('aktif', true).maybeSingle()
+      if (kErr || !kupon) {
+        return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kupon' }, { status: 400 })
+      }
+      
+      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
+      if (isExpired) return NextResponse.json({ error: 'Kuponun süresi dolmuş' }, { status: 400 })
+      
+      if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
+        return NextResponse.json({ error: 'Kupon kullanım limiti dolmuş' }, { status: 400 })
+      }
+
+      // Kategoriye ve minimum tutara göre doğrulanmış indirim tutarını hesapla
+      const discountResult = calculateCouponDiscount(kupon, verifiedUrunler, serverAraToplam)
+      if (discountResult.error) {
+        return NextResponse.json({ error: discountResult.error }, { status: 400 })
+      }
+
+      appliedDiscount = discountResult.discount
+      hesaplanan = Math.max(0, serverAraToplam - appliedDiscount)
+    }
+
+    const serverGenelToplam = hesaplanan
+
+    if (Math.abs(serverGenelToplam - toplam_tutar) > 2) {
+      return NextResponse.json({ 
+        error: 'Tutar doğrulanamadı. Sepetinizdeki ürün fiyatları veya kurlar güncellenmiş olabilir.',
+        guncel_tutar: serverGenelToplam
+      }, { status: 400 })
+    }
+
     const { data: siparis, error: dbErr } = await db
       .from('siparisler')
       .insert({
         user_id: user_id || null,
-        urunler,
-        toplam_tutar,
+        urunler: verifiedUrunler,
+        toplam_tutar: serverGenelToplam,
         ad_soyad,
         email,
         telefon,
@@ -176,14 +236,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Kupon kullanım sayısını artır
-    if (kupon_kodu) {
-      const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: kupon_kodu })
+    if (cleanKuponKodu) {
+      const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: cleanKuponKodu })
       if (rpcErr) {
         // Fallback if rpc is missing
-        const { data: kData } = await db.from('kuponlar').select('kullanim_sayisi').eq('kod', kupon_kodu).single()
+        const { data: kData } = await db.from('kuponlar').select('id, kullanim_sayisi').ilike('kod', cleanKuponKodu).maybeSingle()
         if (kData) {
-          await db.from('kuponlar').update({ kullanim_sayisi: kData.kullanim_sayisi + 1 }).eq('kod', kupon_kodu)
+          await db.from('kuponlar').update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 }).eq('id', kData.id)
         }
+      }
+
+      if (user_id) {
+        try {
+          await db.from('kullanici_kuponlari').update({
+            kullanildi: true,
+            kullanilma_tarihi: new Date().toISOString(),
+          }).eq('user_id', user_id).ilike('kupon_kodu', cleanKuponKodu)
+        } catch {}
       }
     }
 

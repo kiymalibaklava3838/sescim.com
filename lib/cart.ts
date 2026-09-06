@@ -122,6 +122,18 @@ export function addToCart(item: Omit<CartItem, 'adet'>) {
     cart.push({ ...item, adet: 1 })
   }
   saveCart(cart)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('cart-item-added', {
+        detail: {
+          id: item.id,
+          ad: item.ad,
+          fotograf: item.fotograf,
+          fiyat: item.indirimli_fiyat || item.fiyat,
+        },
+      })
+    )
+  }
 }
 
 export function addManyToCart(items: Array<Omit<CartItem, 'adet'> & { adet: number }>) {

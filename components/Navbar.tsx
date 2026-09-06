@@ -50,6 +50,30 @@ export default function Navbar() {
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [announcementCoupon, setAnnouncementCoupon] = useState<{ kod: string; miktar: string } | null>({ kod: 'SESCIM5', miktar: '%5' })
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('kuponlar')
+      .select('kod, indirim_tipi, indirim_miktari')
+      .eq('aktif', true)
+      .or('ozel_mi.is.null,ozel_mi.eq.false')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }: any) => {
+        if (data && data.length > 0) {
+          const k = data[0]
+          setAnnouncementCoupon({
+            kod: k.kod,
+            miktar: k.indirim_tipi === 'yuzde' ? `%${k.indirim_miktari}` : `${k.indirim_miktari} ₺`
+          })
+        } else {
+          setAnnouncementCoupon(null)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -75,14 +99,28 @@ export default function Navbar() {
     <header className={`bg-white border-b border-slate-200 w-full z-50 sticky top-0 transition-all duration-500 ease-in-out ${
       isVisible ? 'translate-y-0' : '-translate-y-full'
     } ${isScrolled ? 'shadow-lg' : ''}`}>
-      {/* Top small bar */}
-      <div className="bg-slate-100 text-slate-600 text-[11px] sm:text-xs py-1.5 px-4">
+      {/* Top announcement bar */}
+      <div className="bg-slate-900 text-slate-200 text-[11px] sm:text-xs py-1.5 px-4 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <span className="font-medium hidden sm:block">Türkiye'nin Ses, Işık & Görüntü Marketi</span>
-          <span className="font-medium sm:hidden">sescim.com</span>
-          <a href="tel:+903522316915" className="flex items-center gap-1.5 font-semibold hover:text-brand-red transition-colors">
-            <Phone size={12} />
-            +90 352 231 69 15
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="bg-brand-red text-white text-[9px] font-display font-black uppercase px-2 py-0.5 rounded tracking-wider shrink-0">
+              FIRSAT
+            </span>
+            <Link href="/kampanyalar" className="truncate hover:text-amber-300 transition-colors font-medium">
+              {announcementCoupon ? (
+                <>
+                  🎉 İlk Siparişinize Özel <span className="font-mono font-bold text-amber-300">{announcementCoupon.kod}</span> Koduyla {announcementCoupon.miktar} İndirim! | ₺1.999 Üzeri Kargo Bedava
+                </>
+              ) : (
+                <>
+                  🎉 Güncel Kampanyalar &amp; İndirim Kuponlarını Keşfedin! | ₺1.999 Üzeri Kargo Bedava
+                </>
+              )}
+            </Link>
+          </div>
+          <a href="tel:+903522316915" className="flex items-center gap-1.5 font-semibold text-slate-300 hover:text-white transition-colors shrink-0 ml-4">
+            <Phone size={12} className="text-brand-red" />
+            <span className="hidden sm:inline">+90 352 231 69 15</span>
           </a>
         </div>
       </div>
@@ -112,8 +150,18 @@ export default function Navbar() {
         </div>
 
         {/* Search Bar - Desktop */}
-        <div className="flex-1 max-w-3xl hidden md:block lg:mx-8">
-          <ProductSearch fullPage />
+        <div className="flex-1 max-w-3xl hidden md:flex items-center gap-2 lg:mx-8">
+          <div className="flex-1">
+            <ProductSearch fullPage />
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-spotlight-search'))}
+            className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-500 hover:text-slate-900 rounded-md text-xs font-mono transition-all shadow-sm shrink-0 cursor-pointer"
+            title="Spotlight Arama (Ctrl + K)"
+          >
+            <span className="text-[10px] font-sans font-semibold uppercase tracking-wider text-slate-400">Spotlight</span>
+            <kbd className="bg-white px-1.5 py-0.5 rounded border border-slate-300 text-[10px] font-bold text-slate-700 shadow-xs">Ctrl K</kbd>
+          </button>
         </div>
 
         {/* Right Actions */}

@@ -7,7 +7,9 @@ import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
 import KargoTakip from '@/components/KargoTakip'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map, Plus, Trash2, Star, Ticket, Copy, MessageSquare } from 'lucide-react'
+import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
+import OrderTimeline from '@/components/OrderTimeline'
+import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import type { User } from '@supabase/supabase-js'
 
 interface Degerlendirme {
@@ -32,6 +34,10 @@ interface Kupon {
   min_tutar: number | null
   gecerlilik_tarihi: string | null
   aktif: boolean
+  aciklama?: string | null
+  ozel_mi?: boolean
+  kaynak?: 'tanimli' | 'genel'
+  kategori?: string | null
 }
 
 interface UyeProfil {
@@ -109,6 +115,23 @@ export default function HesabimPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null)
   
+  // Kupon Cüzdanı States
+  const [tanimlanacakKod, setTanimlanacakKod] = useState('')
+  const [tanimlamaLoading, setTanimlamaLoading] = useState(false)
+  const [tanimlamaMesaj, setTanimlamaMesaj] = useState<{ tip: 'basari' | 'hata'; metin: string } | null>(null)
+  const [kuponFiltre, setKuponFiltre] = useState<'tumu' | 'tanimli' | 'genel'>('tumu')
+  const [tanimliKuponKodlari, setTanimliKuponKodlari] = useState<string[]>([])
+  
+  // İade & Değişim Talebi States
+  const [iadeModalOpen, setIadeModalOpen] = useState(false)
+  const [iadeOrder, setIadeOrder] = useState<Siparis | null>(null)
+  const [iadeTip, setIadeTip] = useState<'iade' | 'degisim'>('iade')
+  const [iadeSebep, setIadeSebep] = useState('Ürün Arızalı / Kusurlu Çıktı')
+  const [iadeAciklama, setIadeAciklama] = useState('')
+  const [iadeIban, setIadeIban] = useState('')
+  const [iadeLoading, setIadeLoading] = useState(false)
+  const [iadeResult, setIadeResult] = useState<any>(null)
+  
   // Profile States
   const [savingProfile, setSavingProfile] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -125,6 +148,7 @@ export default function HesabimPage() {
   // Address States
   const [showAddAddress, setShowAddAddress] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
+  const [selectedAddress, setSelectedAddress] = useState<Adres | null>(null)
   const [adresBasligi, setAdresBasligi] = useState('')
   const [adresAdSoyad, setAdresAdSoyad] = useState('')
   const [adresTelefon, setAdresTelefon] = useState('')
@@ -143,7 +167,7 @@ export default function HesabimPage() {
   const loadUserAndData = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) {
-      router.push('/giris')
+      router.push('/uye')
       return
     }
 
@@ -189,16 +213,141 @@ export default function HesabimPage() {
       
     setDegerlendirmeler(reviews || [])
 
-    // Kuponları Çek (Sadece aktif olanları listele)
+    // Kuponları ve Kullanıcıya Tanımlı Kuponları Çek
+    let savedCodes: string[] = []
+    try {
+      const { data: userCoupons } = await supabase
+        .from('kullanici_kuponlari')
+        .select('kupon_kodu')
+        .eq('user_id', session.user.id)
+      if (userCoupons && userCoupons.length > 0) {
+        savedCodes = userCoupons.map((uc: any) => uc.kupon_kodu)
+      }
+    } catch {
+      // Tablo henüz yoksa localStorage devrede
+    }
+
+    try {
+      const localSaved = JSON.parse(localStorage.getItem(`sescim_user_coupons_${session.user.id}`) || '[]')
+      if (Array.isArray(localSaved)) {
+        savedCodes = Array.from(new Set([...savedCodes, ...localSaved]))
+      }
+    } catch {}
+
+    setTanimliKuponKodlari(savedCodes)
+
+    // Tüm aktif kuponları çek
     const { data: coupons } = await supabase
       .from('kuponlar')
-      .select('id, kod, indirim_tipi, indirim_miktari, min_tutar, gecerlilik_tarihi, aktif')
+      .select('*')
       .eq('aktif', true)
       .order('created_at', { ascending: false })
       
-    setKuponlar(coupons || [])
+    if (coupons) {
+      const formatted = coupons
+        .filter((c: any) => {
+          // Eğer özel/gizli kuponsa, sadece kullanıcının tanımladıkları arasındaysa göster
+          if (c.ozel_mi === true) {
+            return savedCodes.includes(c.kod)
+          }
+          return true
+        })
+        .map((c: any) => ({
+          ...c,
+          kaynak: savedCodes.includes(c.kod) ? ('tanimli' as const) : ('genel' as const),
+        }))
+      setKuponlar(formatted)
+    } else {
+      setKuponlar([])
+    }
 
     setLoading(false)
+  }
+
+  const handleKuponTanimla = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanCode = tanimlanacakKod.trim().toUpperCase()
+    if (!cleanCode) return
+
+    setTanimlamaLoading(true)
+    setTanimlamaMesaj(null)
+
+    if (!user) {
+      setTanimlamaMesaj({ tip: 'hata', metin: 'Kupon tanımlamak için giriş yapmalısınız.' })
+      setTanimlamaLoading(false)
+      return
+    }
+
+    if (tanimliKuponKodlari.includes(cleanCode)) {
+      setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kupon kodu zaten hesabınızda tanımlı.` })
+      setTanimlamaLoading(false)
+      return
+    }
+
+    try {
+      const { data: kuponData, error: kErr } = await supabase
+        .from('kuponlar')
+        .select('*')
+        .ilike('kod', cleanCode)
+        .maybeSingle()
+
+      if (kErr || !kuponData) {
+        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" geçerli bir kupon kodu bulunamadı. Lütfen kodu kontrol edin.` })
+        setTanimlamaLoading(false)
+        return
+      }
+
+      if (!kuponData.aktif) {
+        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponu şu anda aktif değildir.` })
+        setTanimlamaLoading(false)
+        return
+      }
+
+      if (kuponData.gecerlilik_tarihi && new Date(kuponData.gecerlilik_tarihi).getTime() < Date.now()) {
+        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponunun son kullanma süresi dolmuştur.` })
+        setTanimlamaLoading(false)
+        return
+      }
+
+      if (kuponData.max_kullanim && kuponData.kullanim_sayisi >= kuponData.max_kullanim) {
+        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponunun toplam kullanım kotası dolmuştur.` })
+        setTanimlamaLoading(false)
+        return
+      }
+
+      // Başarılı: Hesaba ve localStorage'a ekle
+      const updatedSaved = Array.from(new Set([...tanimliKuponKodlari, kuponData.kod]))
+      setTanimliKuponKodlari(updatedSaved)
+
+      try {
+        localStorage.setItem(`sescim_user_coupons_${user.id}`, JSON.stringify(updatedSaved))
+      } catch {}
+
+      try {
+        await supabase.from('kullanici_kuponlari').insert({
+          user_id: user.id,
+          kupon_id: kuponData.id,
+          kupon_kodu: kuponData.kod,
+        })
+      } catch {}
+
+      setKuponlar(prev => {
+        const exists = prev.some(k => k.id === kuponData.id)
+        const formatted = { ...kuponData, kaynak: 'tanimli' as const }
+        return exists ? prev.map(k => (k.id === kuponData.id ? formatted : k)) : [formatted, ...prev]
+      })
+
+      setTanimlanacakKod('')
+      const indirimStr = kuponData.indirim_tipi === 'yuzde' ? `%${kuponData.indirim_miktari}` : `${kuponData.indirim_miktari} TL`
+      setTanimlamaMesaj({
+        tip: 'basari',
+        metin: `🎉 Harika! "${kuponData.kod}" (${indirimStr} İndirim) hesabınıza başarıyla tanımlandı. Alışverişlerinizde hemen kullanabilirsiniz.`
+      })
+    } catch (err: any) {
+      setTanimlamaMesaj({ tip: 'hata', metin: 'Kupon kontrol edilirken bir hata oluştu: ' + (err.message || 'Lütfen tekrar deneyin.') })
+    } finally {
+      setTanimlamaLoading(false)
+    }
   }
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -312,6 +461,50 @@ export default function HesabimPage() {
     setExpandedOrders(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
+  }
+
+  const openIadeModal = (s: Siparis) => {
+    setIadeOrder(s)
+    setIadeTip('iade')
+    setIadeSebep('Ürün Arızalı / Kusurlu Çıktı')
+    setIadeAciklama('')
+    setIadeIban('')
+    setIadeResult(null)
+    setIadeModalOpen(true)
+  }
+
+  const handleIadeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!iadeOrder) return
+    setIadeLoading(true)
+    try {
+      const res = await fetch('/api/iade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siparis_no: iadeOrder.siparis_no,
+          user_id: user?.id,
+          ad_soyad: profil ? `${profil.ad} ${profil.soyad}`.trim() : (user?.user_metadata?.full_name || user?.email || 'Müşteri'),
+          email: user?.email,
+          telefon: profil?.telefon || '',
+          tip: iadeTip,
+          sebep: iadeSebep,
+          aciklama: iadeAciklama,
+          iban: iadeIban,
+          urunler: iadeOrder.urunler || []
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setIadeResult(data.iade)
+      } else {
+        alert(data.error || 'İade talebi oluşturulurken bir sorun oluştu.')
+      }
+    } catch (err: any) {
+      alert('Bağlantı hatası: ' + err.message)
+    } finally {
+      setIadeLoading(false)
+    }
   }
 
   const handleReceiptUpload = async (siparisId: string, file: File) => {
@@ -535,6 +728,16 @@ export default function HesabimPage() {
                           {expandedOrders.includes(s.id) && (
                             <div className="mt-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
                               
+                              {/* Canlı Sipariş Zaman Çizelgesi (Timeline) */}
+                              <div className="mb-6">
+                                <OrderTimeline 
+                                  durum={s.durum} 
+                                  kargoTakipNo={s.kargo_takip_no} 
+                                  kargoFirmasi={s.kargo_firmasi} 
+                                  createdAt={s.created_at} 
+                                />
+                              </div>
+
                               <div className="grid md:grid-cols-3 gap-4 mb-6">
                                 <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
                                    <div className="flex items-center gap-2 mb-3 text-slate-600">
@@ -645,18 +848,41 @@ export default function HesabimPage() {
                                   )}
                                 </div>
 
-                                {s.kargo_takip_no && (
-                                  <a
-                                    href={`https://www.google.com/search?q=${encodeURIComponent(s.kargo_takip_no + ' kargo takip sorgula')}`}
+                                <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                                  {/* Sipariş Fişi / PDF */}
+                                  <Link
+                                    href={`/siparis/${s.siparis_no || s.id}/fatura`}
                                     target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex w-full md:w-auto items-center justify-center gap-2 text-slate-700 text-sm font-medium bg-white px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                                    className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:text-brand-red hover:border-brand-red/30 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
                                   >
-                                    <Truck size={16} className="text-slate-400" />
-                                    Kargo Takip
-                                    <ExternalLink size={14} className="text-slate-400 ml-1" />
-                                  </a>
-                                )}
+                                    <FileText size={14} className="text-slate-500" />
+                                    Sipariş Fişi / PDF
+                                  </Link>
+
+                                  {/* İade / Değişim Talebi */}
+                                  {(s.durum === 'teslim_edildi' || s.durum === 'tamamlandi' || s.durum === 'kargolandi') && (
+                                    <button
+                                      onClick={() => openIadeModal(s)}
+                                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
+                                    >
+                                      <RotateCcw size={14} className="text-amber-600" />
+                                      İade / Değişim Talebi
+                                    </button>
+                                  )}
+
+                                  {s.kargo_takip_no && (
+                                    <a
+                                      href={`https://www.google.com/search?q=${encodeURIComponent(s.kargo_takip_no + ' kargo takip sorgula')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center justify-center gap-2 text-slate-700 text-xs font-display font-bold uppercase tracking-wider bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                                    >
+                                      <Truck size={14} className="text-slate-400" />
+                                      Kargo Takip
+                                      <ExternalLink size={12} className="text-slate-400" />
+                                    </a>
+                                  )}
+                                </div>
                               </div>
 
                             </div>
@@ -817,12 +1043,36 @@ export default function HesabimPage() {
                           <input type="tel" required value={adresTelefon} onChange={e => setAdresTelefon(e.target.value)} className="input-base" />
                         </div>
                         <div>
-                          <label className="block font-medium text-xs text-slate-500 mb-1.5">İl</label>
-                          <input type="text" required value={adresSehir} onChange={e => setAdresSehir(e.target.value)} className="input-base" />
+                          <label className="block font-medium text-xs text-slate-500 mb-1.5">İl *</label>
+                          <select
+                            required
+                            value={adresSehir}
+                            onChange={(e) => {
+                              setAdresSehir(e.target.value)
+                              setAdresIlce('')
+                            }}
+                            className="input-base text-sm py-2.5 bg-white"
+                          >
+                            <option value="">İl Seçiniz</option>
+                            {IL_ISIMLERI.map((il) => (
+                              <option key={il} value={il}>{il}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
-                          <label className="block font-medium text-xs text-slate-500 mb-1.5">İlçe</label>
-                          <input type="text" required value={adresIlce} onChange={e => setAdresIlce(e.target.value)} className="input-base" />
+                          <label className="block font-medium text-xs text-slate-500 mb-1.5">İlçe *</label>
+                          <select
+                            required
+                            disabled={!adresSehir}
+                            value={adresIlce}
+                            onChange={(e) => setAdresIlce(e.target.value)}
+                            className="input-base text-sm py-2.5 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            <option value="">{adresSehir ? 'İlçe Seçiniz' : 'Önce İl Seçin'}</option>
+                            {getIlcelerByIl(adresSehir).map((ilce) => (
+                              <option key={ilce} value={ilce}>{ilce}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
 
@@ -965,89 +1215,517 @@ export default function HesabimPage() {
 
             {/* Kuponlarım Tab */}
             {activeTab === 'kuponlar' && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <h2 className="font-display font-bold text-xl text-slate-800 mb-6 flex items-center gap-3">
-                  Aktif Kuponlar
-                </h2>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-                  <Info size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 font-body">
-                    Aşağıdaki kupon kodlarını sepet aşamasında kullanarak indirimlerden faydalanabilirsiniz. Kuponu kopyalamak için üzerine tıklamanız yeterlidir.
-                  </p>
-                </div>
-
-                {kuponlar.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
-                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Ticket size={24} className="text-slate-300" />
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-8">
+                {/* Başlık ve Cüzdan Özeti */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-100">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="bg-brand-red/10 text-brand-red text-[10px] font-display font-black tracking-widest uppercase px-3 py-1 rounded-full">
+                        İndirim Cüzdanım
+                      </span>
                     </div>
-                    <p className="font-display font-semibold text-base text-slate-500 mb-2">
-                      Şu anda aktif bir kampanya/kupon bulunmuyor
+                    <h2 className="font-display font-black text-2xl md:text-3xl text-slate-900 tracking-tight">
+                      Kuponlarım &amp; Kampanyalar
+                    </h2>
+                    <p className="text-xs md:text-sm text-slate-500 font-body mt-1">
+                      Hesabınıza tanımlanan özel indirimleri görüntüleyebilir, Instagram veya duyuru kuponlarınızı ekleyebilirsiniz.
                     </p>
                   </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {kuponlar.map(kupon => {
-                      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
-                      if (isExpired) return null
-                      
-                      const indirimText = kupon.indirim_tipi === 'yuzde' 
-                        ? `%${kupon.indirim_miktari} İndirim`
-                        : `${kupon.indirim_miktari.toLocaleString('tr-TR')} TL İndirim`
+                </div>
 
-                      return (
-                        <div key={kupon.id} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:border-brand-red/30 transition-colors relative flex">
-                          {/* Sol Kısım - İndirim Tutarı */}
-                          <div className="bg-brand-red text-white flex flex-col justify-center items-center p-4 w-1/3 min-w-[100px] border-r-2 border-dashed border-white">
-                            <Ticket size={24} className="mb-2 opacity-80" />
-                            <div className="font-display font-black text-xl md:text-2xl text-center leading-none">
-                              {kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `₺${kupon.indirim_miktari}`}
+                {/* Kupon Kodu Tanımla (Özel Kod Ekleme Kartı) */}
+                <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl p-5 md:p-7 shadow-xl border border-slate-800 relative overflow-hidden">
+                  <div className="absolute -right-8 -bottom-8 w-44 h-44 bg-brand-red/20 rounded-full blur-3xl pointer-events-none" />
+                  <div className="relative z-10">
+                    <div className="flex items-start md:items-center justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center text-white shadow-md flex-shrink-0">
+                          <Ticket size={20} />
+                        </div>
+                        <div>
+                          <h3 className="font-display font-black text-base md:text-lg tracking-wide uppercase">
+                            Özel Kupon Kodu Tanımla
+                          </h3>
+                          <p className="text-xs text-slate-300 font-body mt-0.5">
+                            Instagram (@sescim), YouTube veya kampanya duyurularımızda paylaşılan indirim kodunuzu buraya girin.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleKuponTanimla} className="mt-4 flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={tanimlanacakKod}
+                          onChange={(e) => setTanimlanacakKod(e.target.value.toUpperCase())}
+                          placeholder="Örn: INSTA10, VIP15, SESCIMYAZ"
+                          className="w-full bg-white/10 border border-white/20 text-white placeholder-slate-400 px-4 py-3.5 rounded-xl text-sm font-display font-black tracking-widest uppercase focus:outline-none focus:bg-white/15 focus:border-brand-red transition-all"
+                        />
+                        {tanimlanacakKod && (
+                          <button
+                            type="button"
+                            onClick={() => setTanimlanacakKod('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs px-2 py-1"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={tanimlamaLoading || !tanimlanacakKod.trim()}
+                        className="px-6 py-3.5 bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs uppercase tracking-widest rounded-xl transition-all shadow-md hover:shadow-brand-red/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      >
+                        {tanimlamaLoading ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Kontrol Ediliyor...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={16} />
+                            Hesabıma Ekle
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    {tanimlamaMesaj && (
+                      <div
+                        className={`mt-4 p-3.5 rounded-xl text-xs font-body flex items-start gap-2.5 animate-in fade-in duration-200 ${
+                          tanimlamaMesaj.tip === 'basari'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                        }`}
+                      >
+                        {tanimlamaMesaj.tip === 'basari' ? (
+                          <CheckCircle size={18} className="flex-shrink-0 mt-0.5 text-emerald-400" />
+                        ) : (
+                          <AlertCircle size={18} className="flex-shrink-0 mt-0.5 text-red-400" />
+                        )}
+                        <span className="leading-relaxed">{tanimlamaMesaj.metin}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Kupon Filtreleme Sekmeleri */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setKuponFiltre('tumu')}
+                    className={`px-4 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-all ${
+                      kuponFiltre === 'tumu'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Tüm Kuponlar ({kuponlar.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKuponFiltre('tanimli')}
+                    className={`px-4 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-all ${
+                      kuponFiltre === 'tanimli'
+                        ? 'bg-brand-red text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Hesabıma Özel ({kuponlar.filter((k) => k.kaynak === 'tanimli').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKuponFiltre('genel')}
+                    className={`px-4 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-all ${
+                      kuponFiltre === 'genel'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Genel Kampanyalar ({kuponlar.filter((k) => k.kaynak !== 'tanimli').length})
+                  </button>
+                </div>
+
+                {/* Kupon Kartları Listesi */}
+                {(() => {
+                  const filtered = kuponlar.filter((k) => {
+                    const isExpired = k.gecerlilik_tarihi && new Date(k.gecerlilik_tarihi).getTime() < Date.now()
+                    if (isExpired) return false
+                    if (kuponFiltre === 'tanimli') return k.kaynak === 'tanimli'
+                    if (kuponFiltre === 'genel') return k.kaynak !== 'tanimli'
+                    return true
+                  })
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm">
+                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                          <Ticket size={28} className="text-slate-300" />
+                        </div>
+                        <h4 className="font-display font-bold text-base text-slate-700 mb-1">
+                          {kuponFiltre === 'tanimli'
+                            ? 'Hesabınıza Tanımlı Özel Kupon Bulunmuyor'
+                            : 'Şu Anda Aktif Kupon Bulunmuyor'}
+                        </h4>
+                        <p className="font-body text-xs text-slate-500 max-w-md mx-auto">
+                          Instagram veya diğer kampanyalardan edindiğiniz özel indirim kodunu yukarıdaki alandan tanımlayarak hesabınıza hemen ekleyebilirsiniz.
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {filtered.map((kupon) => {
+                        const indirimText =
+                          kupon.indirim_tipi === 'yuzde'
+                            ? `%${kupon.indirim_miktari} İndirim`
+                            : `${kupon.indirim_miktari.toLocaleString('tr-TR')} TL İndirim`
+
+                        const isInstagram =
+                          kupon.ozel_mi ||
+                          kupon.kod.startsWith('INSTA') ||
+                          (kupon.aciklama && kupon.aciklama.toLowerCase().includes('instagram'))
+
+                        return (
+                          <div
+                            key={kupon.id}
+                            className="bg-white border-2 border-slate-200 hover:border-brand-red/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                          >
+                            <div className="flex h-full">
+                              {/* Sol Bilet Başlığı */}
+                              <div className="w-1/3 min-w-[110px] bg-gradient-to-b from-brand-red to-red-700 text-white p-4 flex flex-col justify-center items-center text-center relative border-r-2 border-dashed border-white/60">
+                                <Ticket size={24} className="opacity-80 mb-2" />
+                                <div className="font-display font-black text-2xl md:text-3xl leading-none">
+                                  {kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `₺${kupon.indirim_miktari}`}
+                                </div>
+                                <span className="text-[10px] font-display font-bold uppercase tracking-widest mt-1 opacity-90">
+                                  İNDİRİM
+                                </span>
+                              </div>
+
+                              {/* Sağ Bilet Detayları */}
+                              <div className="flex-1 p-4 md:p-5 flex flex-col justify-between">
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                                    {kupon.kaynak === 'tanimli' ? (
+                                      <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        🔒 Hesabıma Özel
+                                      </span>
+                                    ) : (
+                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        🎁 Genel Kampanya
+                                      </span>
+                                    )}
+                                    {isInstagram && (
+                                      <span className="bg-pink-100 text-pink-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        📸 Instagram
+                                      </span>
+                                    )}
+                                    {kupon.kategori ? (
+                                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                        🏷️ {kupon.kategori}
+                                      </span>
+                                    ) : (
+                                      <span className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        🌐 Tüm Ürünler
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <h4 className="font-display font-bold text-slate-900 text-sm md:text-base leading-snug">
+                                    {kupon.aciklama || `${indirimText} Fırsatı`}
+                                  </h4>
+
+                                  <div className="text-xs text-slate-500 font-body mt-2 space-y-1">
+                                    {kupon.kategori ? (
+                                      <div className="text-amber-800 font-medium">
+                                        Kategori: <strong className="text-amber-900">{kupon.kategori}</strong>
+                                        <span className="text-[11px] text-amber-700 block sm:inline sm:ml-1">
+                                          (Yalnızca bu kategorideki ürünlerde geçerlidir)
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="text-slate-500">Tüm ürünlerde geçerlidir</div>
+                                    )}
+                                    {kupon.min_tutar ? (
+                                      <div>
+                                        Min. Sepet Tutarı: <strong className="text-slate-700">{kupon.min_tutar.toLocaleString('tr-TR')} ₺</strong>
+                                      </div>
+                                    ) : (
+                                      <div>Alt limitsiz geçerli</div>
+                                    )}
+                                    {kupon.gecerlilik_tarihi && (
+                                      <div>
+                                        Son Kullanım: <strong className="text-slate-700">{new Date(kupon.gecerlilik_tarihi).toLocaleDateString('tr-TR')}</strong>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Kod ve Eylem Butonları */}
+                                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                  <div className="flex-1 bg-slate-50 border border-slate-200 border-dashed rounded-lg px-3 py-2 flex items-center justify-between">
+                                    <span className="font-display font-black tracking-widest text-brand-red text-sm">
+                                      {kupon.kod}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(kupon.kod)
+                                        setCopiedCoupon(kupon.id)
+                                        setTimeout(() => setCopiedCoupon(null), 2000)
+                                      }}
+                                      className="text-slate-400 hover:text-slate-700 text-xs flex items-center gap-1 font-display font-semibold transition-colors"
+                                      title="Kodu Kopyala"
+                                    >
+                                      {copiedCoupon === kupon.id ? (
+                                        <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                                          <Check size={12} /> Kopyalandı
+                                        </span>
+                                      ) : (
+                                        <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                          <Copy size={12} /> Kopyala
+                                        </span>
+                                      )}
+                                    </button>
+                                  </div>
+
+                                  <Link
+                                    href={`/sepet?kupon=${encodeURIComponent(kupon.kod)}`}
+                                    className="px-3.5 py-2 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm"
+                                  >
+                                    <span>Sepette Kullan</span>
+                                    <ArrowRight size={13} />
+                                  </Link>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          
-                          {/* Sağ Kısım - Detaylar */}
-                          <div className="p-4 flex-1 flex flex-col justify-center relative">
-                            <div className="font-display font-bold text-slate-800 text-sm mb-1">{indirimText}</div>
-                            {kupon.min_tutar && (
-                              <div className="text-xs text-slate-500 mb-3 font-body">
-                                Min. Sepet: {kupon.min_tutar.toLocaleString('tr-TR')} ₺
-                              </div>
-                            )}
-                            
-                            <button 
-                              onClick={() => {
-                                navigator.clipboard.writeText(kupon.kod)
-                                setCopiedCoupon(kupon.id)
-                                setTimeout(() => setCopiedCoupon(null), 2000)
-                              }}
-                              className="group flex items-center justify-between bg-slate-100 hover:bg-slate-200 transition-colors p-2.5 rounded-lg border border-slate-200 border-dashed"
-                            >
-                              <span className="font-display font-black tracking-widest text-brand-red text-sm">{kupon.kod}</span>
-                              {copiedCoupon === kupon.id ? (
-                                <span className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-1"><Check size={12}/> Kopyalandı</span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase text-slate-400 group-hover:text-slate-600 flex items-center gap-1"><Copy size={12}/> Kopyala</span>
-                              )}
-                            </button>
-                            
-                            {kupon.gecerlilik_tarihi && (
-                              <div className="text-[10px] text-slate-400 mt-2 font-body text-right">
-                                Son Gün: {new Date(kupon.gecerlilik_tarihi).toLocaleDateString('tr-TR')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+
+                {/* Instagram & Sosyal Medya Kampanya Banner */}
+                <div className="bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 border border-pink-200/70 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                      <Gift size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-bold text-slate-900 text-sm md:text-base">
+                        Instagram &amp; Sosyal Medya Fırsatlarını Kaçırmayın!
+                      </h4>
+                      <p className="text-xs text-slate-600 font-body mt-0.5 max-w-xl">
+                        Instagram sayfamızda (@sescim) paylaşılan anlık flaş kupon kodlarını yukarıdaki alandan tanımlayarak sepette hemen indirim kazanabilirsiniz.
+                      </p>
+                    </div>
                   </div>
-                )}
+                  <Link
+                    href="/kampanyalar"
+                    className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-purple-600 hover:from-rose-700 hover:to-purple-700 text-white font-display font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-2 flex-shrink-0"
+                  >
+                    <span>Tüm Kampanyalar</span>
+                    <ExternalLink size={14} />
+                  </Link>
+                </div>
               </div>
             )}
 
           </div>
         </div>
       </div>
+
+      {/* Kolay İade & Değişim Modalı */}
+      {iadeModalOpen && iadeOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-slate-100">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <RotateCcw size={16} />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-base text-slate-800 uppercase">
+                    İade &amp; Değişim Talebi
+                  </h3>
+                  <p className="text-xs text-slate-500 font-body">Sipariş No: {iadeOrder.siparis_no}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIadeModalOpen(false)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {iadeResult ? (
+              /* Başarı Ekranı */
+              <div className="p-6 text-center space-y-4 animate-in fade-in duration-300">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                  <CheckCircle2 size={32} />
+                </div>
+                <div>
+                  <h4 className="font-display font-black text-xl text-slate-800">Talebiniz Alındı!</h4>
+                  <p className="text-xs text-slate-500 font-body mt-1">
+                    İade/değişim kaydınız başarıyla oluşturuldu.
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left space-y-2">
+                  <div className="font-display font-bold text-xs uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <Truck size={14} /> Ücretsiz Yurtiçi Kargo Gönderim Kodu
+                  </div>
+                  <div className="flex items-center justify-between bg-white border border-amber-300 rounded-lg px-3 py-2">
+                    <span className="font-mono font-black text-base text-brand-red">
+                      {iadeResult.kargo_kodu || '452918231'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(iadeResult.kargo_kodu || '452918231')
+                        alert('Kargo kodu kopyalandı!')
+                      }}
+                      className="text-xs font-display font-bold text-slate-600 hover:text-brand-red flex items-center gap-1"
+                    >
+                      <Copy size={12} /> Kopyala
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-body leading-relaxed">
+                    En yakın Yurtiçi Kargo şubesine giderek yukarıdaki anlaşma kodunu vermeniz yeterlidir. Kargo ücreti tarafımızca karşılanmaktadır.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left">
+                  <div className="text-[11px] text-slate-500 font-medium">Takip Numarası:</div>
+                  <div className="font-mono font-bold text-xs text-slate-800">{iadeResult.takip_kodu}</div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIadeModalOpen(false)}
+                  className="w-full btn-primary text-xs py-3 rounded-xl font-display font-bold uppercase tracking-wider"
+                >
+                  Kapat
+                </button>
+              </div>
+            ) : (
+              /* Form */
+              <form onSubmit={handleIadeSubmit} className="p-6 space-y-5">
+                {/* Talep Tipi Seçimi */}
+                <div>
+                  <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
+                    Talep Türü *
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIadeTip('iade')}
+                      className={`p-3 rounded-xl border text-center transition-all ${
+                        iadeTip === 'iade'
+                          ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
+                      }`}
+                    >
+                      Para İadesi (Geri Ödeme)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIadeTip('degisim')}
+                      className={`p-3 rounded-xl border text-center transition-all ${
+                        iadeTip === 'degisim'
+                          ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
+                      }`}
+                    >
+                      Ürün Değişimi
+                    </button>
+                  </div>
+                </div>
+
+                {/* İade Nedeni */}
+                <div>
+                  <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
+                    Nedeni Belirtin *
+                  </label>
+                  <select
+                    className="input-base text-sm py-2.5"
+                    value={iadeSebep}
+                    onChange={(e) => setIadeSebep(e.target.value)}
+                  >
+                    <option value="Ürün Arızalı / Kusurlu Çıktı">Ürün Arızalı / Kusurlu Çıktı</option>
+                    <option value="Yanlış veya Eksik Ürün Gönderildi">Yanlış veya Eksik Ürün Gönderildi</option>
+                    <option value="Beklentimi Karşılamadı / Cayma Hakkı">Beklentimi Karşılamadı / Cayma Hakkı</option>
+                    <option value="Farklı Model ile Değişim">Farklı Model ile Değişim</option>
+                    <option value="Kargo Sırasında Hasar Görmüş">Kargo Sırasında Hasar Görmüş</option>
+                    <option value="Diğer">Diğer</option>
+                  </select>
+                </div>
+
+                {/* IBAN */}
+                {iadeTip === 'iade' && (
+                  <div>
+                    <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-1">
+                      IBAN Bilginiz (Havale / İade İçin)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="TR00 0000 0000 0000 0000 0000 00"
+                      className="input-base text-sm py-2.5 font-mono"
+                      value={iadeIban}
+                      onChange={(e) => setIadeIban(e.target.value.toUpperCase())}
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Kredi kartı ödemelerinde tutar aynı karta; Havale/EFT ödemelerinde yukarıdaki IBAN adresine iade edilir.
+                    </p>
+                  </div>
+                )}
+
+                {/* Açıklama */}
+                <div>
+                  <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
+                    Ek Açıklama &amp; Notunuz
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Talebinizle ilgili eklemek istediğiniz detaylar..."
+                    className="input-base text-sm py-2"
+                    value={iadeAciklama}
+                    onChange={(e) => setIadeAciklama(e.target.value)}
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIadeModalOpen(false)}
+                    className="flex-1 py-3 border border-slate-200 text-slate-600 font-display font-bold text-xs uppercase rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={iadeLoading}
+                    className="flex-1 btn-primary py-3 text-xs font-display font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-2"
+                  >
+                    {iadeLoading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    {iadeLoading ? 'Gönderiliyor...' : 'Talebi Gönder'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -10,6 +10,9 @@ export interface SavedProduct {
   kritik_stok?: number | null
   marka?: string | null
   kullanim_alani?: string | null
+  fotograf?: string | null
+  fotograflar?: string[] | null
+  indirimli_fiyat?: number | null
 }
 
 const FAV_KEY = 'akdag-favoriler'

@@ -5,6 +5,9 @@ export interface SescimPricing {
   sescim_fiyat: number | null
   sescim_indirimli_fiyat: number | null
   sescim_aktif: boolean
+  is_outlet?: boolean
+  outlet_durum?: string | null
+  is_firsat?: boolean
   updated_at?: string
 }
 
@@ -32,7 +35,10 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           urun_id: item.urun_id,
           sescim_fiyat: item.sescim_fiyat !== null ? Number(item.sescim_fiyat) : null,
           sescim_indirimli_fiyat: item.sescim_indirimli_fiyat !== null ? Number(item.sescim_indirimli_fiyat) : null,
-          sescim_aktif: item.sescim_aktif !== false // default true
+          sescim_aktif: item.sescim_aktif !== false,
+          is_outlet: !!item.is_outlet,
+          outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
+          is_firsat: !!item.is_firsat,
         })
       })
     }
@@ -66,7 +72,10 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         urun_id: data.urun_id,
         sescim_fiyat: data.sescim_fiyat !== null ? Number(data.sescim_fiyat) : null,
         sescim_indirimli_fiyat: data.sescim_indirimli_fiyat !== null ? Number(data.sescim_indirimli_fiyat) : null,
-        sescim_aktif: data.sescim_aktif !== false
+        sescim_aktif: data.sescim_aktif !== false,
+        is_outlet: !!data.is_outlet,
+        outlet_durum: data.outlet_durum || 'Teşhir / B-Stock',
+        is_firsat: !!data.is_firsat,
       }
     }
   } catch (error) {
@@ -77,7 +86,14 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
 
 export async function upsertSescimPricing(
   urunId: string, 
-  data: { sescim_fiyat?: number | null, sescim_indirimli_fiyat?: number | null, sescim_aktif?: boolean }
+  data: { 
+    sescim_fiyat?: number | null
+    sescim_indirimli_fiyat?: number | null
+    sescim_aktif?: boolean
+    is_outlet?: boolean
+    outlet_durum?: string | null
+    is_firsat?: boolean
+  }
 ): Promise<boolean> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return false
@@ -90,6 +106,9 @@ export async function upsertSescimPricing(
         sescim_fiyat: data.sescim_fiyat,
         sescim_indirimli_fiyat: data.sescim_indirimli_fiyat,
         sescim_aktif: data.sescim_aktif,
+        is_outlet: data.is_outlet,
+        outlet_durum: data.outlet_durum,
+        is_firsat: data.is_firsat,
         updated_at: new Date().toISOString()
       }, { onConflict: 'urun_id' })
 

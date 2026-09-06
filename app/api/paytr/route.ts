@@ -28,8 +28,37 @@ export async function POST(req: NextRequest) {
     const { siparis_no, tutar, ad_soyad, email, telefon, urunler } = parsed.data
     const user_ip = ip
 
+    // Güvenlik: Sipariş tutarını veritabanından çek ve doğrula (İstemci fiyat manipülasyonu engeli)
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data: dbSiparis, error: siparisErr } = await supabaseAdmin
+      .from('siparisler')
+      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu')
+      .eq('siparis_no', siparis_no)
+      .single()
+
+    if (siparisErr || !dbSiparis) {
+      return NextResponse.json({ error: 'Sipariş kaydı bulunamadı.' }, { status: 404 })
+    }
+
+    if (dbSiparis.odeme_durumu === 'odendi') {
+      return NextResponse.json({ error: 'Bu siparişin ödemesi zaten alınmıştır.' }, { status: 400 })
+    }
+
+    // Gerçek ve onaylı veritabanı tutarı kullanılır
+    const gercekTutar = Number(dbSiparis.toplam_tutar)
+    const tutarKurus = Math.round(gercekTutar * 100).toString()
+
+    const musteriEmail = dbSiparis.email || email
+    const musteriAdSoyad = dbSiparis.ad_soyad || ad_soyad
+    const musteriTelefon = dbSiparis.telefon || telefon
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    const tutarKurus = Math.round(tutar * 100).toString()
 
     // PayTR, sepet öğeleri için TL cinsinden string bekler (örn: "150.00")
     const sepetIcerik = JSON.stringify(
@@ -43,7 +72,7 @@ export async function POST(req: NextRequest) {
       PAYTR_MERCHANT_ID,
       user_ip,
       siparis_no,
-      email,
+      musteriEmail,
       tutarKurus,
       sepetBase64,
       '0', // no_installment

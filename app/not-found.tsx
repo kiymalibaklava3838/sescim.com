@@ -3,29 +3,28 @@ import { AlertTriangle, Home, Search } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-6">
-      <div className="text-center max-w-lg">
-        <div className="relative inline-block mb-10">
-          <div className="absolute inset-0 bg-brand-red blur-[100px] opacity-20" />
-          <AlertTriangle size={80} className="text-brand-red relative z-10" />
+    <div className="min-h-[75vh] bg-slate-50 flex items-center justify-center px-6 py-20">
+      <div className="text-center max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl p-8 sm:p-12">
+        <div className="w-20 h-20 bg-rose-50 border border-rose-200 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-red">
+          <AlertTriangle size={40} className="text-brand-red" />
         </div>
         
-        <h1 className="font-display font-black text-6xl md:text-8xl text-white uppercase tracking-tighter mb-4">404</h1>
-        <p className="font-display font-bold text-xl text-white/60 uppercase tracking-widest mb-8">Sayfa Bulunamadı</p>
+        <h1 className="font-display font-black text-6xl md:text-7xl text-slate-900 uppercase tracking-tighter mb-2">404</h1>
+        <p className="font-display font-bold text-lg text-slate-700 uppercase tracking-widest mb-6">Sayfa Bulunamadı</p>
         
-        <div className="w-12 h-1 bg-brand-red mx-auto mb-8" />
+        <div className="w-12 h-1 bg-brand-red mx-auto mb-6 rounded-full" />
         
-        <p className="font-body text-white/30 mb-12 leading-relaxed">
+        <p className="font-body text-slate-500 text-sm leading-relaxed mb-8">
           Aradığınız sayfa silinmiş, ismi değiştirilmiş veya geçici olarak kullanım dışı kalmış olabilir. 
-          Kataloğumuza göz atarak aradığınız ürünü bulabilirsiniz.
+          Kataloğumuza göz atarak aradığınız ürünü kolayca bulabilirsiniz.
         </p>
         
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/" className="btn-primary w-full sm:w-auto justify-center px-10">
-            <Home size={16} /> ANA SAYFAYA DÖN
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link href="/" className="btn-primary w-full sm:w-auto justify-center px-6 py-3 text-xs tracking-wider uppercase font-bold rounded-xl shadow-md">
+            <Home size={15} /> ANA SAYFAYA DÖN
           </Link>
-          <Link href="/urunler" className="btn-outline w-full sm:w-auto justify-center px-10">
-            <Search size={16} /> ÜRÜN ARA
+          <Link href="/urunler" className="btn-outline w-full sm:w-auto justify-center px-6 py-3 text-xs tracking-wider uppercase font-bold rounded-xl">
+            <Search size={15} /> ÜRÜN ARA
           </Link>
         </div>
       </div>

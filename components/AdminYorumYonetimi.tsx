@@ -78,7 +78,31 @@ export default function AdminYorumYonetimi() {
                   <span className="text-[10px] text-slate-400 font-body">{new Date(yorum.created_at).toLocaleDateString('tr-TR')}</span>
                 </div>
                 {yorum.baslik && <h4 className="font-bold text-sm text-slate-900 font-display mb-1">{yorum.baslik}</h4>}
-                <p className="text-sm text-slate-600 font-body mb-2">{yorum.yorum}</p>
+                {(() => {
+                  let cleanText = yorum.yorum
+                  let photos: string[] = []
+                  const match = yorum.yorum?.match(/<!--PHOTOS:(.*?)-->/)
+                  if (match && match[1]) {
+                    try {
+                      photos = JSON.parse(match[1])
+                      cleanText = yorum.yorum.replace(/<!--PHOTOS:(.*?)-->/g, '').trim()
+                    } catch (e) {}
+                  }
+                  return (
+                    <div>
+                      <p className="text-sm text-slate-600 font-body mb-2">{cleanText}</p>
+                      {photos.length > 0 && (
+                        <div className="flex gap-2 mb-2">
+                          {photos.map((p, idx) => (
+                            <a key={idx} href={p} target="_blank" rel="noopener noreferrer" className="block relative w-12 h-12 rounded border border-slate-200 overflow-hidden hover:opacity-80 transition-opacity">
+                              <img src={p} alt="Yorum fotoğrafı" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
                 <div className="text-[10px] text-slate-400 font-body">Ürün ID: {yorum.urun_id}</div>
               </div>
               <div className="flex flex-col gap-2 shrink-0">

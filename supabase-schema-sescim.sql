@@ -137,6 +137,85 @@ CREATE POLICY "Uye kendi adreslerini yonetebilir"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS kullanici_adresleri (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  adres_basligi TEXT NOT NULL DEFAULT 'Ev',
+  ad_soyad TEXT NOT NULL,
+  telefon TEXT NOT NULL,
+  sehir TEXT NOT NULL,
+  ilce TEXT NOT NULL,
+  acik_adres TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE kullanici_adresleri ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Uye kendi kullanici adreslerini yonetebilir" ON kullanici_adresleri;
+CREATE POLICY "Uye kendi kullanici adreslerini yonetebilir"
+  ON kullanici_adresleri FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS sescim_fiyatlar (
+  urun_id UUID PRIMARY KEY,
+  sescim_fiyat DECIMAL(10,2),
+  sescim_indirimli_fiyat DECIMAL(10,2),
+  sescim_aktif BOOLEAN DEFAULT true,
+  is_outlet BOOLEAN DEFAULT false,
+  outlet_durum TEXT DEFAULT 'Teşhir Ürünü - 1 Yıl Garanti',
+  is_firsat BOOLEAN DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE sescim_fiyatlar ADD COLUMN IF NOT EXISTS is_outlet BOOLEAN DEFAULT false;
+ALTER TABLE sescim_fiyatlar ADD COLUMN IF NOT EXISTS outlet_durum TEXT DEFAULT 'Teşhir Ürünü - 1 Yıl Garanti';
+ALTER TABLE sescim_fiyatlar ADD COLUMN IF NOT EXISTS is_firsat BOOLEAN DEFAULT false;
+
+ALTER TABLE sescim_fiyatlar ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Herkes sescim fiyatlarini okuyabilir" ON sescim_fiyatlar;
+CREATE POLICY "Herkes sescim fiyatlarini okuyabilir" ON sescim_fiyatlar FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "Admin sescim fiyatlarini yonetebilir" ON sescim_fiyatlar;
+CREATE POLICY "Admin sescim fiyatlarini yonetebilir" ON sescim_fiyatlar FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()));
+
+CREATE TABLE IF NOT EXISTS outlet_urunler (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  urun_id UUID NOT NULL,
+  outlet_fiyat DECIMAL(10,2) NOT NULL,
+  durum_aciklamasi TEXT DEFAULT 'Teşhir / B-Stock - 1 Yıl Garanti',
+  stok_adedi INTEGER DEFAULT 1,
+  aktif BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE outlet_urunler ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Herkes aktif outlet urunleri okuyabilir" ON outlet_urunler;
+CREATE POLICY "Herkes aktif outlet urunleri okuyabilir" ON outlet_urunler FOR SELECT TO public USING (aktif = true);
+DROP POLICY IF EXISTS "Admin outlet urunleri yonetebilir" ON outlet_urunler;
+CREATE POLICY "Admin outlet urunleri yonetebilir" ON outlet_urunler FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()));
+
+CREATE TABLE IF NOT EXISTS flas_indirimler (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  urun_id UUID NOT NULL,
+  indirimli_fiyat DECIMAL(10,2) NOT NULL,
+  baslangic_tarihi TIMESTAMPTZ NOT NULL,
+  bitis_tarihi TIMESTAMPTZ NOT NULL,
+  aktif BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE flas_indirimler ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Herkes aktif flas indirimleri okuyabilir" ON flas_indirimler;
+CREATE POLICY "Herkes aktif flas indirimleri okuyabilir" ON flas_indirimler FOR SELECT TO public USING (aktif = true);
+DROP POLICY IF EXISTS "Admin flas indirimleri yonetebilir" ON flas_indirimler;
+CREATE POLICY "Admin flas indirimleri yonetebilir" ON flas_indirimler FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()));
+
 -- ─────────────────────────────────────────────
 -- 5) SİPARİŞLER (SCM- prefix)
 -- ─────────────────────────────────────────────
@@ -255,8 +334,15 @@ CREATE TABLE IF NOT EXISTS kuponlar (
   kullanim_sayisi INTEGER DEFAULT 0,
   gecerlilik_tarihi TIMESTAMPTZ,
   aktif BOOLEAN DEFAULT true,
+  aciklama TEXT,
+  ozel_mi BOOLEAN DEFAULT false,
+  kategori TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE kuponlar ADD COLUMN IF NOT EXISTS aciklama TEXT;
+ALTER TABLE kuponlar ADD COLUMN IF NOT EXISTS ozel_mi BOOLEAN DEFAULT false;
+ALTER TABLE kuponlar ADD COLUMN IF NOT EXISTS kategori TEXT;
 
 ALTER TABLE kuponlar ENABLE ROW LEVEL SECURITY;
 
@@ -270,6 +356,50 @@ DROP POLICY IF EXISTS "Herkes aktif kuponu okuyabilir" ON kuponlar;
 CREATE POLICY "Herkes aktif kuponu okuyabilir"
   ON kuponlar FOR SELECT TO public
   USING (aktif = true);
+
+-- 7.1) KULLANICI KUPONLARI (Kullanıcının hesabına tanımladığı / kaydettiği özel kuponlar)
+CREATE TABLE IF NOT EXISTS kullanici_kuponlari (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  kupon_id UUID NOT NULL REFERENCES kuponlar(id) ON DELETE CASCADE,
+  kupon_kodu TEXT NOT NULL,
+  eklenme_tarihi TIMESTAMPTZ DEFAULT NOW(),
+  kullanildi BOOLEAN DEFAULT false,
+  kullanilma_tarihi TIMESTAMPTZ,
+  UNIQUE(user_id, kupon_id)
+);
+
+ALTER TABLE kullanici_kuponlari ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Kullanici kendi kuponlarini okuyabilir" ON kullanici_kuponlari;
+CREATE POLICY "Kullanici kendi kuponlarini okuyabilir"
+  ON kullanici_kuponlari FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Kullanici kupon tanimlayabilir" ON kullanici_kuponlari;
+CREATE POLICY "Kullanici kupon tanimlayabilir"
+  ON kullanici_kuponlari FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Kullanici kendi kuponunu guncelleyebilir" ON kullanici_kuponlari;
+CREATE POLICY "Kullanici kendi kuponunu guncelleyebilir"
+  ON kullanici_kuponlari FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admin tum kullanici kuponlarini yonetebilir" ON kullanici_kuponlari;
+CREATE POLICY "Admin tum kullanici kuponlarini yonetebilir"
+  ON kullanici_kuponlari FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM site_admins s WHERE s.user_id = auth.uid()));
+
+-- Başlangıç Kampanya Kuponları
+INSERT INTO kuponlar (kod, indirim_tipi, indirim_miktari, min_tutar, aciklama, aktif, ozel_mi, kategori)
+VALUES 
+  ('SESCIM5', 'yuzde', 5.00, 1000.00, 'İlk Siparişe Özel %5 Hoşgeldin İndirimi', true, false, NULL),
+  ('HOSGELDIN', 'sabit', 100.00, 2500.00, '2.500 TL ve Üzeri Alışverişlerde 100 TL İndirim', true, false, NULL),
+  ('PROSTUDIO', 'yuzde', 10.00, 5000.00, 'Seçili Pro Ses ve Stüdyo Ekipmanlarında %10 İndirim', true, false, 'Stüdyo & Kayıt')
+ON CONFLICT (kod) DO NOTHING;
 
 -- ─────────────────────────────────────────────
 -- 8) İLETİŞİM MESAJLARI
@@ -366,10 +496,14 @@ CREATE TABLE IF NOT EXISTS kampanya_gecmisi (
 
 ALTER TABLE kampanya_gecmisi ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin kampanya gorebilir" ON kampanya_gecmisi;
+DROP POLICY IF EXISTS "Sadece adminler kampanya geçmişini görebilir" ON kampanya_gecmisi;
 CREATE POLICY "Admin kampanya gorebilir"
   ON kampanya_gecmisi FOR SELECT TO authenticated
   USING (auth.uid() IN (SELECT user_id FROM site_admins));
 
+DROP POLICY IF EXISTS "Admin kampanya ekleyebilir" ON kampanya_gecmisi;
+DROP POLICY IF EXISTS "Sadece adminler kampanya ekleyebilir" ON kampanya_gecmisi;
 CREATE POLICY "Admin kampanya ekleyebilir"
   ON kampanya_gecmisi FOR INSERT TO authenticated
   WITH CHECK (auth.uid() IN (SELECT user_id FROM site_admins));

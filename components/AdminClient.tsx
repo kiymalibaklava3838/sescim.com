@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { LogOut, Package, Users, ShoppingBag, LayoutDashboard, Layers, Mail, Download, Tag, MessageSquare, LifeBuoy, Zap, Merge } from 'lucide-react'
+import { LogOut, Package, Users, ShoppingBag, LayoutDashboard, Layers, Mail, Download, Tag, MessageSquare, LifeBuoy, Zap, Merge, RotateCcw } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const AdminDashboard = dynamic(() => import('./AdminDashboard'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
 const AdminSiparisler = dynamic(() => import('./AdminSiparisler'), {
+  loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
+})
+const AdminIadeYonetimi = dynamic(() => import('./AdminIadeYonetimi'), {
   loading: () => <div className="py-10 flex justify-center"><div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" /></div>
 })
 const AdminAddProduct = dynamic(() => import('./AdminAddProduct'), {
@@ -51,7 +54,7 @@ interface AdminClientProps {
   onSuccess?: () => void
 }
 
-type Tab = 'dashboard' | 'siparisler' | 'urunler' | 'markalar' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
+type Tab = 'dashboard' | 'siparisler' | 'iadeler' | 'urunler' | 'markalar' | 'uyeler' | 'kupon' | 'kampanya' | 'banner' | 'yorumlar' | 'destek' | 'firsatlar'
 
 export default function AdminClient({ onSuccess }: AdminClientProps) {
   const [user, setUser] = useState<User | null>(null)
@@ -133,6 +136,7 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
   const tabs = [
     { id: 'dashboard' as Tab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'siparisler' as Tab, label: 'Siparişler', icon: ShoppingBag, badge: bekleyenSiparis },
+    { id: 'iadeler' as Tab, label: 'İade & Değişim', icon: RotateCcw },
     { id: 'urunler' as Tab, label: 'Ürünler', icon: Package },
     { id: 'markalar' as Tab, label: 'Markalar', icon: Merge },
     { id: 'uyeler' as Tab, label: 'Üye Yönetimi', icon: Users },
@@ -191,6 +195,7 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
       <div className="max-w-7xl mx-auto px-6 pt-10">
         {activeTab === 'dashboard' && <AdminDashboard />}
         {activeTab === 'siparisler' && <AdminSiparisler />}
+        {activeTab === 'iadeler' && <AdminIadeYonetimi />}
 
         {activeTab === 'urunler' && (
           <div className="grid lg:grid-cols-3 gap-12">

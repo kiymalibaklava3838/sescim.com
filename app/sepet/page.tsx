@@ -14,12 +14,15 @@ import {
 import { dovizToTL, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { 
-  ArrowLeft, Trash2, Minus, Plus, CreditCard, Building2, Loader2, MapPin, Truck, Store, 
-  Info, Briefcase, User as UserIcon, Copy, Check, ExternalLink, Ticket, X 
+  ArrowLeft, Trash2, Minus, Plus, CreditCard, Loader2, MapPin, Truck, Store, 
+  Info, Briefcase, User as UserIcon, Check, ExternalLink, Ticket, X 
 } from 'lucide-react'
 import type { Session, User } from '@supabase/supabase-js'
-import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
 import RecentlyViewed from '@/components/RecentlyViewed'
+import CartCrossSell from '@/components/CartCrossSell'
+import FreeShippingBar from '@/components/FreeShippingBar'
+import { calculateCouponDiscount, matchesCategory } from '@/lib/coupon-helper'
+import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -36,6 +39,9 @@ export default function SepetPage() {
   const [notlar, setNotlar] = useState('')
   const [teslimat, setTeslimat] = useState<'kargo' | 'depo'>('kargo')
   const [teslimatAdresi, setTeslimatAdresi] = useState('')
+  const [sehir, setSehir] = useState('')
+  const [ilce, setIlce] = useState('')
+  const [acikAdresDetay, setAcikAdresDetay] = useState('')
   const [faturaTipi, setFaturaTipi] = useState<'bireysel' | 'kurumsal'>('bireysel')
   const [firmaUnvani, setFirmaUnvani] = useState('')
   const [vergiDairesi, setVergiDairesi] = useState('')
@@ -49,14 +55,15 @@ export default function SepetPage() {
   const [doneNo, setDoneNo] = useState('')
   const [payToken, setPayToken] = useState<string | null>(null)
   const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
-  const [copiedIban, setCopiedIban] = useState<string | null>(null)
   const [payTrWarning, setPayTrWarning] = useState(false)
   
   // Kupon
   const [kuponlar, setKuponlar] = useState<any[]>([])
+  const [tanimliKuponlar, setTanimliKuponlar] = useState<any[]>([])
   const [uygulananKupon, setUygulananKupon] = useState<any>(null)
   const [manuelKuponKodu, setManuelKuponKodu] = useState('')
   const [kuponError, setKuponError] = useState('')
+  const [applyingKupon, setApplyingKupon] = useState(false)
 
   const supabase = useRef(createClient()).current
 
@@ -85,6 +92,9 @@ export default function SepetPage() {
         if (d.email) setEmail(d.email)
         if (d.telefon) setTelefon(d.telefon)
         if (d.teslimatAdresi) setTeslimatAdresi(d.teslimatAdresi)
+        if (d.sehir) setSehir(d.sehir)
+        if (d.ilce) setIlce(d.ilce)
+        if (d.acikAdresDetay) setAcikAdresDetay(d.acikAdresDetay)
         if (d.notlar) setNotlar(d.notlar)
         if (d.faturaTipi) setFaturaTipi(d.faturaTipi)
         if (d.firmaUnvani) setFirmaUnvani(d.firmaUnvani)
@@ -116,29 +126,75 @@ export default function SepetPage() {
         if (adrs && adrs.length > 0) {
           setAdresler(adrs)
         }
+
+        // Kullanıcının tanımlı kuponlarını çek
+        let savedCodes: string[] = []
+        try {
+          const { data: userCoupons } = await supabase
+            .from('kullanici_kuponlari')
+            .select('kupon_kodu')
+            .eq('user_id', currentUser.id)
+          if (userCoupons && userCoupons.length > 0) {
+            savedCodes = userCoupons.map((uc: any) => uc.kupon_kodu)
+          }
+        } catch {}
+
+        try {
+          const localSaved = JSON.parse(localStorage.getItem(`sescim_user_coupons_${currentUser.id}`) || '[]')
+          if (Array.isArray(localSaved)) {
+            savedCodes = Array.from(new Set([...savedCodes, ...localSaved]))
+          }
+        } catch {}
+
+        if (savedCodes.length > 0) {
+          const { data: claimed } = await supabase
+            .from('kuponlar')
+            .select('*')
+            .in('kod', savedCodes)
+            .eq('aktif', true)
+          if (claimed && claimed.length > 0) {
+            setTanimliKuponlar(claimed)
+            setKuponlar(prev => {
+              const ids = new Set(prev.map(p => p.id))
+              const missing = claimed.filter((c: any) => !ids.has(c.id))
+              return [...prev, ...missing]
+            })
+          }
+        }
       }
     })
 
-    // Kuponları çek
+    // Genel kuponları çek
     supabase.from('kuponlar').select('*').eq('aktif', true).then(({ data }: any) => {
-      if (data) setKuponlar(data)
+      if (data) {
+        setKuponlar(prev => {
+          const ids = new Set(prev.map(p => p.id))
+          const missing = data.filter((c: any) => !ids.has(c.id))
+          return [...prev, ...missing]
+        })
+      }
     })
   }, [supabase])
+
+  // URL'den (?kupon=KOD) otomatik doldurma
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlKupon = urlParams.get('kupon')
+      if (urlKupon) {
+        setManuelKuponKodu(urlKupon.toUpperCase())
+      }
+    }
+  }, [])
 
   useEffect(() => {
     try {
       localStorage.setItem('akdag_sepet_form', JSON.stringify({
-        adSoyad, email, telefon, teslimatAdresi, notlar,
+        adSoyad, email, telefon, teslimatAdresi, sehir, ilce, acikAdresDetay, notlar,
         faturaTipi, firmaUnvani, vergiDairesi, vergiNo
       }))
     } catch {}
-  }, [adSoyad, email, telefon, teslimatAdresi, notlar, faturaTipi, firmaUnvani, vergiDairesi, vergiNo])
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedIban(text)
-    setTimeout(() => setCopiedIban(null), 2000)
-  }
+  }, [adSoyad, email, telefon, teslimatAdresi, sehir, ilce, acikAdresDetay, notlar, faturaTipi, firmaUnvani, vergiDairesi, vergiNo])
 
   const livePrice = (i: CartItem): number => {
     const pb = i.para_birimi || 'TRY'
@@ -149,31 +205,53 @@ export default function SepetPage() {
 
   const liveTotal = (): number => Math.ceil(items.reduce((sum, i) => sum + livePrice(i) * i.adet, 0))
   const araToplam = liveTotal()
-  
-  let indirimMiktari = 0
-  if (uygulananKupon) {
-    if (uygulananKupon.indirim_tipi === 'yuzde') {
-      indirimMiktari = araToplam * (uygulananKupon.indirim_miktari / 100)
-    } else {
-      indirimMiktari = uygulananKupon.indirim_miktari
-    }
-  }
+
+  const itemsWithLivePrice = items.map(i => ({
+    id: i.id,
+    ad: i.ad,
+    kategori: i.kategori,
+    adet: i.adet,
+    fiyat: livePrice(i),
+  }))
+
+  const couponCalc = calculateCouponDiscount(uygulananKupon, itemsWithLivePrice, araToplam)
+  const indirimMiktari = couponCalc.discount
   const total = Math.max(0, araToplam - indirimMiktari)
 
   useEffect(() => {
-    if (uygulananKupon && uygulananKupon.min_tutar && araToplam < uygulananKupon.min_tutar) {
-      setUygulananKupon(null)
-      setManuelKuponKodu('')
-      setKuponError(`Sepetiniz minimum tutarın altına düştüğü için "${uygulananKupon.kod}" kuponu iptal edildi.`)
+    if (uygulananKupon) {
+      const itemsForCheck = items.map(i => ({
+        id: i.id,
+        ad: i.ad,
+        kategori: i.kategori,
+        adet: i.adet,
+        fiyat: livePrice(i),
+      }))
+      const check = calculateCouponDiscount(uygulananKupon, itemsForCheck, araToplam)
+      if (check.error) {
+        setUygulananKupon(null)
+        setManuelKuponKodu('')
+        setKuponError(`Sepetiniz güncellendiği için "${uygulananKupon.kod}" kuponu iptal edildi: ${check.error}`)
+      }
     }
-  }, [araToplam, uygulananKupon])
+  }, [araToplam, items.length, uygulananKupon])
 
   const handleApplyCoupon = (kupon: any) => {
     setKuponError('')
-    if (kupon.min_tutar && araToplam < kupon.min_tutar) {
-      setKuponError(`Bu kupon en az ${kupon.min_tutar} ₺ alışverişte geçerlidir.`)
+    const itemsForCheck = items.map(i => ({
+      id: i.id,
+      ad: i.ad,
+      kategori: i.kategori,
+      adet: i.adet,
+      fiyat: livePrice(i),
+    }))
+
+    const calc = calculateCouponDiscount(kupon, itemsForCheck, araToplam)
+    if (calc.error) {
+      setKuponError(calc.error)
       return
     }
+
     const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
     if (isExpired) {
       setKuponError('Bu kuponun süresi dolmuş.')
@@ -186,7 +264,56 @@ export default function SepetPage() {
     setUygulananKupon(kupon)
   }
 
-  const submitOrder = async (odeme_tipi: 'havale' | 'kart') => {
+  const handleApplyManualCoupon = async (codeToApply?: string) => {
+    const raw = (codeToApply !== undefined ? codeToApply : manuelKuponKodu).trim().toUpperCase()
+    if (!raw) {
+      setKuponError('Lütfen bir kupon kodu giriniz.')
+      return
+    }
+    setApplyingKupon(true)
+    setKuponError('')
+
+    let targetCoupon = kuponlar.find(x => x.kod.toUpperCase() === raw)
+
+    if (!targetCoupon) {
+      try {
+        const { data: dbKupon } = await supabase
+          .from('kuponlar')
+          .select('*')
+          .ilike('kod', raw)
+          .eq('aktif', true)
+          .maybeSingle()
+
+        if (dbKupon) {
+          targetCoupon = dbKupon
+          setKuponlar(prev => [...prev.filter(p => p.id !== dbKupon.id), dbKupon])
+        }
+      } catch (e) {
+        console.error('Kupon sorgulanamadı:', e)
+      }
+    }
+
+    if (targetCoupon) {
+      setManuelKuponKodu(targetCoupon.kod)
+      handleApplyCoupon(targetCoupon)
+    } else {
+      setKuponError('Geçersiz veya süresi dolmuş kupon kodu.')
+    }
+    setApplyingKupon(false)
+  }
+
+  // URL'den kupon parametresi ile gelindiyse ve sepet doluysa otomatik uygula
+  useEffect(() => {
+    if (typeof window !== 'undefined' && items.length > 0 && !uygulananKupon) {
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlKupon = urlParams.get('kupon')
+      if (urlKupon) {
+        handleApplyManualCoupon(urlKupon)
+      }
+    }
+  }, [items.length, kuponlar.length])
+
+  const submitOrder = async () => {
     setError('')
     if (!items.length) { setError('Sepetiniz boş.'); return }
     if (!adSoyad.trim() || !email.trim()) { setError('Ad soyad ve e-posta zorunludur.'); return }
@@ -219,7 +346,7 @@ export default function SepetPage() {
           email: email.trim(),
           telefon: telefon.trim() || null,
           notlar: notlar.trim() || null,
-          odeme_tipi,
+          odeme_tipi: 'kart',
           teslimat_tipi: teslimat,
           fatura_tipi: faturaTipi,
           firma_unvani: faturaTipi === 'kurumsal' ? firmaUnvani : null,
@@ -234,7 +361,7 @@ export default function SepetPage() {
       if (!res.ok) { setError(data.error || 'Sipariş oluşturulamadı.'); setBusy(false); return }
       clearCart(); refreshCart()
       try { localStorage.removeItem('akdag_sepet_form') } catch {} 
-      if (odeme_tipi === 'havale') { setDoneNo(data.siparis_no); setBusy(false); return }
+
       const payRes = await fetch('/api/paytr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -269,65 +396,22 @@ export default function SepetPage() {
         {doneNo && (
           <div className="mb-10 bg-white border border-green-500/20 overflow-hidden relative shadow-lg rounded-xl">
             <div className="absolute top-0 left-0 w-full h-1 bg-green-500" />
-
-            {/* Kompakt header */}
             <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                  <span className="font-display font-black text-green-600 text-xs uppercase tracking-widest">Sipariş Alındı</span>
+                  <span className="font-display font-black text-green-600 text-xs uppercase tracking-widest">Sipariş Kaydedildi</span>
                 </div>
                 <div className="font-display font-black text-2xl text-slate-800">
                   No: <span className="text-brand-red tracking-widest">{doneNo}</span>
                 </div>
-                <p className="text-slate-500 text-sm mt-1 font-body">Aktarımı aşağıdaki hesaplara yapınız.</p>
+                <p className="text-slate-500 text-sm mt-1 font-body">Siparişiniz başarıyla sisteme aktarıldı.</p>
               </div>
               <div className="flex gap-3 flex-shrink-0">
                 <Link href="/hesabim" className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 rounded-lg text-xs font-display font-bold uppercase tracking-widest transition-all shadow-sm">
                   <ExternalLink size={14} /> Hesabım
                 </Link>
                 <Link href="/urunler" className="btn-primary text-xs py-2 px-5 rounded-lg shadow-sm">Alışverişe Devam</Link>
-              </div>
-            </div>
-
-            {/* IBAN — Hemen görünür */}
-            <div className="p-6 space-y-6">
-              <div className="flex items-center gap-2 text-slate-600 font-display font-bold text-xs uppercase tracking-widest">
-                <Info size={16} className="text-brand-red" /> Lütfen Ödemeyi Aşağıdaki Hesaplara Yapınız
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {BANK_ACCOUNTS.map(bank => (
-                  <div key={bank.iban} className="bg-white border border-slate-200 rounded-xl p-5 group hover:border-brand-red/30 hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="font-display font-black text-base text-slate-800 uppercase tracking-wider">{bank.bankName}</span>
-                      <Building2 size={18} className="text-slate-300 group-hover:text-brand-red/40 transition-colors" />
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase font-display font-bold tracking-widest mb-1">Hesap Sahibi</div>
-                        <div className="text-sm text-slate-700 font-body font-medium">{bank.accountHolder}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-400 uppercase font-display font-bold tracking-widest mb-1">IBAN</div>
-                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                          <code className="text-[13px] text-brand-red font-bold">{bank.iban}</code>
-                          <button onClick={() => copyToClipboard(bank.iban)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-all" title="IBAN Kopyala">
-                            {copiedIban === bank.iban ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 flex gap-3">
-                <div className="text-amber-500 mt-0.5"><Info size={20} /></div>
-                <p className="text-amber-900/80 text-sm leading-relaxed font-body">
-                  <strong>ÖNEMLİ:</strong> Ödeme yaparken açıklama kısmına sadece <strong className="text-brand-red font-bold">{doneNo}</strong> yazınız.
-                  Ödemeyi yaptıktan sonra "Hesabım" sayfasından dekont yükleyerek onay sürecini hızlandırabilirsiniz.
-                </p>
               </div>
             </div>
           </div>
@@ -375,6 +459,9 @@ export default function SepetPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Tamamlayıcı Aksesuar Önerisi (Cross-Sell) */}
+              <CartCrossSell items={items} isDrawer={false} onAdded={refreshCart} />
             </div>
 
             {/* SİPARİŞ FORMU */}
@@ -382,21 +469,9 @@ export default function SepetPage() {
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 lg:p-8 sticky top-24">
                 
                 {/* Kargo Bedava Barı */}
-                {total < 1999 ? (
-                  <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <div className="flex justify-between text-xs font-display font-bold text-slate-600 mb-2">
-                      <span>Kargo Bedavaya <span className="text-brand-red">{(1999 - total).toLocaleString('tr-TR')} ₺</span> kaldı!</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                      <div className="bg-brand-red h-2 rounded-full transition-all duration-500" style={{ width: `${(total / 1999) * 100}%` }} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-center gap-2 text-emerald-600 font-display font-bold text-sm">
-                    <Truck size={18} />
-                    KARGO BEDAVA KAZANDINIZ!
-                  </div>
-                )}
+                <div className="mb-6">
+                  <FreeShippingBar total={total} />
+                </div>
 
                 {/* KUPON ALANI */}
                 <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -407,69 +482,182 @@ export default function SepetPage() {
                   {/* Manuel Giriş */}
                   <div className="flex gap-2 mb-4">
                     <input 
-                      className="input-base text-sm flex-1 bg-white" 
+                      className="input-base text-sm flex-1 bg-white font-display font-semibold tracking-wider uppercase" 
                       placeholder="Kupon Kodunuz" 
                       value={manuelKuponKodu}
                       onChange={e => setManuelKuponKodu(e.target.value.toUpperCase())}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          if (!uygulananKupon) handleApplyManualCoupon()
+                        }
+                      }}
                       disabled={!!uygulananKupon}
                     />
                     {uygulananKupon ? (
                       <button 
                         type="button" 
                         onClick={() => { setUygulananKupon(null); setManuelKuponKodu(''); setKuponError('') }} 
-                        className="px-4 py-2 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-lg font-display font-bold text-xs uppercase transition-colors"
+                        className="px-4 py-2 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-lg font-display font-bold text-xs uppercase transition-colors flex items-center gap-1"
                       >
-                        İptal
+                        <X size={14} /> İptal
                       </button>
                     ) : (
                       <button 
                         type="button"
-                        onClick={() => {
-                          const k = kuponlar.find(x => x.kod === manuelKuponKodu)
-                          if (k) handleApplyCoupon(k)
-                          else setKuponError('Geçersiz kupon kodu.')
-                        }}
-                        className="btn-primary text-xs px-4"
+                        disabled={applyingKupon || !manuelKuponKodu.trim()}
+                        onClick={() => handleApplyManualCoupon()}
+                        className="btn-primary text-xs px-5 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Uygula
+                        {applyingKupon ? <Loader2 size={14} className="animate-spin" /> : 'Uygula'}
                       </button>
                     )}
                   </div>
 
-                  {kuponError && <div className="text-red-500 text-xs font-body mb-3">{kuponError}</div>}
+                  {kuponError && (
+                    <div className="text-red-500 text-xs font-body mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      {kuponError}
+                    </div>
+                  )}
 
-                  {/* Aktif Kupon Önerileri */}
-                  {!uygulananKupon && kuponlar.filter(k => (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim) && (!k.min_tutar || araToplam >= k.min_tutar)).map(k => (
-                    <div key={k.id} className="flex items-center justify-between bg-white border border-slate-200 p-3 rounded-lg mb-2 shadow-sm group hover:border-brand-red/30 transition-colors">
-                      <div>
-                        <div className="font-display font-black text-xs text-brand-red tracking-wider">{k.kod}</div>
-                        <div className="text-[10px] text-slate-500 font-body mt-0.5">
-                          {k.indirim_tipi === 'yuzde' ? `%${k.indirim_miktari}` : `${k.indirim_miktari} ₺`} İndirim
+                  {/* Uygulanan Kupon Bilgi Rozeti */}
+                  {uygulananKupon && (
+                    <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Check size={16} className="text-emerald-600 shrink-0" />
+                        <div>
+                          <div className="font-display font-black text-xs text-emerald-800 tracking-wider flex items-center gap-1.5 flex-wrap">
+                            <span>{uygulananKupon.kod} KUPONU UYGULANDI</span>
+                            {uygulananKupon.kategori && (
+                              <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                🏷️ {uygulananKupon.kategori}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-emerald-700 font-body">
+                            {uygulananKupon.aciklama || (uygulananKupon.indirim_tipi === 'yuzde' ? `%${uygulananKupon.indirim_miktari} indirim uygulandı` : `${uygulananKupon.indirim_miktari} ₺ indirim uygulandı`)}
+                          </div>
+                          {uygulananKupon.kategori && (
+                            <div className="text-[10px] text-emerald-600 font-medium">
+                              (İndirim sepetinizdeki &ldquo;{uygulananKupon.kategori}&rdquo; ürünlerine uygulandı)
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={() => { setManuelKuponKodu(k.kod); handleApplyCoupon(k) }}
-                        className="px-3 py-1.5 text-[10px] font-display font-bold uppercase tracking-widest text-slate-600 bg-slate-100 hover:bg-brand-red hover:text-white transition-all rounded-md"
-                      >
-                        Uygula
-                      </button>
+                      <span className="font-display font-black text-emerald-700 text-sm whitespace-nowrap ml-2">
+                        -{indirimMiktari.toLocaleString('tr-TR')} ₺
+                      </span>
                     </div>
-                  ))}
-                  
-                  {!uygulananKupon && kuponlar.filter(k => (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim) && (k.min_tutar && araToplam < k.min_tutar)).map(k => (
-                    <div key={k.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-lg mb-2 opacity-60 grayscale cursor-not-allowed" title={`En az ${k.min_tutar} ₺ alışveriş gereklidir.`}>
-                      <div>
-                        <div className="font-display font-black text-xs text-slate-600 tracking-wider">{k.kod}</div>
-                        <div className="text-[10px] text-slate-500 font-body mt-0.5">
-                          En az {k.min_tutar} ₺ alışverişte {k.indirim_tipi === 'yuzde' ? `%${k.indirim_miktari}` : `${k.indirim_miktari} ₺`} İndirim
-                        </div>
+                  )}
+
+                  {/* Hesabıma Tanımlı Özel Kuponlar */}
+                  {!uygulananKupon && tanimliKuponlar.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                      <div className="text-[10px] font-display font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-purple-600" />
+                        Hesabınıza Tanımlı Özel Kuponlar
                       </div>
-                      <button type="button" disabled className="px-3 py-1.5 text-[10px] font-display font-bold uppercase tracking-widest text-slate-400 bg-slate-200 rounded-md">
-                        Uygula
-                      </button>
+                      {tanimliKuponlar.filter(k => (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim)).map(k => {
+                        const check = calculateCouponDiscount(k, itemsWithLivePrice, araToplam)
+                        const canUse = !check.error
+                        return (
+                          <div key={'tanimli-' + k.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${canUse ? 'bg-purple-50/70 border-purple-200' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-display font-black text-xs text-purple-900 tracking-wider">{k.kod}</span>
+                                <span className="bg-purple-200 text-purple-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                  Hesabıma Özel
+                                </span>
+                                {k.kategori ? (
+                                  <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    🏷️ {k.kategori}
+                                  </span>
+                                ) : (
+                                  <span className="bg-slate-100 text-slate-600 text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    🌐 Tüm Ürünler
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-purple-800 font-body mt-0.5 font-medium">
+                                {k.aciklama || (k.indirim_tipi === 'yuzde' ? `%${k.indirim_miktari} İndirim` : `${k.indirim_miktari} ₺ İndirim`)}
+                              </div>
+                              {k.min_tutar && (
+                                <div className="text-[9px] text-slate-500 font-body mt-0.5">
+                                  Min. Sepet: {k.min_tutar.toLocaleString('tr-TR')} ₺
+                                </div>
+                              )}
+                              {!canUse && check.error && (
+                                <div className="text-[9px] text-red-500 font-body mt-0.5">
+                                  {check.error}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!canUse}
+                              onClick={() => { setManuelKuponKodu(k.kod); handleApplyCoupon(k) }}
+                              className={`px-3 py-1.5 text-[10px] font-display font-bold uppercase tracking-widest rounded-lg transition-all ${
+                                canUse ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              }`}
+                            >
+                              Uygula
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Genel Aktif Kupon Önerileri */}
+                  {!uygulananKupon && kuponlar.filter(k => !k.ozel_mi && !tanimliKuponlar.some(tk => tk.id === k.id) && (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim)).map(k => {
+                    const check = calculateCouponDiscount(k, itemsWithLivePrice, araToplam)
+                    const canUse = !check.error
+                    return (
+                      <div key={k.id} className={`flex items-center justify-between border p-3 rounded-lg mb-2 transition-all ${
+                        canUse ? 'bg-white border-slate-200 shadow-sm group hover:border-brand-red/30' : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-display font-black text-xs text-brand-red tracking-wider">{k.kod}</span>
+                            {k.kategori ? (
+                              <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                🏷️ {k.kategori}
+                              </span>
+                            ) : (
+                              <span className="bg-slate-100 text-slate-600 text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                🌐 Tüm Ürünler
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-600 font-body mt-0.5">
+                            {k.aciklama || (k.indirim_tipi === 'yuzde' ? `%${k.indirim_miktari}` : `${k.indirim_miktari} ₺`)} İndirim
+                          </div>
+                          {k.min_tutar && (
+                            <div className="text-[9px] text-slate-500 font-body">
+                              Min. Tutar: {k.min_tutar.toLocaleString('tr-TR')} ₺
+                            </div>
+                          )}
+                          {!canUse && check.error && (
+                            <div className="text-[9px] text-red-500 font-body mt-0.5">
+                              {check.error}
+                            </div>
+                          )}
+                        </div>
+                        <button 
+                          type="button" 
+                          disabled={!canUse}
+                          onClick={() => { setManuelKuponKodu(k.kod); handleApplyCoupon(k) }}
+                          className={`px-3 py-1.5 text-[10px] font-display font-bold uppercase tracking-widest rounded-md transition-all ${
+                            canUse 
+                              ? 'text-slate-600 bg-slate-100 hover:bg-brand-red hover:text-white' 
+                              : 'text-slate-400 bg-slate-200 cursor-not-allowed'
+                          }`}
+                        >
+                          Uygula
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <div className="space-y-2 mb-6 border-b border-slate-100 pb-5">
@@ -563,7 +751,10 @@ export default function SepetPage() {
                                   type="button"
                                   onClick={() => {
                                     setSeciliAdresId(a.id)
-                                    setTeslimatAdresi(`${a.acik_adres}\n${a.ilce} / ${a.sehir}`)
+                                    setSehir(a.sehir || '')
+                                    setIlce(a.ilce || '')
+                                    setAcikAdresDetay(a.acik_adres || '')
+                                    setTeslimatAdresi(`${a.acik_adres || ''}\n${a.ilce || ''} / ${a.sehir || ''}`.trim())
                                   }}
                                   className={`text-left p-3 border rounded-lg transition-all ${seciliAdresId === a.id ? 'border-brand-red bg-brand-red/5' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
                                 >
@@ -575,6 +766,9 @@ export default function SepetPage() {
                                 type="button"
                                 onClick={() => {
                                   setSeciliAdresId(null)
+                                  setSehir('')
+                                  setIlce('')
+                                  setAcikAdresDetay('')
                                   setTeslimatAdresi('')
                                 }}
                                 className={`text-left p-3 border rounded-lg transition-all flex items-center justify-center gap-2 ${seciliAdresId === null ? 'border-brand-red bg-brand-red/5 text-brand-red' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-600'}`}
@@ -586,17 +780,76 @@ export default function SepetPage() {
                           </div>
                         )}
                         
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block">Açık Teslimat Adresi *</label>
-                          <textarea 
-                            className="input-base text-sm min-h-[80px] resize-none" 
-                            placeholder="Mahalle, Sokak, No, İlçe, İl..." 
-                            value={teslimatAdresi} 
-                            onChange={e => {
-                               setTeslimatAdresi(e.target.value)
-                               if (adresler.length > 0) setSeciliAdresId(null)
-                            }}
-                          />
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
+                                İl (Şehir) *
+                              </label>
+                              <select
+                                className="input-base text-sm py-2 bg-white"
+                                value={sehir}
+                                onChange={(e) => {
+                                  const s = e.target.value
+                                  setSehir(s)
+                                  setIlce('')
+                                  const comb = [acikAdresDetay.trim(), s].filter(Boolean).join('\n')
+                                  setTeslimatAdresi(comb)
+                                  if (adresler.length > 0) setSeciliAdresId(null)
+                                }}
+                              >
+                                <option value="">İl Seçiniz</option>
+                                {IL_ISIMLERI.map((ilAdi) => (
+                                  <option key={ilAdi} value={ilAdi}>
+                                    {ilAdi}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
+                                İlçe *
+                              </label>
+                              <select
+                                className="input-base text-sm py-2 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                                value={ilce}
+                                disabled={!sehir}
+                                onChange={(e) => {
+                                  const i = e.target.value
+                                  setIlce(i)
+                                  const comb = [acikAdresDetay.trim(), i && sehir ? `${i} / ${sehir}` : (sehir || i)].filter(Boolean).join('\n')
+                                  setTeslimatAdresi(comb)
+                                  if (adresler.length > 0) setSeciliAdresId(null)
+                                }}
+                              >
+                                <option value="">{sehir ? 'İlçe Seçiniz' : 'Önce İl Seçiniz'}</option>
+                                {getIlcelerByIl(sehir).map((ilceAdi) => (
+                                  <option key={ilceAdi} value={ilceAdi}>
+                                    {ilceAdi}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
+                              Açık Adres (Cadde, Sokak, Bina No, Daire) *
+                            </label>
+                            <textarea 
+                              className="input-base text-sm min-h-[70px] resize-none" 
+                              placeholder="Örn: Cumhuriyet Mah. İnönü Cad. Barış Apt. No:12 Daire:4" 
+                              value={acikAdresDetay || (seciliAdresId ? teslimatAdresi : '')} 
+                              onChange={e => {
+                                const d = e.target.value
+                                setAcikAdresDetay(d)
+                                const comb = [d.trim(), ilce && sehir ? `${ilce} / ${sehir}` : (sehir || ilce)].filter(Boolean).join('\n')
+                                setTeslimatAdresi(comb)
+                                if (adresler.length > 0) setSeciliAdresId(null)
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -636,13 +889,29 @@ export default function SepetPage() {
                 {payTrWarning && (
                   <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm font-medium flex items-start gap-2">
                     <Info size={18} className="flex-shrink-0 mt-0.5" /> 
-                    <div>Ödeme tamamlanmadı. Siparişiniz <strong>beklemede</strong> olarak kaydedildi. Ödemeyi tamamlamak için tekrar butona tıklayın veya havale yapabilirsiniz.</div>
+                    <div>Ödeme penceresi kapatıldı. Siparişiniz <strong>beklemede</strong> olarak kaydedildi. Ödemeyi tamamlamak için lütfen butona tekrar tıklayınız.</div>
                   </div>
                 )}
 
-                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button type="button" disabled={busy} onClick={() => submitOrder('havale')} className="btn-outline justify-center text-sm py-4 rounded-xl disabled:opacity-50"><Building2 size={16} /> Havale / EFT ile</button>
-                  <button type="button" disabled={busy} onClick={() => submitOrder('kart')} className="btn-primary justify-center text-sm py-4 rounded-xl shadow-lg shadow-brand-red/20 disabled:opacity-50"><CreditCard size={16} /> Kredi Kartı (PayTR)</button>
+                <div className="mt-8">
+                  <button 
+                    type="button" 
+                    disabled={busy} 
+                    onClick={() => submitOrder()} 
+                    className="btn-primary w-full justify-center text-base py-4 rounded-xl shadow-lg shadow-brand-red/25 disabled:opacity-50 font-display font-bold uppercase tracking-wider gap-2 transition-all hover:shadow-xl"
+                  >
+                    {busy ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Ödeme Başlatılıyor...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={18} />
+                        Güvenli Ödeme Yap (PayTR)
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Güven Rozetleri */}

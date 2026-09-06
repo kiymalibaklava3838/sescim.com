@@ -67,3 +67,38 @@ body {
            px-4 py-2 text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
   }
 }
+
+@keyframes faderSlide {
+  0%, 100% {
+    transform: translateY(36px);
+  }
+  50% {
+    transform: translateY(-36px);
+  }
+}
+
+.animate-fader-slide {
+  animation: faderSlide 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite ease-in-out;
+}
+
+.gpu-accelerate {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}

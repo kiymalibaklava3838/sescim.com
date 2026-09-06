@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         if (status === 'success') {
           await sendEmail(
             siparis.email,
-            `Ödemeniz Onaylandı — ${siparis.siparis_no} | Akdağ Elektronik`,
+            `Ödemeniz Onaylandı — ${siparis.siparis_no} | sescim.com`,
             odemeOnaylandiHTML({
               siparis_no: siparis.siparis_no,
               ad_soyad: siparis.ad_soyad,
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         } else {
           await sendEmail(
             siparis.email,
-            `Ödeme Alınamadı — ${siparis.siparis_no} | Akdağ Elektronik`,
+            `Ödeme Alınamadı — ${siparis.siparis_no} | sescim.com`,
             siparisIptalHTML({
               siparis_no: siparis.siparis_no,
               ad_soyad: siparis.ad_soyad,

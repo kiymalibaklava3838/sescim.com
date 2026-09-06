@@ -18,6 +18,38 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
   
   const hasFilters = !!(searchParams.marka || searchParams.kullanim || searchParams.stok || searchParams.min || searchParams.max || searchParams.q)
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
+    const params = new URLSearchParams()
+
+    const q = formData.get('q') as string
+    if (q) params.set('q', q)
+
+    const marka = formData.get('marka') as string
+    if (marka && marka !== 'tum') params.set('marka', marka)
+
+    const min = formData.get('min') as string
+    if (min) params.set('min', min)
+
+    const max = formData.get('max') as string
+    if (max) params.set('max', max)
+
+    const stok = formData.get('stok') as string
+    if (stok && stok !== 'tum') params.set('stok', stok)
+
+    const sirala = formData.get('sirala') as string
+    if (sirala && sirala !== 'yeni') params.set('sirala', sirala)
+
+    const kullanim = formData.get('kullanim') as string
+    if (kullanim && kullanim !== 'tum') params.set('kullanim', kullanim)
+
+    setIsOpen(false)
+    const qs = params.toString()
+    router.push(qs ? `${clearFiltersUrl}?${qs}` : clearFiltersUrl)
+  }
+
   return (
     <>
       {/* Tetikleyici Buton (Filtreler) */}
@@ -59,9 +91,16 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <form className="space-y-8" id="filter-form">
+          <form 
+            className="space-y-8" 
+            id="filter-form"
+            action={clearFiltersUrl}
+            method="GET"
+            onSubmit={handleSubmit}
+          >
             {/* Hidden inputs to preserve search queries */}
             {searchParams.q && <input type="hidden" name="q" value={searchParams.q} />}
+            {searchParams.kullanim && <input type="hidden" name="kullanim" value={searchParams.kullanim} />}
 
             {/* Categories */}
             <div className="space-y-4">

@@ -175,8 +175,6 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
       urun_tipi: detayCat?.name || null,
       fiyat: parseFloat(fiyat),
       bayi_fiyati: bayi_fiyati ? parseFloat(bayi_fiyati) : null,
-      sescim_fiyat: sescim_fiyat ? parseFloat(sescim_fiyat) : null,
-      sescim_indirimli_fiyat: sescim_indirimli_fiyat ? parseFloat(sescim_indirimli_fiyat) : null,
       is_featured: is_featured,
       stok_durumu: stokDurumu,
       stok_adedi: stokAdetNum,
@@ -200,6 +198,7 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     }
 
     let dbErr = null
+    let targetUrunId = existingUrun?.id
 
     if (existingUrun) {
       // Eğer yeni bir fotoğraf yüklenmediyse ve eski fotoğraflar varsa, eski fotoğrafları koru
@@ -217,10 +216,29 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
       dbErr = error
     } else {
       payload.fotograflar = fotograflar
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('urunler')
         .insert(payload)
+        .select('id')
+        .single()
       dbErr = error
+      if (insertedData) targetUrunId = insertedData.id
+    }
+
+    // Sescim özel fiyatı girilmişse sescim_fiyatlar tablosuna kaydet
+    if (!dbErr && targetUrunId && (sescim_fiyat || sescim_indirimli_fiyat)) {
+      try {
+        const sescimDb = createClient()
+        await sescimDb.from('sescim_fiyatlar').upsert({
+          urun_id: targetUrunId,
+          sescim_fiyat: sescim_fiyat ? parseFloat(sescim_fiyat) : null,
+          sescim_indirimli_fiyat: sescim_indirimli_fiyat ? parseFloat(sescim_indirimli_fiyat) : null,
+          sescim_aktif: true,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'urun_id' })
+      } catch (e) {
+        console.error('Failed to save sescim pricing in AdminAddProduct:', e)
+      }
     }
 
     if (!dbErr && taslakId) {

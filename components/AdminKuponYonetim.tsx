@@ -14,6 +14,9 @@ interface Kupon {
   kullanim_sayisi: number
   gecerlilik_tarihi: string | null
   aktif: boolean
+  aciklama?: string | null
+  ozel_mi?: boolean
+  kategori?: string | null
   created_at: string
 }
 
@@ -26,18 +29,22 @@ export default function AdminKuponYonetim() {
   const [error, setError] = useState('')
   // Form
   const [kod, setKod] = useState('')
+  const [aciklama, setAciklama] = useState('')
   const [indirimTipi, setIndirimTipi] = useState<'yuzde' | 'sabit'>('yuzde')
   const [miktar, setMiktar] = useState('')
   const [minTutar, setMinTutar] = useState('')
   const [maxKullanim, setMaxKullanim] = useState('')
   const [gecerlilik, setGecerlilik] = useState('')
+  const [ozelMi, setOzelMi] = useState(false)
+  const [kategori, setKategori] = useState('tum')
+  const [ozelKategoriAdi, setOzelKategoriAdi] = useState('')
   const supabase = useRef(createClient()).current
 
   useEffect(() => { loadKuponlar() }, [])
 
   const loadKuponlar = async () => {
     setLoading(true)
-    const { data } = await supabase.from('kuponlar').select('id, kod, indirim_tipi, indirim_miktari, min_tutar, max_kullanim, kullanim_sayisi, aktif, gecerlilik_tarihi, created_at').order('created_at', { ascending: false })
+    const { data } = await supabase.from('kuponlar').select('*').order('created_at', { ascending: false })
     setKuponlar(data || [])
     setLoading(false)
   }
@@ -48,13 +55,44 @@ export default function AdminKuponYonetim() {
     setKod(code)
   }
 
+  const applyTemplate = (type: 'instagram' | 'vip' | 'welcome') => {
+    if (type === 'instagram') {
+      setKod('INSTA' + Math.floor(10 + Math.random() * 90))
+      setAciklama('Instagram Takipçilerine Özel Fırsat')
+      setIndirimTipi('yuzde')
+      setMiktar('10')
+      setMinTutar('1000')
+      setOzelMi(true)
+      setKategori('tum')
+    } else if (type === 'vip') {
+      setKod('PROVIP' + Math.floor(10 + Math.random() * 90))
+      setAciklama('VIP Ses Mühendisi / Pro Ekipman İndirimi')
+      setIndirimTipi('yuzde')
+      setMiktar('15')
+      setMinTutar('2500')
+      setOzelMi(true)
+      setKategori('tum')
+    } else if (type === 'welcome') {
+      setKod('HOSGELDIN' + Math.floor(10 + Math.random() * 90))
+      setAciklama('Yeni Üyelere Özel Hoşgeldin İndirimi')
+      setIndirimTipi('sabit')
+      setMiktar('150')
+      setMinTutar('1500')
+      setOzelMi(false)
+      setKategori('tum')
+    }
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!kod || !miktar) { setError('Kupon kodu ve indirim miktarı zorunludur.'); return }
     setSaving(true)
     setError('')
-    const { error: err } = await supabase.from('kuponlar').insert({
-      kod: kod.toUpperCase(),
+
+    const finalKategori = kategori === 'diger' ? ozelKategoriAdi.trim() : (kategori !== 'tum' ? kategori : null)
+
+    const payload: any = {
+      kod: kod.trim().toUpperCase(),
       indirim_tipi: indirimTipi,
       indirim_miktari: parseFloat(miktar),
       min_tutar: minTutar ? parseFloat(minTutar) : null,
@@ -62,12 +100,35 @@ export default function AdminKuponYonetim() {
       gecerlilik_tarihi: gecerlilik || null,
       aktif: true,
       kullanim_sayisi: 0,
-    })
+      aciklama: aciklama.trim() || null,
+      ozel_mi: ozelMi,
+      kategori: finalKategori || null,
+    }
+
+    let { error: err } = await supabase.from('kuponlar').insert(payload)
+
+    // Eğer veritabanında aciklama, ozel_mi veya kategori kolonu henüz eklenmemişse uyumlu fallback yap
+    if (err && (err.message.includes('column') || err.code === '42703')) {
+      delete payload.aciklama
+      delete payload.ozel_mi
+      delete payload.kategori
+      const res = await supabase.from('kuponlar').insert(payload)
+      err = res.error
+    }
+
     if (err) {
       setError(err.message.includes('duplicate') ? 'Bu kupon kodu zaten mevcut.' : err.message)
     } else {
-      setMessage('Kupon oluşturuldu!')
-      setKod(''); setMiktar(''); setMinTutar(''); setMaxKullanim(''); setGecerlilik('')
+      setMessage('Kupon başarıyla oluşturuldu!')
+      setKod('')
+      setAciklama('')
+      setMiktar('')
+      setMinTutar('')
+      setMaxKullanim('')
+      setGecerlilik('')
+      setOzelMi(false)
+      setKategori('tum')
+      setOzelKategoriAdi('')
       setShowForm(false)
       loadKuponlar()
       setTimeout(() => setMessage(''), 3000)
@@ -116,8 +177,33 @@ export default function AdminKuponYonetim() {
 
       {showForm && (
         <form onSubmit={handleSave} className="bg-white border border-slate-200 p-6 space-y-4 shadow-sm">
-          <h3 className="font-display font-bold text-sm uppercase tracking-widest text-slate-900">Yeni Kupon Oluştur</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-bold text-sm uppercase tracking-widest text-slate-900">Yeni Kupon Oluştur</h3>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-slate-400 text-[11px] font-display font-semibold uppercase">Hızlı Şablon:</span>
+              <button type="button" onClick={() => applyTemplate('instagram')} className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded border border-purple-200 text-[11px] font-medium transition-colors">
+                📸 Instagram (%10)
+              </button>
+              <button type="button" onClick={() => applyTemplate('vip')} className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded border border-amber-200 text-[11px] font-medium transition-colors">
+                👑 VIP (%15)
+              </button>
+              <button type="button" onClick={() => applyTemplate('welcome')} className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 text-[11px] font-medium transition-colors">
+                🎁 Hoşgeldin (₺150)
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Kampanya / Açıklama</label>
+              <input 
+                type="text" 
+                value={aciklama} 
+                onChange={e => setAciklama(e.target.value)} 
+                placeholder="Örn: Instagram Takipçilerine Özel İndirim, YouTube Kampanyası vb."
+                className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 focus:ring-1 focus:ring-brand-red/20" 
+              />
+            </div>
             <div>
               <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Kupon Kodu</label>
               <div className="flex gap-2">
@@ -157,6 +243,54 @@ export default function AdminKuponYonetim() {
               <input type="date" value={gecerlilik} onChange={e => setGecerlilik(e.target.value)}
                 className="input-base" />
             </div>
+            <div>
+              <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Geçerli Kategori</label>
+              <select 
+                value={kategori} 
+                onChange={e => setKategori(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 focus:ring-1 focus:ring-brand-red/20 font-medium"
+              >
+                <option value="tum">🌐 Tüm Ürünler (Kategori Sınırı Yok)</option>
+                <option value="Mikrofon Sistemleri">🎤 Mikrofon Sistemleri</option>
+                <option value="Hoparlörler">📢 Hoparlörler / Kabinler</option>
+                <option value="Mixer & Amfi">🎛️ Mixer & Amfi Sistemleri</option>
+                <option value="Ses Sistemleri">🔊 Ses Sistemleri (Genel)</option>
+                <option value="Işık Sistemleri">💡 Işık Sistemleri (Pro Lighting)</option>
+                <option value="Stüdyo & Kayıt">🎙️ Stüdyo & Kayıt</option>
+                <option value="DJ Ekipmanları">🎧 DJ Ekipmanları</option>
+                <option value="Kablo, Stand ve Aksesuar">🔌 Kablo, Stand ve Aksesuar</option>
+                <option value="Sahne ve Truss">🏗️ Sahne ve Truss</option>
+                <option value="diger">✏️ Özel Kategori Belirt...</option>
+              </select>
+            </div>
+
+            {kategori === 'diger' && (
+              <div className="col-span-2">
+                <label className="font-display text-xs tracking-widest uppercase text-slate-900/50 block mb-2">Özel Kategori Adı</label>
+                <input
+                  type="text"
+                  value={ozelKategoriAdi}
+                  onChange={e => setOzelKategoriAdi(e.target.value)}
+                  placeholder="Örn: Kablosuz Yaka Mikrofonu, Sis Makinesi vb."
+                  className="w-full bg-white border border-slate-200 text-slate-900 px-4 py-3 text-sm font-body focus:outline-none focus:border-brand-red/50 focus:ring-1 focus:ring-brand-red/20"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Gireceğiniz kategori adı, ürünlerin ana kategori veya alt kategori adıyla eşleştirilecektir.</p>
+              </div>
+            )}
+
+            <div className="col-span-2 bg-slate-50 border border-slate-200 p-3.5 rounded-lg flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="ozelMiCheckbox"
+                checked={ozelMi}
+                onChange={e => setOzelMi(e.target.checked)}
+                className="w-4 h-4 mt-0.5 accent-brand-red cursor-pointer"
+              />
+              <label htmlFor="ozelMiCheckbox" className="text-xs font-body text-slate-700 cursor-pointer">
+                <span className="font-bold block text-slate-900 mb-0.5">Gizli / Özel Kupon (Sadece Kod İle Tanımlanabilir)</span>
+                İşaretlenirse sitede herkese açık görünmez. Yalnızca Instagram sayfanızdan veya duyurularınızdan kodu alan müşteriler &ldquo;Hesabım &gt; Kupon Tanımla&rdquo; veya sepet aşamasında kodu girerek kullanabilir.
+              </label>
+            </div>
           </div>
           {error && <div className="flex items-center gap-2 text-red-600 text-sm font-body"><AlertCircle size={14} /> {error}</div>}
           <div className="flex gap-3">
@@ -182,7 +316,7 @@ export default function AdminKuponYonetim() {
               kupon.aktif ? 'border-slate-200' : 'border-slate-200 opacity-50'
             }`}>
               <div className="flex-1">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className="font-display font-black text-lg text-slate-900 tracking-widest">{kupon.kod}</span>
                   <button onClick={() => copyCode(kupon.kod)} className="text-slate-900/30 hover:text-slate-900 transition-colors">
                     <Copy size={14} />
@@ -192,8 +326,31 @@ export default function AdminKuponYonetim() {
                   }`}>
                     {kupon.aktif ? 'Aktif' : 'Pasif'}
                   </span>
+                  {kupon.ozel_mi ? (
+                    <span className="bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider">
+                      🔒 Özel / Instagram
+                    </span>
+                  ) : (
+                    <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider">
+                      🌐 Genel Kupon
+                    </span>
+                  )}
+                  {kupon.kategori ? (
+                    <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider flex items-center gap-1">
+                      🏷️ {kupon.kategori}
+                    </span>
+                  ) : (
+                    <span className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] font-medium px-2 py-0.5 rounded-sm uppercase tracking-wider">
+                      📦 Tüm Ürünler
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-4 mt-1.5 text-xs font-body text-slate-500">
+                {kupon.aciklama && (
+                  <div className="text-xs text-slate-700 font-semibold mt-1">
+                    {kupon.aciklama}
+                  </div>
+                )}
+                <div className="flex items-center gap-4 mt-1.5 text-xs font-body text-slate-500 flex-wrap">
                   <span>{kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `${kupon.indirim_miktari} TL`} indirim</span>
                   {kupon.min_tutar && <span>Min. {kupon.min_tutar} TL</span>}
                   <span>{kupon.kullanim_sayisi}{kupon.max_kullanim ? `/${kupon.max_kullanim}` : ''} kullanım</span>

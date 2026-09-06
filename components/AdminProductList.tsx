@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff } from 'lucide-react'
 import { PARA_BIRIMLERI } from '@/lib/kur'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
+import { createClient } from '@/lib/supabase'
 import { KATEGORILER, KATEGORI_HIYERARSI } from '@/lib/categories'
 import { compressImage } from './ImageCompressor'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
@@ -33,6 +34,7 @@ interface Product {
   kullanim_alani?: string | null
   is_featured?: boolean
   sescim_fiyat?: number | null
+  sescim_indirimli_fiyat?: number | null
   sescim_aktif?: boolean
 }
 
@@ -132,11 +134,18 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
 
   const saveSescimFiyat = async (product: Product) => {
     try {
+      const supabase = createAkdagBrowserClient()
+      await supabase.from('urunler').update({
+        sescim_fiyat: product.sescim_fiyat,
+        updated_at: new Date().toISOString()
+      }).eq('id', product.id)
+
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
         sescim_aktif: product.sescim_aktif
       })
+      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -189,7 +198,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setEditProduct(p)
     const supabase = createAkdagBrowserClient()
     const { data: fullProduct } = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, is_featured, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu')
+      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, is_featured, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu')
       .eq('id', p.id)
       .single()
     const prod = fullProduct || p
@@ -200,8 +209,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setEditUrunTipi((prod as any).urun_tipi || '')
     setEditFiyat(prod.fiyat?.toString() || '')
     setEditBayiF(prod.bayi_fiyati?.toString() || '')
-    setEditSescimFiyat(prod.sescim_fiyat?.toString() || '')
-    setEditSescimIndirimli(prod.sescim_indirimli_fiyat?.toString() || '')
+    setEditSescimFiyat((prod as any).sescim_fiyat?.toString() || '')
+    setEditSescimIndirimli((prod as any).sescim_indirimli_fiyat?.toString() || '')
     setEditIsFeatured(prod.is_featured || false)
     setEditStok(prod.stok_durumu || 'stokta')
     setEditParaBirimi(prod.para_birimi || 'USD')
@@ -247,8 +256,6 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       fotograflar: sonFotograflar,
       fiyat: editFiyat ? parseFloat(editFiyat) : null,
       bayi_fiyati: editBayiF ? parseFloat(editBayiF) : null,
-      sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
-      sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
       is_featured: editIsFeatured,
       stok_durumu: stokDurumu,
       stok_adedi: stokAdedi,
@@ -261,6 +268,20 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       updated_at: new Date().toISOString(),
       ...(fiyatDegisti ? { fiyat_guncelleme: new Date().toISOString() } : {}),
     }).eq('id', editProduct.id)
+
+    // Sescim özel fiyatını Sescim veritabanındaki sescim_fiyatlar tablosuna kaydet
+    try {
+      const sescimDb = createClient()
+      await sescimDb.from('sescim_fiyatlar').upsert({
+        urun_id: editProduct.id,
+        sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
+        sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
+        sescim_aktif: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'urun_id' })
+    } catch (e) {
+      console.error('Failed to update sescim_fiyatlar:', e)
+    }
     fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => { })
     setSaving(false)
     setSaveSuccess(true)

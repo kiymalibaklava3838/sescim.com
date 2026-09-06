@@ -28,7 +28,17 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     query = query.eq('is_featured', true)
   }
 
-  const { data } = await query
+  let { data } = await query
+
+  // Eğer özel olarak öne çıkarılan ürün işaretlenmemişse, boş kalmaması için popüler ürünleri göster
+  if ((!data || data.length === 0) && filterByFeatured) {
+    const fallback = await supabase
+      .from('urunler')
+      .select(LIGHT_PRODUCT_FIELDS)
+      .order(sortBy, { ascending })
+      .limit(10)
+    data = fallback.data
+  }
 
   if (!data || data.length === 0) return null
 
@@ -76,8 +86,8 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
 
             return (
               <StaggerItem key={product.id} className="flex flex-col h-full">
-                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full">
-                <Link href={`/urun/${product.slug}`} className="block relative aspect-square bg-white p-4">
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full gpu-accelerate">
+                <Link href={`/urun/${product.slug}`} prefetch={true} className="block relative aspect-square bg-slate-50 skeleton-shimmer p-4">
                   {product.fotograflar && product.fotograflar.length > 0 ? (
                     <Image 
                       src={product.fotograflar[0]} 
@@ -105,16 +115,9 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                     </h3>
                   </Link>
                   
-                  {/* Social Proof Placeholder */}
-                  <div className="flex items-center gap-1 mt-2">
-                    <div className="flex text-yellow-400">
-                      <Star size={14} fill="currentColor" className="text-yellow-400" />
-                      <Star size={14} fill="currentColor" className="text-yellow-400" />
-                      <Star size={14} fill="currentColor" className="text-yellow-400" />
-                      <Star size={14} fill="currentColor" className="text-yellow-400" />
-                      <Star size={14} fill="currentColor" className="text-yellow-400" />
-                    </div>
-                    <span className="text-xs text-slate-400 font-medium">(24)</span>
+                  <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                    <span className="font-medium truncate max-w-[110px]">{product.kategori}</span>
+                    <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
                   </div>
                   
                   <div className="mt-4 flex flex-col justify-end">

@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import ProductSearch from '@/components/ProductSearch'
 import ProductGrid from '@/components/ProductGrid'
 import Pagination from '@/components/Pagination'
-import { TUM_KATEGORILER, KATEGORI_HIYERARSI, NEW_KATEGORI_HIYERARSI, findCategoryBySlug } from '@/lib/categories'
+import { TUM_KATEGORILER, KATEGORI_HIYERARSI, NEW_KATEGORI_HIYERARSI, HIERARCHY_DATA, findCategoryBySlug } from '@/lib/categories'
 import { notFound } from 'next/navigation'
 import { Filter, SlidersHorizontal, ChevronRight, X } from 'lucide-react'
 import { getActiveBanners } from '@/lib/banner-service'
@@ -13,11 +14,35 @@ import ProductFilters from '@/components/ProductFilters'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { unstable_cache } from 'next/cache'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
+import { getSiteUrl } from '@/lib/site-url'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const PER_PAGE = 16
+
+function getCategoryPathBreadcrumbs(slugArray: string[]) {
+  const baseUrl = getSiteUrl()
+  const crumbs = [
+    { name: 'Ana Sayfa', url: baseUrl },
+    { name: 'Ürünler', url: `${baseUrl}/urunler` },
+  ]
+  let currentList = HIERARCHY_DATA
+  let path = '/urunler'
+  for (const slug of slugArray) {
+    const node = currentList.find((n) => n.slug === slug)
+    if (node) {
+      path += `/${node.slug}`
+      crumbs.push({ name: node.name, url: `${baseUrl}${path}` })
+      currentList = node.children || []
+    } else {
+      path += `/${slug}`
+      crumbs.push({ name: slug, url: `${baseUrl}${path}` })
+      break
+    }
+  }
+  return crumbs
+}
 
 // Filtre seçeneklerini cache-leyerek egress tasarrufu yapıyoruz
 const getCachedFilters = unstable_cache(
@@ -52,12 +77,62 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props) {
+  const baseUrl = getSiteUrl()
+
   if (!params.slug || params.slug.length === 0) {
-    return { title: 'Tüm Ürünler | Sescim.com' }
+    const title = 'Tüm Profesyonel Ses, Işık ve Görüntü Ürünleri | Sescim'
+    const description = 'Tüm profesyonel ses sistemleri, mikserler, hoparlörler, mikrofonlar ve sahne sistemleri en uygun fiyat ve taksit seçenekleriyle Sescim\'de.'
+    const url = `${baseUrl}/urunler`
+    return { 
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        title,
+        description,
+        url,
+        siteName: 'Sescim',
+        locale: 'tr_TR',
+        type: 'website',
+        images: [{ url: `${baseUrl}/logo.png`, width: 1200, height: 630, alt: 'Sescim Ürün Kataloğu' }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [`${baseUrl}/logo.png`],
+      },
+    }
   }
+
   const category = findCategoryBySlug(params.slug)
-  if (!category) return { title: 'Ürünler | Sescim.com' }
-  return { title: `${category.name} | Sescim.com`, description: `${category.name} ürün kategorisi.` }
+  if (!category) return { title: 'Ürünler | Sescim' }
+
+  const catName = category.name
+  const title = `${catName} Modelleri ve Fiyatları | Sescim`
+  const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, orijinal ürün garantisi, aynı gün kargo ve 12 aya varan taksit seçenekleriyle Sescim'de.`
+  const url = `${baseUrl}/urunler/${params.slug.join('/')}`
+
+  return { 
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: 'Sescim',
+      locale: 'tr_TR',
+      type: 'website',
+      images: [{ url: `${baseUrl}/logo.png`, width: 1200, height: 630, alt: catName }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${baseUrl}/logo.png`],
+    },
+  }
 }
 
 export default async function UrunlerPage({ params, searchParams }: Props) {
@@ -157,14 +232,71 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   const baseParams = new URLSearchParams()
   Object.entries(searchParams).forEach(([k, v]) => { if (v && k !== 'sayfa') baseParams.set(k, v) })
 
+  const categoryPath = slugArray.length > 0 ? `/urunler/${slugArray.join('/')}` : '/urunler'
+  const baseUrl = getSiteUrl()
+  const crumbs = getCategoryPathBreadcrumbs(slugArray)
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((crumb, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      name: crumb.name,
+      item: crumb.url,
+    })),
+  }
+
+  const itemListJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: activeCategory ? `${activeCategory.name} Modelleri ve Fiyatları` : 'Sescim Ürün Kataloğu',
+    numberOfItems: (products || []).length,
+    itemListElement: (products || []).slice(0, 16).map((p: any, idx: number) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      url: `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`,
+      name: p.ad,
+    })),
+  }
+
   return (
     <div className="min-h-screen pb-24">
+      {/* Google Rich Snippets: BreadcrumbList & ItemList */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {products && products.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+      )}
       
       {/* Kampanya / Banner Alanı */}
       <BannerCarousel banners={banners} />
 
       {/* Başlık + Arama — Banner’ın hemen altında, aktarımlı geçiş */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-10">
+        {/* Görsel ve Semantik Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="mb-4">
+          <ol className="flex items-center flex-wrap gap-1.5 text-xs text-slate-500">
+            {crumbs.map((c, i) => (
+              <li key={c.url} className="flex items-center gap-1.5">
+                {i > 0 && <ChevronRight className="w-3 h-3 text-slate-400 flex-shrink-0" />}
+                {i === crumbs.length - 1 ? (
+                  <span className="font-semibold text-slate-900">{c.name}</span>
+                ) : (
+                  <Link href={c.url.replace(baseUrl, '') || '/'} className="hover:text-brand-red transition-colors">
+                    {c.name}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ol>
+        </nav>
+
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-[2px] bg-brand-red" />
           <span className="font-display font-black text-[10px] tracking-[0.4em] uppercase text-brand-red">
@@ -181,14 +313,14 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 pt-8 md:pt-16 flex flex-col lg:flex-row gap-8">
+      <div id="urun-listesi" className="max-w-7xl mx-auto px-6 pt-8 md:pt-16 flex flex-col lg:flex-row gap-8 scroll-mt-24">
         
         {/* Sidebar Filters */}
         <div className="w-full lg:w-1/4 flex-shrink-0">
           <ProductFilters 
             markalar={markalar} 
             kullanimAlanlari={kullanimAlanlari} 
-            searchParams={searchParams}
+            searchParams={searchParams} 
             slugArray={slugArray}
           />
         </div>
@@ -201,13 +333,13 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
           {!activeCategory ? (
             <div className="flex flex-wrap gap-2">
               {NEW_KATEGORI_HIYERARSI.map((kat) => (
-                <a
+                <Link
                   key={kat.slug}
                   href={`/urunler/${kat.slug}`}
                   className="font-display font-bold text-[10px] tracking-widest uppercase px-6 py-3 border border-slate-200 bg-white text-slate-500 hover:border-brand-red/40 hover:text-slate-900 transition-all duration-300"
                 >
                   {kat.name}
-                </a>
+                </Link>
               ))}
             </div>
           ) : activeCategory.children && (
@@ -218,13 +350,13 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               </div>
               <div className="flex flex-wrap gap-2">
                 {activeCategory.children.map((child: any) => (
-                  <a
+                  <Link
                     key={child.slug}
                     href={`/urunler/${slugArray.join('/')}/${child.slug}`}
                     className="font-display font-bold text-[10px] tracking-widest uppercase px-5 py-2.5 border border-brand-red/10 bg-brand-red/[0.02] text-brand-red/50 hover:bg-brand-red hover:text-white transition-all"
                   >
                     {child.name}
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -243,8 +375,12 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
           )}
         </div>
 
-        <Suspense fallback={<GridSkeleton />}>
-          <ProductGrid products={products || []} searchQuery={searchParams.q} />
+        <Suspense key={`suspense-${categoryPath}-${sayfa}`} fallback={<GridSkeleton />}>
+          <ProductGrid 
+            key={`products-${categoryPath}-${sayfa}`}
+            products={products || []} 
+            searchQuery={searchParams.q} 
+          />
         </Suspense>
 
         {totalPages > 1 && (
@@ -253,6 +389,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               currentPage={sayfa}
               totalPages={totalPages}
               baseParams={baseParams.toString()}
+              basePath={categoryPath}
             />
           </div>
         )}

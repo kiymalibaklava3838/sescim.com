@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-ip'
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req)
+    if (!(await rateLimit(`stok_bildirim:${ip}`, 5, 60_000))) {
+      return NextResponse.json({ error: 'Çok fazla istek. Lütfen biraz sonra deneyin.' }, { status: 429 })
+    }
+
     const { urun_id, email, telefon } = await req.json()
 
-    if (!urun_id || !email) {
-      return NextResponse.json({ error: 'Ürün ID ve E-posta zorunludur' }, { status: 400 })
+    if (!urun_id || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Geçerli bir Ürün ID ve E-posta adresi zorunludur' }, { status: 400 })
     }
 
     const db = supabaseAdmin!

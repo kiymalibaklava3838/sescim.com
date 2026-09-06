@@ -27,7 +27,26 @@ export default async function AramaPage({
       .select(LIGHT_PRODUCT_FIELDS)
       .ilike('ad', `%${q}%`)
       
-    products = data || []
+    if (data && data.length > 0) {
+      try {
+        const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
+        const urunIds = data.map((p: any) => p.id)
+        const pricingMap = await getSescimPricingMap(urunIds)
+        products = data.map((p: any) => {
+          const pricing = pricingMap.get(p.id)
+          return {
+            ...p,
+            sescim_fiyat: pricing?.sescim_fiyat ?? null,
+            sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? null,
+            sescim_aktif: pricing?.sescim_aktif ?? true
+          }
+        }).filter(p => p.sescim_aktif !== false)
+      } catch {
+        products = data
+      }
+    } else {
+      products = []
+    }
   }
   
   return (

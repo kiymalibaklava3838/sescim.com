@@ -108,23 +108,23 @@ export async function POST(req: NextRequest) {
 
     const durumEmailMap: Record<string, { subject: string; html: string } | null> = {
       onaylandi: {
-        subject: `Siparişiniz Onaylandı — ${siparis.siparis_no} | Akdağ Elektronik`,
+        subject: `Siparişiniz Onaylandı — ${siparis.siparis_no} | sescim.com`,
         html: siparisOnaylandiHTML(emailParams),
       },
       hazirlaniyor: {
-        subject: `Siparişiniz Hazırlanıyor — ${siparis.siparis_no} | Akdağ Elektronik`,
+        subject: `Siparişiniz Hazırlanıyor — ${siparis.siparis_no} | sescim.com`,
         html: siparisHazirlaniyorHTML(emailParams),
       },
       kargolandi: {
-        subject: `Siparişiniz Kargoya Verildi — ${siparis.siparis_no} | Akdağ Elektronik`,
+        subject: `Siparişiniz Kargoya Verildi — ${siparis.siparis_no} | sescim.com`,
         html: siparisKargolandiHTML({ ...emailParams, kargo_takip_no: kargo_takip_no || undefined }),
       },
       teslim_edildi: {
-        subject: `Siparişiniz Teslim Edildi 🎉 — ${siparis.siparis_no} | Akdağ Elektronik`,
+        subject: `Siparişiniz Teslim Edildi 🎉 — ${siparis.siparis_no} | sescim.com`,
         html: siparisTeslimEdildiHTML(emailParams),
       },
       iptal: {
-        subject: `Siparişiniz İptal Edildi — ${siparis.siparis_no} | Akdağ Elektronik`,
+        subject: `Siparişiniz İptal Edildi — ${siparis.siparis_no} | sescim.com`,
         html: siparisIptalHTML(emailParams),
       },
     }

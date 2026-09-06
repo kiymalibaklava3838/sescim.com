@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api/
 
-Sitemap: https://akdagelektronik.com/sitemap.xml
+Sitemap: https://sescim.com/sitemap.xml
+

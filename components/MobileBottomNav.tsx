@@ -27,7 +27,7 @@ export default function MobileBottomNav() {
     },
     {
       name: 'Kategoriler',
-      href: '#', // placeholder, can be expanded to a state or category page
+      href: '/urunler',
       icon: LayoutGrid,
     },
     {

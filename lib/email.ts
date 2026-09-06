@@ -598,3 +598,66 @@ export function kampanyaHTML(data: {
     </div>
   `)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TERK EDİLMİŞ SEPET HATIRLATMA E-POSTASI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function terkedilmisSepetHTML(data: {
+  ad_soyad?: string
+  urunler: Array<{ ad: string; fiyat: number; adet: number; fotograf?: string }>
+  toplam_tutar: number
+  sepet_url: string
+  kupon_kodu?: string
+}): string {
+  const urunListesiHtml = data.urunler.map(u => `
+    <div style="display:flex;align-items:center;padding:12px;background:#1a1a1a;border:1px solid #2a2a2a;margin-bottom:8px;border-radius:4px">
+      ${u.fotograf ? `<img src="${u.fotograf}" alt="${u.ad}" style="width:56px;height:56px;object-fit:cover;border-radius:3px;margin-right:12px;background:#fff" />` : ''}
+      <div style="flex:1">
+        <div style="color:#fff;font-size:14px;font-weight:600">${u.ad}</div>
+        <div style="color:#888;font-size:12px;margin-top:2px">Adet: ${u.adet} × ${(u.fiyat).toLocaleString('tr-TR')} ₺</div>
+      </div>
+      <div style="color:#DA291C;font-weight:700;font-size:14px">${(u.fiyat * u.adet).toLocaleString('tr-TR')} ₺</div>
+    </div>
+  `).join('')
+
+  return emailShell(`
+    ${header('Sepetinizde Ürünler Sizi Bekliyor!', 'Sizin için ürünleri ayırdık')}
+
+    <div style="background:#141414;border:1px solid #222;padding:24px;margin-bottom:16px">
+      <div style="color:#fff;font-size:16px;font-weight:600;margin-bottom:8px">
+        Merhaba ${data.ad_soyad || 'Değerli Müziksever'},
+      </div>
+      <div style="color:#aaa;font-size:14px;line-height:1.6;margin-bottom:20px">
+        Sescim'de sepetinize eklediğiniz ürünleri tamamlamadığınızı fark ettik. Profesyonel ekipman stoklarımız sınırlı olduğundan ürünlerinizi kaçırmamanız için hatırlatmak istedik.
+      </div>
+
+      <div style="margin-bottom:16px">
+        ${urunListesiHtml}
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1e1e1e;border:1px solid #333;margin-bottom:20px">
+        <span style="color:#888;font-size:13px;text-transform:uppercase;letter-spacing:0.05em">Sepet Toplamı:</span>
+        <span style="color:#fff;font-size:18px;font-weight:900">${data.toplam_tutar.toLocaleString('tr-TR')} ₺</span>
+      </div>
+
+      ${data.kupon_kodu ? `
+        <div style="background:rgba(218,41,28,0.1);border:1px dashed #DA291C;padding:14px 18px;text-align:center;border-radius:4px;margin-bottom:24px">
+          <div style="color:#aaa;font-size:12px;margin-bottom:4px">Alışverişinizi Tamamlamanız İçin Özel İndirim Kodunuz:</div>
+          <div style="color:#DA291C;font-size:20px;font-weight:900;letter-spacing:0.1em;font-family:monospace">${data.kupon_kodu}</div>
+          <div style="color:#888;font-size:11px;margin-top:4px">Sepetinizde bu kuponu girerek ekstra indirimden faydalanabilirsiniz.</div>
+        </div>
+      ` : ''}
+
+      <div style="text-align:center;margin-top:20px">
+        <a href="${data.sepet_url}" style="display:inline-block;padding:16px 36px;background:#DA291C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;box-shadow:0 4px 12px rgba(218,41,28,0.4)">
+          Sepetime Dön ve Siparişi Tamamla →
+        </a>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;color:#666;font-size:11px">
+        🚚 ₺1.999 Üzeri Ücretsiz Kargo • 🛡️ Akdağ Elektronik Güvencesi • ⚡ Hızlı Sevkiyat
+      </div>
+    </div>
+  `)
+}

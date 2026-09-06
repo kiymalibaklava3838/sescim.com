@@ -3,10 +3,12 @@
 import { useEffect, useState, memo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check, Eye } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { dovizToTL, formatFiyat, type KurData } from '@/lib/kur'
 import { addToCart } from '@/lib/cart'
+import ProductBadges from './ProductBadges'
 import {
   getCompareList,
   isCompared,
@@ -113,16 +115,16 @@ export default function ProductGrid({ products, suggested, searchQuery, isBayi, 
         </div>
       )}
       <motion.div 
+        key={products.map(p => p.id).slice(0, 5).join('-')}
         className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 md:gap-2"
-        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-50px" }}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         {products.map((p) => (
-          <motion.div key={p.id} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300 } } }} className="flex flex-col h-full">
+          <div key={p.id} className="flex flex-col h-full">
             <ProductCard product={p} kur={kur} />
-          </motion.div>
+          </div>
         ))}
       </motion.div>
     </>
@@ -144,6 +146,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   const [fav, setFav] = useState(false)
   const [cmp, setCmp] = useState(false)
   const [cartAdded, setCartAdded] = useState(false)
+  const router = useRouter()
   const stockCount = product.stok_adedi ?? null
   const isCritical =
     stockCount !== null &&
@@ -156,17 +159,28 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     setCmp(isCompared(product.id))
   }, [product.id])
 
+  const handlePrefetch = () => {
+    const slug = product.slug || product.id
+    if (slug) {
+      router.prefetch(`/urun/${slug}`)
+    }
+  }
+
   const asSaved = (): SavedProduct => ({
     id: product.id,
+    slug: product.slug,
     ad: product.ad,
     kategori: product.kategori,
-    fiyat: product.fiyat,
+    fiyat: product.sescim_fiyat ?? product.fiyat,
     para_birimi: product.para_birimi,
     stok_durumu: product.stok_durumu,
     stok_adedi: product.stok_adedi ?? null,
     kritik_stok: product.kritik_stok ?? null,
     marka: product.marka ?? null,
     kullanim_alani: product.kullanim_alani ?? null,
+    fotograf: product.fotograflar?.[0] || null,
+    fotograflar: product.fotograflar || [],
+    indirimli_fiyat: product.sescim_indirimli_fiyat ?? null,
   })
 
   // Sepete ekleme handler
@@ -177,6 +191,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     if (!finalFiyat || stok === 'tukendi') return
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
+    const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
 
     addToCart({
       id: product.id,
@@ -186,41 +201,77 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       fiyat: fiyatTL,
       fiyat_doviz: finalFiyat,
       para_birimi: pb,
-      indirimli_fiyat: null,
-      indirimli_fiyat_doviz: null,
+      indirimli_fiyat: indirimliFiyatTL,
+      indirimli_fiyat_doviz: product.sescim_indirimli_fiyat || null,
     })
     setCartAdded(true)
     setTimeout(() => setCartAdded(false), 2000)
   }
 
+  const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
+
   return (
-    <div className="product-card group relative bg-white border border-slate-200 overflow-hidden hover:border-brand-red/30 flex flex-col h-full">
+    <div 
+      className="product-card group relative bg-white border border-slate-200 overflow-hidden hover:border-brand-red/30 flex flex-col h-full gpu-accelerate transition-all duration-200 hover:shadow-md"
+      onMouseEnter={handlePrefetch}
+    >
       {/* Tıklanabilir alan — Link ile sarılı (SEO + navigasyon) */}
       <Link href={`/urun/${product.slug || product.id}`} className="flex flex-col flex-1">
         {/* Görsel */}
-        <div className="aspect-square bg-slate-50 relative overflow-hidden">
+        <div className="aspect-square bg-slate-100 skeleton-shimmer relative overflow-hidden">
           {product.fotograflar?.[0] ? (
-            <Image src={product.fotograflar[0]} alt={product.ad} fill
+            <Image 
+              src={product.fotograflar[0]} 
+              alt={product.ad} 
+              fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105" />
+              loading="lazy"
+              className="object-cover transition-transform duration-500 group-hover:scale-105" 
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Package size={40} className="text-slate-300" />
             </div>
           )}
 
-          {isRecentUpdate && (
-            <div className="absolute top-3 left-3 bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs">
+          {/* Dinamik Rozetler (İndirim / Bugün Kargoda / Son X Ürün) */}
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <ProductBadges
+              stokAdedi={product.stok_adedi}
+              kritikStok={product.kritik_stok}
+              stokDurumu={stok}
+              fiyat={normalFiyatTL || undefined}
+              indirimliFiyat={indirimliFiyatTL || undefined}
+              kategori={product.kategori}
+              compact
+            />
+          </div>
+
+          {/* Hızlı Bakış Butonu (Hover'da belirir) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              window.dispatchEvent(new CustomEvent('open-quick-view', { detail: product }))
+            }}
+            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 bg-white/95 hover:bg-white text-slate-800 hover:text-brand-red border border-slate-200 text-[10px] font-display font-bold uppercase tracking-wider px-3 py-1.5 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1.5 hover:scale-105 z-20 cursor-pointer"
+          >
+            <Eye size={12} /> Hızlı Bakış
+          </button>
+
+          {isRecentUpdate && !indirimliFiyatTL && (
+            <div className="absolute top-2.5 right-2.5 bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs rounded-xs">
               YENİ FİYAT
             </div>
           )}
           {stok === 'tukendi' && (
-            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-              <span className="font-display font-black text-sm uppercase tracking-widest text-slate-800">Tükendi</span>
+            <div className="absolute inset-0 bg-white/85 flex items-center justify-center z-10">
+              <span className="font-display font-black text-sm uppercase tracking-widest text-slate-800 bg-slate-100 px-3 py-1 rounded border border-slate-200">Tükendi</span>
             </div>
           )}
           {stok === 'siparise_gore' && (
-            <div className="absolute top-3 right-3 bg-yellow-500 text-black px-2 py-0.5 font-display font-black text-[9px] uppercase tracking-wider">
+            <div className="absolute top-2.5 right-2.5 bg-yellow-500 text-black px-2 py-0.5 font-display font-black text-[9px] uppercase tracking-wider rounded-xs">
               Siparişe Göre
             </div>
           )}
@@ -241,17 +292,19 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           )}
 
           <div className="mt-auto space-y-0.5">
-            {aktifFiyat ? (
-              <>
-                <div className="font-display font-black text-lg text-slate-800">
+            {indirimliFiyatTL ? (
+              <div className="flex flex-col">
+                <span className="text-xs text-slate-400 line-through">
                   {formatFiyat(normalFiyatTL || 0, 'TRY')}
-                  {product.sescim_indirimli_fiyat && (
-                    <span className="text-xs text-red-500 ml-2 line-through">
-                      {formatFiyat(dovizToTL(product.fiyat ?? 0, pb, kurData), 'TRY')}
-                    </span>
-                  )}
-                </div>
-              </>
+                </span>
+                <span className="font-display font-black text-lg text-brand-red">
+                  {formatFiyat(indirimliFiyatTL, 'TRY')}
+                </span>
+              </div>
+            ) : aktifFiyat ? (
+              <div className="font-display font-black text-lg text-slate-800">
+                {formatFiyat(normalFiyatTL || 0, 'TRY')}
+              </div>
             ) : (
               <span className="font-body text-slate-500 text-xs">Fiyat Yok</span>
             )}

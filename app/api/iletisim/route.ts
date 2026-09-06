@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Kayıt oluşturulamadı. Tablo henüz kurulmamış olabilir.' }, { status: 503 })
     }
 
-    const adminEmail = process.env.ADMIN_EMAIL || 'info@akdagelektronik.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'info@sescim.com'
     await sendEmail(
       adminEmail,
       `İletişim formu: ${konu || 'Genel'} — ${ad}`,

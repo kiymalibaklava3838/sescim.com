@@ -24,12 +24,16 @@ export const revalidate = 0
 
 const PER_PAGE = 16
 
-function getCategoryPathBreadcrumbs(slugArray: string[]) {
+function getCategoryPathBreadcrumbs(slugArray: string[], marka?: string) {
   const baseUrl = getSiteUrl()
   const crumbs = [
     { name: 'Ana Sayfa', url: baseUrl },
     { name: 'Ürünler', url: `${baseUrl}/urunler` },
   ]
+  if (marka) {
+    crumbs.push({ name: marka, url: `${baseUrl}/urunler?marka=${encodeURIComponent(marka)}` })
+    return crumbs
+  }
   let currentList = HIERARCHY_DATA
   let path = '/urunler'
   for (const slug of slugArray) {
@@ -79,8 +83,35 @@ interface Props {
   }
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params, searchParams }: Props) {
   const baseUrl = getSiteUrl()
+
+  if (searchParams?.marka) {
+    const marka = searchParams.marka
+    const title = `${marka} Ürünleri, Modelleri ve Fiyatları | Sescim`
+    const description = `Tüm orijinal ${marka} profesyonel ses, sahne ve stüdyo ekipmanları en uygun fiyat ve distribütör garantisiyle Sescim'de.`
+    const url = `${baseUrl}/urunler?marka=${encodeURIComponent(marka)}`
+    return { 
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        title,
+        description,
+        url,
+        siteName: 'Sescim',
+        locale: 'tr_TR',
+        type: 'website',
+        images: [{ url: `${baseUrl}/logo.png`, width: 1200, height: 630, alt: `${marka} Sescim` }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [`${baseUrl}/logo.png`],
+      },
+    }
+  }
 
   if (!params.slug || params.slug.length === 0) {
     const title = 'Tüm Profesyonel Ses, Işık ve Görüntü Ürünleri | Sescim'
@@ -188,7 +219,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     if (filters.min) q = q.gte('fiyat', filters.min)
     if (filters.max) q = q.lte('fiyat', filters.max)
     if (filters.stok && filters.stok !== 'tum') q = q.eq('stok_durumu', filters.stok)
-    if (filters.marka && filters.marka !== 'tum') q = q.eq('marka', filters.marka)
+    if (filters.marka && filters.marka !== 'tum') q = q.ilike('marka', filters.marka)
     if (filters.kullanim && filters.kullanim !== 'tum') q = q.eq('kullanim_alani', filters.kullanim)
 
     if (filters.sirala === 'yeni') q = q.order('created_at', { ascending: false })
@@ -248,7 +279,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   let bestSellers: any[] = []
   let forYouProducts: any[] = []
 
-  if (slugArray.length === 0) {
+  if (isMainDiscoverPage) {
     try {
       const akdagClient = await createAkdagServerClient()
       const [sets, proProds, newRes, bestRes, forYouRes] = await Promise.all([
@@ -297,7 +328,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
   const categoryPath = slugArray.length > 0 ? `/urunler/${slugArray.join('/')}` : '/urunler'
   const baseUrl = getSiteUrl()
-  const crumbs = getCategoryPathBreadcrumbs(slugArray)
+  const crumbs = getCategoryPathBreadcrumbs(slugArray, filters.marka)
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -313,7 +344,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   const itemListJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: activeCategory ? `${activeCategory.name} Modelleri ve Fiyatları` : 'Sescim Ürün Kataloğu',
+    name: filters.marka ? `${filters.marka} Ürünleri` : activeCategory ? `${activeCategory.name} Modelleri ve Fiyatları` : 'Sescim Ürün Kataloğu',
     numberOfItems: (products || []).length,
     itemListElement: (products || []).slice(0, 16).map((p: any, idx: number) => ({
       '@type': 'ListItem',
@@ -337,11 +368,11 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
         />
       )}
       
-      {/* Kampanya / Banner Alanı */}
-      <BannerCarousel banners={banners} />
+      {/* Kampanya / Banner Alanı (Sadece Ana Keşfet Sayfasında) */}
+      {isMainDiscoverPage && <BannerCarousel banners={banners} />}
 
       {/* Başlık + Arama — Banner’ın hemen altında, aktarımlı geçiş */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         {/* Görsel ve Semantik Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-4">
           <ol className="flex items-center flex-wrap gap-1.5 text-xs text-slate-500">
@@ -363,24 +394,45 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-[2px] bg-brand-red" />
           <span className="font-display font-black text-[10px] tracking-[0.4em] uppercase text-brand-red">
-            {activeCategory ? 'Kategori Kataloğu' : 'Keşfet & Çözüm Kataloğu'}
+            {filters.marka ? 'Marka Kataloğu' : activeCategory ? 'Kategori Kataloğu' : 'Keşfet & Çözüm Kataloğu'}
           </span>
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="font-display font-black text-4xl md:text-6xl uppercase text-slate-900 tracking-tighter leading-none">
-              {activeCategory ? activeCategory.name : 'KEŞFET'}
+              {filters.marka ? filters.marka : activeCategory ? activeCategory.name : 'KEŞFET'}
             </h1>
-            {!activeCategory && (
-              <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl">
+            {filters.marka ? (
+              <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl font-body">
+                Tüm orijinal <strong className="text-slate-800">{filters.marka}</strong> profesyonel ses, stüdyo ve sahne sistemleri. Yetkili distribütör garantisi ve hızlı teslimat avantajıyla.
+              </p>
+            ) : !activeCategory ? (
+              <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl font-body">
                 Aradığınız profesyonel ses, sahne ve stüdyo ekipmanlarını hazır çözümler, popüler tercihler ve uzman seçimleriyle keşfedin.
               </p>
+            ) : null}
+
+            {/* Aktif Marka Filtresi Rozeti */}
+            {filters.marka && (
+              <div className="flex items-center gap-2 mt-4">
+                <span className="text-xs text-slate-400 font-body">Seçili Marka:</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 border border-brand-red/20 rounded-full text-xs font-bold text-brand-red font-display tracking-wide">
+                  <span>{filters.marka}</span>
+                  <Link 
+                    href="/urunler" 
+                    className="hover:bg-brand-red hover:text-white rounded-full p-0.5 transition-colors"
+                    title="Filtreyi Temizle"
+                  >
+                    <X size={12} />
+                  </Link>
+                </span>
+              </div>
             )}
           </div>
         </div>
 
         {/* KEŞFET ÖZEL VİTRİNLERİ (Sadece Ana Keşfet Sayfasında Gösterilir) */}
-        {!activeCategory && (
+        {isMainDiscoverPage && (
           <DiscoverCuratedSections
             inspirationSets={inspirationSets}
             proTercihProducts={proTercihProducts}
@@ -393,7 +445,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
       </div>
 
       {!isMainDiscoverPage && (
-        <div id="tum-urunler-grid" className="max-w-7xl mx-auto px-6 pt-10 md:pt-16 flex flex-col lg:flex-row gap-8 scroll-mt-24">
+        <div id="tum-urunler-grid" className="max-w-7xl mx-auto px-6 pt-6 md:pt-10 flex flex-col lg:flex-row gap-8 scroll-mt-24">
           
           {/* Sidebar Filters */}
           <div className="w-full lg:w-1/4 flex-shrink-0">
@@ -409,13 +461,13 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
           <div className="w-full lg:w-3/4 flex-1">
 
           {/* Dinamik Kategori Gezgini */}
-          <div className="mb-12">
+          <div className="mb-8">
             {!activeCategory ? (
               <div className="flex flex-wrap gap-2">
                 {NEW_KATEGORI_HIYERARSI.map((kat) => (
                   <Link
                     key={kat.slug}
-                    href={`/urunler/${kat.slug}`}
+                    href={filters.marka ? `/urunler/${kat.slug}?marka=${encodeURIComponent(filters.marka)}` : `/urunler/${kat.slug}`}
                     className="font-display font-bold text-[10px] tracking-widest uppercase px-6 py-3 border border-slate-200 bg-white text-slate-500 hover:border-brand-red/40 hover:text-slate-900 transition-all duration-300"
                   >
                     {kat.name}

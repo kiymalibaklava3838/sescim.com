@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   Package, Clock, CheckCircle, XCircle, Truck, Store,
-  RefreshCw, Search, X, ChevronDown, ChevronUp, Phone, Mail, MapPin, FileText, ExternalLink, Briefcase, User as UserIcon, CreditCard
+  RefreshCw, Search, X, ChevronDown, ChevronUp, Phone, Mail, MapPin, FileText, ExternalLink, Briefcase, User as UserIcon, CreditCard, Printer
 } from 'lucide-react'
 
 interface SiparisUrun {
@@ -503,6 +503,15 @@ export default function AdminSiparisler() {
                                 >
                                   {updatingKargo === siparis.id ? '...' : 'KAYDET'}
                                 </button>
+                                <a
+                                  href={`/siparis/${siparis.siparis_no || siparis.id}/kargo-etiketi`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-display font-bold uppercase tracking-wider transition-colors whitespace-nowrap"
+                                  title="Termal / A4 Kargo Sevk Etiketi Yazdır"
+                                >
+                                  <Printer size={12} /> ETİKET
+                                </a>
                               </div>
                            </div>
                         )}

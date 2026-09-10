@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { Speaker, Lightbulb, Monitor, Headphones, Music, Mic, Package, Plug } from 'lucide-react'
 import FeaturedProducts from '@/components/FeaturedProducts'
+import DailyDealsSection from '@/components/DailyDealsSection'
+import PersonalizedRecommendationsSection from '@/components/PersonalizedRecommendationsSection'
 import HeroSlider from '@/components/HeroSlider'
 import TrustBadges from '@/components/TrustBadges'
 import WorldBrandsTrustBanner from '@/components/WorldBrandsTrustBanner'
@@ -46,14 +48,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ÖNE ÇIKAN ÜRÜNLER (Varsayılan) */}
-      <FeaturedProducts />
+      {/* GÜNÜN FIRSATLARI (Öne Çıkanlar Yerine) */}
+      <DailyDealsSection />
 
-      {/* ÇOK SATANLAR */}
+      {/* EN ÇOK SATANLAR */}
       <FeaturedProducts title="En Çok Satanlar" sortBy="fiyat" ascending={false} filterByFeatured={false} />
 
-      {/* YENİ EKLENENLER */}
-      <FeaturedProducts title="Yeni Eklenenler" sortBy="created_at" ascending={false} filterByFeatured={false} />
+      {/* İLGİNİZİ ÇEKEBİLECEK ÜRÜNLER (Yeni Eklenenler Yerine - Akıllı Öneri Motoru) */}
+      <PersonalizedRecommendationsSection />
 
       {/* TRUST BADGES */}
       <TrustBadges />

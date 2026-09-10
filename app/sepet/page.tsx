@@ -23,6 +23,7 @@ import CartCrossSell from '@/components/CartCrossSell'
 import FreeShippingBar from '@/components/FreeShippingBar'
 import { calculateCouponDiscount, matchesCategory } from '@/lib/coupon-helper'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
+import { calculateShippingFee, SHIPPING_CONFIG } from '@/lib/shipping'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -37,7 +38,7 @@ export default function SepetPage() {
   const [email, setEmail] = useState('')
   const [telefon, setTelefon] = useState('')
   const [notlar, setNotlar] = useState('')
-  const [teslimat, setTeslimat] = useState<'kargo' | 'depo'>('kargo')
+  const teslimat = 'kargo'
   const [teslimatAdresi, setTeslimatAdresi] = useState('')
   const [sehir, setSehir] = useState('')
   const [ilce, setIlce] = useState('')
@@ -216,7 +217,9 @@ export default function SepetPage() {
 
   const couponCalc = calculateCouponDiscount(uygulananKupon, itemsWithLivePrice, araToplam)
   const indirimMiktari = couponCalc.discount
-  const total = Math.max(0, araToplam - indirimMiktari)
+  const netUrunlerToplam = Math.max(0, araToplam - indirimMiktari)
+  const kargoUcreti = calculateShippingFee(netUrunlerToplam)
+  const total = netUrunlerToplam + kargoUcreti
 
   useEffect(() => {
     if (uygulananKupon) {
@@ -318,7 +321,7 @@ export default function SepetPage() {
     if (!items.length) { setError('Sepetiniz boş.'); return }
     if (!adSoyad.trim() || !email.trim()) { setError('Ad soyad ve e-posta zorunludur.'); return }
     if (!telefon.trim()) { setError('Telefon numarası zorunludur.'); return }
-    if (teslimat === 'kargo' && !teslimatAdresi.trim()) {
+    if (!teslimatAdresi.trim()) {
       setError('Lütfen kargo teslimat adresi giriniz.')
       return
     }
@@ -342,17 +345,18 @@ export default function SepetPage() {
           user_id: user?.id ?? null,
           urunler,
           toplam_tutar: total,
+          kargo_ucreti: kargoUcreti,
           ad_soyad: adSoyad.trim(),
           email: email.trim(),
           telefon: telefon.trim() || null,
           notlar: notlar.trim() || null,
           odeme_tipi: 'kart',
-          teslimat_tipi: teslimat,
+          teslimat_tipi: 'kargo',
           fatura_tipi: faturaTipi,
           firma_unvani: faturaTipi === 'kurumsal' ? firmaUnvani : null,
           vergi_dairesi: faturaTipi === 'kurumsal' ? vergiDairesi : null,
           vergi_no: faturaTipi === 'kurumsal' ? vergiNo : null,
-          teslimat_adresi: teslimat === 'kargo' ? teslimatAdresi : null,
+          teslimat_adresi: teslimatAdresi,
           kupon_kodu: uygulananKupon ? uygulananKupon.kod : null,
           indirim_tutari: indirimMiktari,
         }),
@@ -377,7 +381,7 @@ export default function SepetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-4 sm:pt-8 pb-32 sm:pb-24 overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 pt-4 sm:pt-8 pb-32 sm:pb-24">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 py-6 sm:py-12 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -430,8 +434,8 @@ export default function SepetPage() {
         {items.length > 0 && (
           <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 items-start">
             
-            {/* ÜRÜN LİSTESİ */}
-            <div className="lg:col-span-2 space-y-4">
+            {/* ÜRÜN LİSTESİ VE ÖNERİLENLER (AŞAĞI İNDİKÇE EŞ ZAMANLI TAKİP EDER) */}
+            <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1 custom-scrollbar">
               <h2 className="font-display font-black text-lg sm:text-xl text-slate-800 mb-2 uppercase tracking-wide">Ürünleriniz</h2>
               {items.map((i) => (
                 <div key={i.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white border border-slate-200 p-3.5 sm:p-4 rounded-xl shadow-xs hover:border-slate-300 transition-colors">
@@ -471,7 +475,7 @@ export default function SepetPage() {
 
             {/* SİPARİŞ FORMU */}
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8 sticky top-24">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 lg:p-8">
                 
                 {/* Kargo Bedava Barı */}
                 <div className="mb-6">
@@ -676,10 +680,25 @@ export default function SepetPage() {
                       <span>- {Math.ceil(indirimMiktari).toLocaleString('tr-TR')} ₺</span>
                     </div>
                   )}
+                  <div className="flex justify-between items-center text-sm font-body">
+                    <span className="text-slate-500 flex items-center gap-1.5">
+                      <Truck size={14} className="text-slate-400" />
+                      <span>Kargo Bedeli</span>
+                    </span>
+                    {kargoUcreti === 0 ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-600 font-display font-black text-xs uppercase px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
+                        ÜCRETSİZ
+                      </span>
+                    ) : (
+                      <span className="font-mono font-bold text-slate-800">
+                        {kargoUcreti.toLocaleString('tr-TR')} ₺
+                      </span>
+                    )}
+                  </div>
                   <div className="flex justify-between items-end pt-3">
                     <div>
                       <div className="font-display text-xs tracking-widest uppercase text-slate-500 mb-1">Ödenecek Tutar</div>
-                      <div className="text-xs font-medium text-slate-400">KDV Dahildir</div>
+                      <div className="text-xs font-medium text-slate-400">KDV ve Kargo Dahildir</div>
                     </div>
                     <span className="font-display font-black text-3xl text-brand-red">{Math.ceil(total).toLocaleString('tr-TR')} ₺</span>
                   </div>
@@ -730,144 +749,126 @@ export default function SepetPage() {
                   </div>
 
                   <div className="border border-slate-200 bg-white rounded-xl overflow-hidden">
-                    <div className="bg-slate-50 p-4 border-b border-slate-200">
-                      <div className="font-display font-bold text-xs tracking-widest uppercase text-slate-600">Teslimat Yöntemi</div>
-                    </div>
-                    
-                    <label className={`flex items-center gap-3 p-4 border-b cursor-pointer transition-all duration-200 ${teslimat === 'kargo' ? 'border-brand-red/40 bg-brand-red/5' : 'border-slate-100 hover:bg-slate-50'}`}>
-                      <input type="radio" name="teslimat" value="kargo" checked={teslimat === 'kargo'} onChange={() => setTeslimat('kargo')} className="w-4 h-4 text-brand-red focus:ring-brand-red border-slate-300" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Truck size={16} className={teslimat === 'kargo' ? 'text-brand-red' : 'text-slate-400'} />
-                          <span className={`font-display font-bold text-sm uppercase ${teslimat === 'kargo' ? 'text-brand-red' : 'text-slate-700'}`}>Adrese Kargo</span>
-                        </div>
+                    <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Truck size={16} className="text-brand-red" />
+                        <span className="font-display font-bold text-xs tracking-widest uppercase text-slate-700">Kargo Teslimat Adresi</span>
                       </div>
-                    </label>
+                      <span className="text-[10px] font-display font-bold uppercase tracking-wider text-slate-400">Tüm Türkiye'ye Gönderim</span>
+                    </div>
 
-                    {teslimat === 'kargo' && (
-                      <div className="p-4 bg-slate-50/50 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200 border-b border-slate-100">
-                        {adresler.length > 0 && (
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block">Kayıtlı Adreslerim</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {adresler.map(a => (
-                                <button 
-                                  key={a.id} 
-                                  type="button"
-                                  onClick={() => {
-                                    setSeciliAdresId(a.id)
-                                    setSehir(a.sehir || '')
-                                    setIlce(a.ilce || '')
-                                    setAcikAdresDetay(a.acik_adres || '')
-                                    setTeslimatAdresi(`${a.acik_adres || ''}\n${a.ilce || ''} / ${a.sehir || ''}`.trim())
-                                  }}
-                                  className={`text-left p-3 border rounded-lg transition-all ${seciliAdresId === a.id ? 'border-brand-red bg-brand-red/5' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
-                                >
-                                  <div className="font-display font-bold text-xs text-slate-800">{a.adres_basligi}</div>
-                                  <div className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">{a.acik_adres} - {a.ilce}/{a.sehir}</div>
-                                </button>
-                              ))}
+                    <div className="p-4 sm:p-5 space-y-4">
+                      {adresler.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block">Kayıtlı Adreslerim</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {adresler.map(a => (
                               <button 
+                                key={a.id} 
                                 type="button"
                                 onClick={() => {
-                                  setSeciliAdresId(null)
-                                  setSehir('')
-                                  setIlce('')
-                                  setAcikAdresDetay('')
-                                  setTeslimatAdresi('')
+                                  setSeciliAdresId(a.id)
+                                  setSehir(a.sehir || '')
+                                  setIlce(a.ilce || '')
+                                  setAcikAdresDetay(a.acik_adres || '')
+                                  setTeslimatAdresi(`${a.acik_adres || ''}\n${a.ilce || ''} / ${a.sehir || ''}`.trim())
                                 }}
-                                className={`text-left p-3 border rounded-lg transition-all flex items-center justify-center gap-2 ${seciliAdresId === null ? 'border-brand-red bg-brand-red/5 text-brand-red' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-600'}`}
+                                className={`text-left p-3 border rounded-lg transition-all ${seciliAdresId === a.id ? 'border-brand-red bg-brand-red/5' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
                               >
-                                <Plus size={14} />
-                                <span className="font-display font-bold text-xs">Farklı Adres</span>
+                                <div className="font-display font-bold text-xs text-slate-800">{a.adres_basligi}</div>
+                                <div className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">{a.acik_adres} - {a.ilce}/{a.sehir}</div>
                               </button>
-                            </div>
+                            ))}
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setSeciliAdresId(null)
+                                setSehir('')
+                                setIlce('')
+                                setAcikAdresDetay('')
+                                setTeslimatAdresi('')
+                              }}
+                              className={`text-left p-3 border rounded-lg transition-all flex items-center justify-center gap-2 ${seciliAdresId === null ? 'border-brand-red bg-brand-red/5 text-brand-red' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-600'}`}
+                            >
+                              <Plus size={14} />
+                              <span className="font-display font-bold text-xs">Farklı Adres</span>
+                            </button>
                           </div>
-                        )}
-                        
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
-                                İl (Şehir) *
-                              </label>
-                              <select
-                                className="input-base text-sm py-2 bg-white"
-                                value={sehir}
-                                onChange={(e) => {
-                                  const s = e.target.value
-                                  setSehir(s)
-                                  setIlce('')
-                                  const comb = [acikAdresDetay.trim(), s].filter(Boolean).join('\n')
-                                  setTeslimatAdresi(comb)
-                                  if (adresler.length > 0) setSeciliAdresId(null)
-                                }}
-                              >
-                                <option value="">İl Seçiniz</option>
-                                {IL_ISIMLERI.map((ilAdi) => (
-                                  <option key={ilAdi} value={ilAdi}>
-                                    {ilAdi}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
-                                İlçe *
-                              </label>
-                              <select
-                                className="input-base text-sm py-2 bg-white disabled:bg-slate-100 disabled:text-slate-400"
-                                value={ilce}
-                                disabled={!sehir}
-                                onChange={(e) => {
-                                  const i = e.target.value
-                                  setIlce(i)
-                                  const comb = [acikAdresDetay.trim(), i && sehir ? `${i} / ${sehir}` : (sehir || i)].filter(Boolean).join('\n')
-                                  setTeslimatAdresi(comb)
-                                  if (adresler.length > 0) setSeciliAdresId(null)
-                                }}
-                              >
-                                <option value="">{sehir ? 'İlçe Seçiniz' : 'Önce İl Seçiniz'}</option>
-                                {getIlcelerByIl(sehir).map((ilceAdi) => (
-                                  <option key={ilceAdi} value={ilceAdi}>
-                                    {ilceAdi}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
+                              İl (Şehir) *
+                            </label>
+                            <select
+                              className="input-base text-sm py-2 bg-white"
+                              value={sehir}
+                              onChange={(e) => {
+                                const s = e.target.value
+                                setSehir(s)
+                                setIlce('')
+                                const comb = [acikAdresDetay.trim(), s].filter(Boolean).join('\n')
+                                setTeslimatAdresi(comb)
+                                if (adresler.length > 0) setSeciliAdresId(null)
+                              }}
+                            >
+                              <option value="">İl Seçiniz</option>
+                              {IL_ISIMLERI.map((ilAdi) => (
+                                <option key={ilAdi} value={ilAdi}>
+                                  {ilAdi}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
                           <div>
                             <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
-                              Açık Adres (Cadde, Sokak, Bina No, Daire) *
+                              İlçe *
                             </label>
-                            <textarea 
-                              className="input-base text-sm min-h-[70px] resize-none" 
-                              placeholder="Örn: Cumhuriyet Mah. İnönü Cad. Barış Apt. No:12 Daire:4" 
-                              value={acikAdresDetay || (seciliAdresId ? teslimatAdresi : '')} 
-                              onChange={e => {
-                                const d = e.target.value
-                                setAcikAdresDetay(d)
-                                const comb = [d.trim(), ilce && sehir ? `${ilce} / ${sehir}` : (sehir || ilce)].filter(Boolean).join('\n')
+                            <select
+                              className="input-base text-sm py-2 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                              value={ilce}
+                              disabled={!sehir}
+                              onChange={(e) => {
+                                const i = e.target.value
+                                setIlce(i)
+                                const comb = [acikAdresDetay.trim(), i && sehir ? `${i} / ${sehir}` : (sehir || i)].filter(Boolean).join('\n')
                                 setTeslimatAdresi(comb)
                                 if (adresler.length > 0) setSeciliAdresId(null)
                               }}
-                            />
+                            >
+                              <option value="">{sehir ? 'İlçe Seçiniz' : 'Önce İl Seçiniz'}</option>
+                              {getIlcelerByIl(sehir).map((ilceAdi) => (
+                                <option key={ilceAdi} value={ilceAdi}>
+                                  {ilceAdi}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    <label className={`flex items-center gap-3 p-4 cursor-pointer transition-all duration-200 ${teslimat === 'depo' ? 'border-brand-red/40 bg-brand-red/5' : 'hover:bg-slate-50'}`}>
-                      <input type="radio" name="teslimat" value="depo" checked={teslimat === 'depo'} onChange={() => setTeslimat('depo')} className="w-4 h-4 text-brand-red focus:ring-brand-red border-slate-300" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Store size={16} className={teslimat === 'depo' ? 'text-brand-red' : 'text-slate-400'} />
-                          <span className={`font-display font-bold text-sm uppercase ${teslimat === 'depo' ? 'text-brand-red' : 'text-slate-700'}`}>Depodan Teslim Al</span>
+                        <div>
+                          <label className="text-[10px] font-display font-bold uppercase text-slate-500 tracking-widest block mb-1.5">
+                            Açık Adres (Cadde, Sokak, Bina No, Daire) *
+                          </label>
+                          <textarea 
+                            className="input-base text-sm min-h-[70px] resize-none" 
+                            placeholder="Örn: Cumhuriyet Mah. İnönü Cad. Barış Apt. No:12 Daire:4" 
+                            value={acikAdresDetay || (seciliAdresId ? teslimatAdresi : '')} 
+                            onChange={e => {
+                              const d = e.target.value
+                              setAcikAdresDetay(d)
+                              const comb = [d.trim(), ilce && sehir ? `${ilce} / ${sehir}` : (sehir || ilce)].filter(Boolean).join('\n')
+                              setTeslimatAdresi(comb)
+                              if (adresler.length > 0) setSeciliAdresId(null)
+                            }}
+                          />
                         </div>
                       </div>
-                    </label>
+                    </div>
                   </div>
                   
                   {/* SÖZLEŞME ONAYI */}

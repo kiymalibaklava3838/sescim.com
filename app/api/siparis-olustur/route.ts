@@ -6,6 +6,7 @@ import { siparisOlusturSchema } from '@/lib/api-schemas'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { calculateCouponDiscount } from '@/lib/coupon-helper'
+import { calculateShippingFee } from '@/lib/shipping'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -152,7 +153,8 @@ export async function POST(req: NextRequest) {
       hesaplanan = Math.max(0, serverAraToplam - appliedDiscount)
     }
 
-    const serverGenelToplam = hesaplanan
+    const serverKargoUcreti = calculateShippingFee(hesaplanan)
+    const serverGenelToplam = hesaplanan + serverKargoUcreti
 
     if (Math.abs(serverGenelToplam - toplam_tutar) > 2) {
       return NextResponse.json({ 
@@ -161,34 +163,49 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    const { data: siparis, error: dbErr } = await db
+    const insertPayload: any = {
+      user_id: user_id || null,
+      urunler: verifiedUrunler,
+      toplam_tutar: serverGenelToplam,
+      ad_soyad,
+      email,
+      telefon,
+      notlar,
+      odeme_tipi,
+      teslimat_tipi: 'kargo',
+      kargo_ucreti: serverKargoUcreti,
+      odeme_durumu: 'beklemede',
+      durum: 'beklemede',
+      fatura_tipi: fatura_tipi || 'bireysel',
+      firma_unvani: firma_unvani || null,
+      vergi_dairesi: vergi_dairesi || null,
+      vergi_no: vergi_no || null,
+      teslimat_adresi: teslimat_adresi || null,
+      kupon_kodu: kupon_kodu || null,
+      indirim_tutari: appliedDiscount,
+      dolar_kuru: dolarKuru,
+      euro_kuru: euroKuru,
+      ip_adresi: ip,
+      user_agent: req.headers.get('user-agent') || null,
+    }
+
+    let { data: siparis, error: dbErr } = await db
       .from('siparisler')
-      .insert({
-        user_id: user_id || null,
-        urunler: verifiedUrunler,
-        toplam_tutar: serverGenelToplam,
-        ad_soyad,
-        email,
-        telefon,
-        notlar,
-        odeme_tipi,
-        teslimat_tipi: teslimat_tipi || 'kargo',
-        odeme_durumu: 'beklemede',
-        durum: 'beklemede',
-        fatura_tipi: fatura_tipi || 'bireysel',
-        firma_unvani: firma_unvani || null,
-        vergi_dairesi: vergi_dairesi || null,
-        vergi_no: vergi_no || null,
-        teslimat_adresi: teslimat_adresi || null,
-        kupon_kodu: kupon_kodu || null,
-        indirim_tutari: appliedDiscount,
-        dolar_kuru: dolarKuru,
-        euro_kuru: euroKuru,
-        ip_adresi: ip,
-        user_agent: req.headers.get('user-agent') || null,
-      })
+      .insert(insertPayload)
       .select('siparis_no, id')
       .single()
+
+    // Eğer kargo_ucreti kolonu henüz DB'de yoksa sütunsuz tekrar dene
+    if (dbErr && dbErr.message?.includes('kargo_ucreti')) {
+      delete insertPayload.kargo_ucreti
+      const retry = await db
+        .from('siparisler')
+        .insert(insertPayload)
+        .select('siparis_no, id')
+        .single()
+      siparis = retry.data
+      dbErr = retry.error
+    }
 
     if (dbErr || !siparis) {
       return NextResponse.json({ error: dbErr?.message || 'Sipariş oluşturulamadı' }, { status: 400 })

@@ -10,7 +10,6 @@ import CartDrawer from '@/components/CartDrawer'
 import GlobalLoader from '@/components/GlobalLoader'
 import RouteProgressBar from '@/components/RouteProgressBar'
 import CartToast from '@/components/CartToast'
-import SpotlightSearch from '@/components/SpotlightSearch'
 import QuickViewModal from '@/components/QuickViewModal'
 import dynamic from 'next/dynamic'
 import { getSiteUrl } from '@/lib/site-url'
@@ -150,7 +149,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navbar />
         <CartDrawer />
         <CartToast />
-        <SpotlightSearch />
         <QuickViewModal />
         <main className="flex-1 pb-16 lg:pb-0">{children}</main>
         <Footer />

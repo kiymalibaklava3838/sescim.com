@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Clock, Package, Truck, CheckCircle2, XCircle, Copy, ExternalLink } from 'lucide-react'
+import { Check, Clock, Package, Truck, CheckCircle2, XCircle, Copy, ExternalLink, ChevronDown, ChevronUp, Loader2, MapPin } from 'lucide-react'
+import { getCarrierTrackingUrl } from '@/lib/shipping'
 
 interface Props {
   durum: string
@@ -29,25 +30,18 @@ const STATUS_PROGRESS: Record<string, number> = {
   iptal: -1,
 }
 
-const getCarrierUrl = (firma?: string, no?: string) => {
-  if (!no) return '#'
-  const f = firma?.toLowerCase() || ''
-  if (f.includes('hepsijet')) return `https://www.hepsijet.com/gonderi-takibi/${no}`
-  if (f.includes('yurtiçi') || f.includes('yurtici')) return `https://yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${no}`
-  if (f.includes('aras')) return `https://www.araskargo.com.tr/kargo-takip?KargoTakipNo=${no}`
-  if (f.includes('mng')) return `https://kargotakip.mngkargo.com.tr/?takipNo=${no}`
-  if (f.includes('ptt')) return `https://gonderitakip.ptt.gov.tr/Track/Verify?q=${no}`
-  return `https://yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${no}`
-}
-
 export default function OrderTimeline({
   durum,
   kargoTakipNo,
-  kargoFirmasi = 'Yurtiçi Kargo',
+  kargoFirmasi = 'HepsiJet',
   createdAt,
   teslimTarihi,
 }: Props) {
   const [copied, setCopied] = useState(false)
+  const [showMovements, setShowMovements] = useState(false)
+  const [loadingMovements, setLoadingMovements] = useState(false)
+  const [movementsData, setMovementsData] = useState<any>(null)
+
   const currentStep = STATUS_PROGRESS[durum] ?? 1
   const isCancelled = durum === 'iptal'
 
@@ -58,9 +52,36 @@ export default function OrderTimeline({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const toggleMovements = async () => {
+    if (showMovements) {
+      setShowMovements(false)
+      return
+    }
+
+    setShowMovements(true)
+    if (!movementsData && kargoTakipNo) {
+      setLoadingMovements(true)
+      try {
+        const res = await fetch('/api/cargo/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firma: kargoFirmasi, takipNo: kargoTakipNo }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          setMovementsData(json.data)
+        }
+      } catch (e) {
+        console.error('Failed to load tracking data:', e)
+      } finally {
+        setLoadingMovements(false)
+      }
+    }
+  }
+
   if (isCancelled) {
     return (
-      <div className="bg-rose-50 border border-rose-200 p-4 rounded-lg flex items-center gap-3 text-rose-800">
+      <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center gap-3 text-rose-800">
         <XCircle size={24} className="text-rose-600 shrink-0" />
         <div>
           <div className="font-display font-black text-sm uppercase tracking-wider">
@@ -74,14 +95,16 @@ export default function OrderTimeline({
     )
   }
 
+  const trackingUrl = getCarrierTrackingUrl(kargoFirmasi, kargoTakipNo)
+
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-6">
+    <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 space-y-6 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
         <div className="font-display font-bold text-xs uppercase tracking-widest text-slate-500">
           SİPARİŞ VE TESLİMAT SÜRECİ
         </div>
         <div className="text-xs text-slate-500">
-          Sipariş Tarihi: <strong className="text-slate-800">{new Date(createdAt).toLocaleDateString('tr-TR')}</strong>
+          Sipariş Tarihi: <strong className="text-slate-800 font-medium">{new Date(createdAt).toLocaleDateString('tr-TR')}</strong>
         </div>
       </div>
 
@@ -101,7 +124,6 @@ export default function OrderTimeline({
             const stepNum = idx + 1
             const isCompleted = stepNum < currentStep
             const isCurrent = stepNum === currentStep
-            const isPending = stepNum > currentStep
             const Icon = step.icon
 
             return (
@@ -110,7 +132,7 @@ export default function OrderTimeline({
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
                     isCompleted
-                      ? 'bg-brand-red text-white'
+                      ? 'bg-brand-red text-white shadow-xs'
                       : isCurrent
                       ? 'bg-brand-red text-white ring-4 ring-brand-red/20 animate-pulse'
                       : 'bg-slate-100 text-slate-400 border border-slate-200'
@@ -146,40 +168,99 @@ export default function OrderTimeline({
 
       {/* Kargo Bilgisi Alanı (Kargoya verildiğinde görünür) */}
       {kargoTakipNo && (
-        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-brand-red text-white rounded-md">
-              <Truck size={18} />
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+          <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-brand-red text-white rounded-lg shadow-xs">
+                <Truck size={18} />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 font-medium">
+                  {kargoFirmasi} Takip Numarası:
+                </div>
+                <div className="font-mono font-bold text-sm text-slate-900">
+                  {kargoTakipNo}
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-500 font-medium">
-                {kargoFirmasi} Takip No:
-              </div>
-              <div className="font-mono font-bold text-sm text-slate-900">
-                {kargoTakipNo}
-              </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={copyTracking}
+                className="flex-1 sm:flex-initial px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              >
+                <Copy size={13} />
+                {copied ? 'Kopyalandı!' : 'Kopyala'}
+              </button>
+
+              <button
+                onClick={toggleMovements}
+                className="flex-1 sm:flex-initial px-3 py-1.5 bg-white border border-slate-200 hover:border-brand-red/40 hover:text-brand-red text-slate-700 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              >
+                <span>Canlı Hareketler</span>
+                {showMovements ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-brand-red hover:bg-red-700 text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              >
+                <span>Kargom Nerede</span>
+                <ExternalLink size={12} />
+              </a>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={copyTracking}
-              className="flex-1 sm:flex-initial px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded inline-flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-            >
-              <Copy size={13} />
-              {copied ? 'Kopyalandı!' : 'Kopyala'}
-            </button>
+          {/* Canlı Kargo Hareketleri Paneli */}
+          {showMovements && (
+            <div className="p-4 sm:p-5 bg-white border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              {loadingMovements ? (
+                <div className="flex items-center justify-center py-6 text-slate-400 text-xs gap-2">
+                  <Loader2 size={16} className="animate-spin text-brand-red" />
+                  <span>Kargo hareketleri sorgulanıyor...</span>
+                </div>
+              ) : movementsData ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between text-xs pb-2 border-b border-slate-100 gap-2">
+                    <div>
+                      <span className="text-slate-500">Durum: </span>
+                      <strong className="text-emerald-700 font-bold uppercase">{movementsData.durum}</strong>
+                    </div>
+                    {movementsData.tahmini_teslimat && (
+                      <div className="text-slate-500">
+                        Tahmini Teslimat: <strong className="text-slate-800">{movementsData.tahmini_teslimat}</strong>
+                      </div>
+                    )}
+                  </div>
 
-            <a
-              href={getCarrierUrl(kargoFirmasi, kargoTakipNo)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-brand-red hover:bg-red-700 text-white text-xs font-display font-bold uppercase tracking-wider rounded inline-flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-            >
-              <span>Kargom Nerede</span>
-              <ExternalLink size={12} />
-            </a>
-          </div>
+                  {/* Hareketler Listesi */}
+                  <div className="space-y-2.5 pt-1">
+                    {movementsData.hareketler && movementsData.hareketler.map((m: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3 text-xs">
+                        <div className="w-2 h-2 rounded-full bg-brand-red mt-1.5 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-800">{m.islem}</div>
+                          <div className="text-slate-500 flex items-center gap-1.5 mt-0.5 text-[11px]">
+                            <MapPin size={11} className="text-slate-400" />
+                            <span>{m.konum}</span>
+                            <span>•</span>
+                            <span className="font-mono text-slate-400">{m.tarih}</span>
+                          </div>
+                          {m.detay && <div className="text-[11px] text-slate-500 mt-0.5 italic">{m.detay}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 text-center py-4">
+                  Kargo hareket bilgisi bulunamadı. Lütfen "Kargom Nerede" butonundan kargo şirketinin sayfasından sorgulayınız.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

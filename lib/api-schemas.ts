@@ -20,6 +20,7 @@ export const siparisOlusturSchema = z.object({
   notlar: z.string().max(2000).optional().nullable(),
   odeme_tipi: z.string().max(50).optional().nullable(),
   teslimat_tipi: z.enum(['kargo', 'depo']).optional().default('kargo'),
+  kargo_ucreti: z.number().min(0).max(10_000).optional().default(0),
 
   fatura_tipi: z.enum(['bireysel', 'kurumsal']).optional().default('bireysel'),
   firma_unvani: z.string().max(300).optional().nullable(),

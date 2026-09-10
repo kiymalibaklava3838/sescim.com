@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { Tag, ArrowRight } from 'lucide-react'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import ProductGrid from '@/components/ProductGrid'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
@@ -25,7 +27,7 @@ export default async function AramaPage({
     const { data } = await supabase
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)
-      .ilike('ad', `%${q}%`)
+      .or(`ad.ilike.%${q}%,marka.ilike.%${q}%,kategori.ilike.%${q}%`)
       
     if (data && data.length > 0) {
       try {
@@ -48,6 +50,9 @@ export default async function AramaPage({
       products = []
     }
   }
+
+  const matchingBrands = Array.from(new Set(products.map((p: any) => p.marka).filter(Boolean))) as string[]
+  const exactBrand = matchingBrands.find(b => b.toLowerCase() === q.trim().toLowerCase())
   
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 md:py-12 min-h-[60vh]">
@@ -63,6 +68,31 @@ export default async function AramaPage({
           <p className="font-body text-slate-500">Lütfen aramak istediğiniz kelimeyi girin.</p>
         )}
       </div>
+
+      {exactBrand && (
+        <div className="mb-8 p-4 sm:p-5 bg-gradient-to-r from-red-50 to-orange-50/50 border border-red-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-brand-red text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Tag size={22} />
+            </div>
+            <div>
+              <div className="text-base font-bold text-slate-900 font-display">
+                {exactBrand} Marka Sayfası
+              </div>
+              <div className="text-xs sm:text-sm text-slate-500 font-body">
+                Tüm {exactBrand} profesyonel ürünleri, teknik modelleri ve serileri
+              </div>
+            </div>
+          </div>
+          <Link
+            href={`/urunler?marka=${encodeURIComponent(exactBrand)}`}
+            className="px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-xs"
+          >
+            Marka Sayfasına Git
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
       
       <ProductGrid 
         products={products}

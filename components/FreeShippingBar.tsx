@@ -2,13 +2,14 @@
 
 import { useMemo } from 'react'
 import { Truck, CheckCircle2, Sparkles } from 'lucide-react'
+import { SHIPPING_CONFIG } from '@/lib/shipping'
 
 interface Props {
   total: number
   threshold?: number
 }
 
-export default function FreeShippingBar({ total, threshold = 1999 }: Props) {
+export default function FreeShippingBar({ total, threshold = SHIPPING_CONFIG.FREE_SHIPPING_THRESHOLD }: Props) {
   const remaining = Math.max(0, threshold - total)
   const percent = Math.min(100, Math.round((total / threshold) * 100))
   const isFree = total >= threshold

@@ -243,8 +243,12 @@ export default async function SiparisFaturaPage({ params }: Props) {
             </div>
 
             <div className="flex justify-between text-slate-600">
-              <span>Kargo Ücreti:</span>
-              <span className="font-semibold text-emerald-600 uppercase text-[11px]">Ücretsiz Kargo</span>
+              <span>Kargo Bedeli:</span>
+              {order.kargo_ucreti && Number(order.kargo_ucreti) > 0 ? (
+                <span className="font-mono font-semibold text-slate-900">{Number(order.kargo_ucreti).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+              ) : (
+                <span className="font-semibold text-emerald-600 uppercase text-[11px]">Ücretsiz Kargo</span>
+              )}
             </div>
 
             <div className="pt-2 border-t-2 border-slate-900 flex justify-between items-baseline">

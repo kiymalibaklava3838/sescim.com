@@ -7,7 +7,7 @@ export default function ShareButtons({ productName }: { productName: string }) {
   const [copied, setCopied] = useState(false)
 
   const url = typeof window !== 'undefined' ? window.location.href : ''
-  const whatsappText = encodeURIComponent(`${productName} - Akdağ Elektronik\n${url}`)
+  const whatsappText = encodeURIComponent(`${productName} - Sescim\n${url}`)
 
   const copyLink = async () => {
     try {
@@ -28,10 +28,10 @@ export default function ShareButtons({ productName }: { productName: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-      <span className="font-display font-semibold text-xs tracking-widest uppercase text-white/20 flex items-center gap-1.5">
-        <Share2 size={12} />
-        Paylaş
+    <div className="flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-200">
+      <span className="font-display font-bold text-xs tracking-wider uppercase text-slate-500 flex items-center gap-1.5 mr-1">
+        <Share2 size={13} className="text-slate-400" />
+        Paylaş:
       </span>
 
       {/* WhatsApp */}
@@ -39,19 +39,33 @@ export default function ShareButtons({ productName }: { productName: string }) {
         href={`https://wa.me/?text=${whatsappText}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/20 transition-colors text-xs font-body"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 text-emerald-700 rounded-lg text-xs font-medium font-body transition-colors shadow-xs"
       >
-        <MessageCircle size={13} />
-        WhatsApp
+        <MessageCircle size={14} className="text-emerald-600" />
+        <span>WhatsApp</span>
       </a>
 
       {/* Link kopyala */}
       <button
+        type="button"
         onClick={copyLink}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white/40 hover:border-brand-red/30 hover:text-white transition-all text-xs font-body"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium font-body transition-all shadow-xs cursor-pointer ${
+          copied
+            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold'
+            : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900'
+        }`}
       >
-        {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
-        {copied ? 'Kopyalandı!' : 'Linki Kopyala'}
+        {copied ? (
+          <>
+            <Check size={14} className="text-emerald-600" />
+            <span>Kopyalandı!</span>
+          </>
+        ) : (
+          <>
+            <Copy size={13} className="text-slate-400" />
+            <span>Linki Kopyala</span>
+          </>
+        )}
       </button>
     </div>
   )

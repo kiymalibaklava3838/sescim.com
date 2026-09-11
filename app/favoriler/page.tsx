@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, ShoppingCart, Trash2, ArrowRight, Check } from 'lucide-react'
+import { Heart, ShoppingCart, Trash2, ArrowRight, Check, MessageSquareText } from 'lucide-react'
 import { getFavorites, toggleFavorite, type SavedProduct } from '@/lib/product-lists'
 import { formatFiyat, dovizToTL, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
@@ -23,7 +23,7 @@ export default function FavorilerPage() {
   }, [])
 
   const handleAddToCart = (item: SavedProduct) => {
-    if (!item.fiyat) return
+    if (item.fiyat_sorunuz || !item.fiyat) return
     const pb = item.para_birimi || 'TRY'
     const fiyatTL = dovizToTL(item.fiyat, pb, kur)
     const indirimliTL = item.indirimli_fiyat ? dovizToTL(item.indirimli_fiyat, pb, kur) : null
@@ -125,7 +125,16 @@ export default function FavorilerPage() {
 
                     {/* Price */}
                     <div className="mt-auto mb-4">
-                      {fiyatTL ? (
+                      {x.fiyat_sorunuz ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 mb-1">
+                            Distribütör Özel Teklifi
+                          </span>
+                          <div className="font-display font-black text-base text-slate-900">
+                            FİYAT SORUNUZ
+                          </div>
+                        </div>
+                      ) : fiyatTL ? (
                         <div>
                           <span className="text-xs text-slate-400 font-medium mr-1">Fiyat:</span>
                           <span className="font-display font-black text-lg text-slate-900">
@@ -139,7 +148,14 @@ export default function FavorilerPage() {
 
                     {/* Action Buttons */}
                     <div className="space-y-2 pt-3 border-t border-slate-100">
-                      {x.fiyat && x.stok_durumu !== 'tukendi' && (
+                      {x.fiyat_sorunuz ? (
+                        <Link
+                          href={`/urun/${x.slug || x.id}`}
+                          className="w-full py-2.5 px-3 rounded-xl text-xs font-display font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all bg-amber-500 hover:bg-amber-600 text-slate-950 font-black shadow-sm"
+                        >
+                          <MessageSquareText size={14} /> Fiyat Teklifi Al
+                        </Link>
+                      ) : x.fiyat && x.stok_durumu !== 'tukendi' ? (
                         <button
                           type="button"
                           onClick={() => handleAddToCart(x)}
@@ -159,7 +175,7 @@ export default function FavorilerPage() {
                             </>
                           )}
                         </button>
-                      )}
+                      ) : null}
 
                       <div className="flex gap-2">
                         <Link

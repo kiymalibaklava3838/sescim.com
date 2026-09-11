@@ -53,7 +53,7 @@ export async function GET() {
 
     const validProducts = products.filter((p: any) => {
       const pricing = pricingMap.get(p.id)
-      return !pricing || pricing.sescim_aktif !== false
+      return (!pricing || pricing.sescim_aktif !== false) && !pricing?.fiyat_sorunuz
     })
 
     // 3. Google Merchant XML Feed oluştur

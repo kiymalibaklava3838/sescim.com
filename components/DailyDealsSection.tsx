@@ -88,8 +88,9 @@ export default async function DailyDealsSection() {
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? true,
+      fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
     }
-  }).filter(p => p.sescim_aktif !== false).slice(0, 10)
+  }).filter(p => p.sescim_aktif !== false && !p.fiyat_sorunuz).slice(0, 10)
 
   if (dealsProducts.length === 0) return null
 

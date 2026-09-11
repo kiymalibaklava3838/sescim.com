@@ -51,7 +51,8 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
       ...p,
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? null,
-      sescim_aktif: pricing?.sescim_aktif ?? true
+      sescim_aktif: pricing?.sescim_aktif ?? true,
+      fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
     }
   }).filter(p => p.sescim_aktif !== false)
 

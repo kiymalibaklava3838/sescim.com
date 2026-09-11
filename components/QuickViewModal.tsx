@@ -26,6 +26,7 @@ export interface QuickViewProduct {
   kritik_stok?: number | null
   marka?: string | null
   kullanim_alani?: string | null
+  fiyat_sorunuz?: boolean
 }
 
 export default function QuickViewModal() {
@@ -180,27 +181,41 @@ export default function QuickViewModal() {
           </h2>
 
           {/* Fiyat Alanı */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6">
-            <div className="flex items-baseline gap-3">
-              {indirimliPriceTL ? (
-                <>
-                  <span className="font-display font-black text-2xl sm:text-3xl text-brand-red">
-                    {formatFiyat(indirimliPriceTL, 'TRY')}
-                  </span>
-                  <span className="text-sm text-slate-400 line-through">
+          {product.fiyat_sorunuz ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
+              <div className="text-[10px] font-display font-black tracking-widest uppercase text-amber-800 mb-1">
+                DİSTRİBÜTÖR SATIŞ KURALI
+              </div>
+              <div className="font-display font-black text-lg sm:text-xl text-slate-900 uppercase tracking-tight">
+                FİYAT TEKLİFİ İÇİN BİZE ULAŞIN
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                Bu ürün internette açık fiyat listelenmesine kapalıdır. Yetkili distribütör avantajlı fiyat teklifi için iletişime geçebilirsiniz.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6">
+              <div className="flex items-baseline gap-3">
+                {indirimliPriceTL ? (
+                  <>
+                    <span className="font-display font-black text-2xl sm:text-3xl text-brand-red">
+                      {formatFiyat(indirimliPriceTL, 'TRY')}
+                    </span>
+                    <span className="text-sm text-slate-400 line-through">
+                      {formatFiyat(priceTL, 'TRY')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-display font-black text-2xl sm:text-3xl text-slate-900">
                     {formatFiyat(priceTL, 'TRY')}
                   </span>
-                </>
-              ) : (
-                <span className="font-display font-black text-2xl sm:text-3xl text-slate-900">
-                  {formatFiyat(priceTL, 'TRY')}
-                </span>
-              )}
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
+                <span>KDV Dahil</span> • <span>12 Aya Varan Taksit İmkanı</span>
+              </div>
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-              <span>KDV Dahil</span> • <span>12 Aya Varan Taksit İmkanı</span>
-            </div>
-          </div>
+          )}
 
           {/* Stok ve Güven Rozetleri */}
           <div className="space-y-2.5 text-xs text-slate-600 mb-6">
@@ -223,20 +238,33 @@ export default function QuickViewModal() {
           {/* Adet ve Sepete Ekle */}
           <div className="mt-auto pt-4 border-t border-slate-200 space-y-3">
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleAddToCart}
-                disabled={isOutOfStock}
-                className={`flex-1 py-3.5 px-6 font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-md shadow transition-all ${
-                  isOutOfStock
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : cartAdded
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-brand-red hover:bg-red-700 text-white'
-                }`}
-              >
-                {cartAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
-                {isOutOfStock ? 'Tükendi' : cartAdded ? 'Sepete Eklendi ✓' : 'Sepete Ekle'}
-              </button>
+              {product.fiyat_sorunuz ? (
+                <a
+                  href={`https://wa.me/905323934370?text=${encodeURIComponent(
+                    `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://sescim.com/urun/${product.slug || product.id}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3.5 px-6 font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-md shadow bg-emerald-600 hover:bg-emerald-700 text-white transition-all"
+                >
+                  WhatsApp ile Fiyat Teklifi Al
+                </a>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  className={`flex-1 py-3.5 px-6 font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-md shadow transition-all ${
+                    isOutOfStock
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : cartAdded
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-brand-red hover:bg-red-700 text-white'
+                  }`}
+                >
+                  {cartAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
+                  {isOutOfStock ? 'Tükendi' : cartAdded ? 'Sepete Eklendi ✓' : 'Sepete Ekle'}
+                </button>
+              )}
 
               <button
                 type="button"

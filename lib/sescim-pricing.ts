@@ -8,6 +8,7 @@ export interface SescimPricing {
   is_outlet?: boolean
   outlet_durum?: string | null
   is_firsat?: boolean
+  fiyat_sorunuz?: boolean
   updated_at?: string
 }
 
@@ -39,6 +40,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           is_outlet: !!item.is_outlet,
           outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
           is_firsat: !!item.is_firsat,
+          fiyat_sorunuz: !!item.fiyat_sorunuz,
         })
       })
     }
@@ -76,6 +78,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         is_outlet: !!data.is_outlet,
         outlet_durum: data.outlet_durum || 'Teşhir / B-Stock',
         is_firsat: !!data.is_firsat,
+        fiyat_sorunuz: !!data.fiyat_sorunuz,
       }
     }
   } catch (error) {
@@ -93,26 +96,40 @@ export async function upsertSescimPricing(
     is_outlet?: boolean
     outlet_durum?: string | null
     is_firsat?: boolean
+    fiyat_sorunuz?: boolean
   }
 ): Promise<boolean> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return false
 
   try {
+    const payload: any = {
+      urun_id: urunId,
+      sescim_fiyat: data.sescim_fiyat,
+      sescim_indirimli_fiyat: data.sescim_indirimli_fiyat,
+      sescim_aktif: data.sescim_aktif,
+      is_outlet: data.is_outlet,
+      outlet_durum: data.outlet_durum,
+      is_firsat: data.is_firsat,
+      updated_at: new Date().toISOString()
+    }
+
+    if (data.fiyat_sorunuz !== undefined) {
+      payload.fiyat_sorunuz = data.fiyat_sorunuz
+    }
+
     const { error } = await supabase
       .from('sescim_fiyatlar')
-      .upsert({
-        urun_id: urunId,
-        sescim_fiyat: data.sescim_fiyat,
-        sescim_indirimli_fiyat: data.sescim_indirimli_fiyat,
-        sescim_aktif: data.sescim_aktif,
-        is_outlet: data.is_outlet,
-        outlet_durum: data.outlet_durum,
-        is_firsat: data.is_firsat,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'urun_id' })
+      .upsert(payload, { onConflict: 'urun_id' })
 
     if (error) {
+      // Eğer fiyat_sorunuz kolonu henüz DB'de yoksa, fallback olarak onsuz kaydetmeyi dene
+      if (error.code === 'PGRST204' && payload.fiyat_sorunuz !== undefined) {
+        console.warn('fiyat_sorunuz column not found in sescim_fiyatlar yet. Run migration.')
+        delete payload.fiyat_sorunuz
+        const retry = await supabase.from('sescim_fiyatlar').upsert(payload, { onConflict: 'urun_id' })
+        return !retry.error
+      }
       console.error('Error upserting Sescim pricing:', error)
       return false
     }

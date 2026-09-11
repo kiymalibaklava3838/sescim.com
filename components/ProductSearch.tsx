@@ -23,6 +23,8 @@ interface Product {
   indirimli_fiyat?: number
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
+  sescim_aktif?: boolean
+  fiyat_sorunuz?: boolean
   para_birimi?: string
 }
 
@@ -150,7 +152,36 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
           .limit(6)
 
-        setResults((prodData as any) || [])
+        let prods: any[] = (prodData as any) || []
+        if (prods.length > 0) {
+          try {
+            const { createClient } = await import('@/lib/supabase')
+            const sescimDb = createClient()
+            const { data: sfData } = await sescimDb
+              .from('sescim_fiyatlar')
+              .select('urun_id, sescim_fiyat, sescim_aktif, fiyat_sorunuz')
+              .in('urun_id', prods.map(p => p.id))
+
+            if (sfData) {
+              const sfMap = new Map<string, any>((sfData as any[]).map((x: any) => [x.urun_id, x]))
+              prods = prods
+                .map(p => {
+                  const s = sfMap.get(p.id)
+                  return {
+                    ...p,
+                    sescim_fiyat: s?.sescim_fiyat ?? null,
+                    sescim_aktif: s?.sescim_aktif ?? true,
+                    fiyat_sorunuz: s?.fiyat_sorunuz ?? false
+                  }
+                })
+                .filter(p => p.sescim_aktif !== false)
+            }
+          } catch (sfErr) {
+            console.error('Failed to merge sescim_fiyatlar in search:', sfErr)
+          }
+        }
+
+        setResults(prods)
       } catch (e) {
         console.error('Product search error:', e)
       }
@@ -379,9 +410,15 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
 
                         {/* Fiyat Bilgisi (Her zaman TL) */}
                         <div className="text-right shrink-0">
-                          <span className="font-display font-black text-brand-red text-xs sm:text-sm whitespace-nowrap">
-                            {fiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
-                          </span>
+                          {product.fiyat_sorunuz ? (
+                            <span className="font-display font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px] uppercase tracking-wide whitespace-nowrap">
+                              Fiyat Sorunuz
+                            </span>
+                          ) : (
+                            <span className="font-display font-black text-brand-red text-xs sm:text-sm whitespace-nowrap">
+                              {fiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
+                            </span>
+                          )}
                         </div>
 
                         <ArrowRight size={14} className="text-slate-300 group-hover:text-brand-red group-hover:translate-x-1 transition-all shrink-0 ml-1" />

@@ -251,11 +251,12 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               ...p, 
               sescim_fiyat: pricing.sescim_fiyat,
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
-              sescim_aktif: pricing.sescim_aktif
+              sescim_aktif: pricing.sescim_aktif,
+              fiyat_sorunuz: pricing.fiyat_sorunuz
             }
           }
           // Sescim'de kaydı olmayan ürünler her zaman gösterilir (default: true)
-          return { ...p, sescim_aktif: true }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
         })
         .filter((p: any) => p.sescim_aktif === true)
     } catch (e) {
@@ -308,10 +309,11 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               ...p,
               sescim_fiyat: pr.sescim_fiyat,
               sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
-              sescim_aktif: pr.sescim_aktif
+              sescim_aktif: pr.sescim_aktif,
+              fiyat_sorunuz: pr.fiyat_sorunuz
             }
           }
-          return { ...p, sescim_aktif: true }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
         }).filter((p: any) => p.sescim_aktif === true)
 
         newArrivals = formatCurated(newArrivals)

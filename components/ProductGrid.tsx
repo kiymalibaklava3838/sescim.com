@@ -4,7 +4,7 @@ import { useEffect, useState, memo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check, Eye } from 'lucide-react'
+import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check, Eye, MessageSquareText } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { dovizToTL, formatFiyat, type KurData } from '@/lib/kur'
 import { addToCart } from '@/lib/cart'
@@ -38,6 +38,7 @@ interface Product {
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
   sescim_aktif?: boolean
+  fiyat_sorunuz?: boolean
   created_at?: string | null
 }
 
@@ -182,6 +183,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     fotograf: product.fotograflar?.[0] || null,
     fotograflar: product.fotograflar || [],
     indirimli_fiyat: product.sescim_indirimli_fiyat ?? null,
+    fiyat_sorunuz: !!product.fiyat_sorunuz,
   })
 
   // Sepete ekleme handler
@@ -247,8 +249,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               stokAdedi={product.stok_adedi}
               kritikStok={product.kritik_stok}
               stokDurumu={stok}
-              fiyat={normalFiyatTL || undefined}
-              indirimliFiyat={indirimliFiyatTL || undefined}
+              fiyat={product.fiyat_sorunuz ? undefined : (normalFiyatTL || undefined)}
+              indirimliFiyat={product.fiyat_sorunuz ? undefined : (indirimliFiyatTL || undefined)}
               kategori={product.kategori}
               compact
             />
@@ -281,7 +283,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             <Heart size={14} fill={fav ? '#DA291C' : 'none'} className={fav ? 'text-brand-red' : ''} />
           </button>
 
-          {isRecentUpdate && !indirimliFiyatTL && (
+          {isRecentUpdate && !indirimliFiyatTL && !product.fiyat_sorunuz && (
             <div className="absolute top-2.5 right-2.5 hidden md:block bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs rounded-xs">
               YENİ FİYAT
             </div>
@@ -313,7 +315,16 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           )}
 
           <div className="mt-auto space-y-0.5">
-            {indirimliFiyatTL ? (
+            {product.fiyat_sorunuz ? (
+              <div className="flex flex-col py-1">
+                <span className="font-display font-black text-sm sm:text-base text-slate-900 tracking-tight uppercase">
+                  FİYAT SORUNUZ
+                </span>
+                <span className="text-[10px] font-semibold text-amber-700">
+                  Distribütör Özel Teklifi
+                </span>
+              </div>
+            ) : indirimliFiyatTL ? (
               <div className="flex flex-col">
                 <span className="text-xs text-slate-400 line-through">
                   {formatFiyat(normalFiyatTL || 0, 'TRY')}
@@ -330,7 +341,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               <span className="font-body text-slate-500 text-xs">Fiyat Yok</span>
             )}
 
-            {product.fiyat_guncelleme && (
+            {product.fiyat_guncelleme && !product.fiyat_sorunuz && (
               <div className="font-body text-slate-400 text-[10px]">
                 {new Date(product.fiyat_guncelleme).toLocaleDateString('tr-TR')}
               </div>
@@ -359,38 +370,48 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
 
       {/* Alt butonlar — Mobilde Geniş Dokunmatik Buton, Masaüstünde 3'lü Buton Grubu */}
       <div className="border-t border-slate-200 p-2">
-        {/* Mobilde Tam Genişlikte, Hatasız Dokunulabilir Buton */}
+        {/* Mobilde Tam Genişlikte Buton */}
         <div className="md:hidden">
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            type="button"
-            onClick={handleAddToCart}
-            disabled={stok === 'tukendi'}
-            className={`w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
-              stok === 'tukendi'
-                ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                : cartAdded
-                ? 'bg-emerald-600 text-white'
-                : 'bg-brand-red hover:bg-brand-red-dark text-white'
-            }`}
-          >
-            {cartAdded ? (
-              <>
-                <Check size={14} />
-                <span>Eklendi</span>
-              </>
-            ) : stok === 'tukendi' ? (
-              <span>Tükendi</span>
-            ) : (
-              <>
-                <ShoppingCart size={14} />
-                <span>Sepete Ekle</span>
-              </>
-            )}
-          </motion.button>
+          {product.fiyat_sorunuz ? (
+            <Link
+              href={`/urun/${product.slug || product.id}`}
+              className="w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider bg-slate-900 hover:bg-brand-red text-white transition-all shadow-xs"
+            >
+              <MessageSquareText size={14} />
+              <span>Fiyat Teklifi Al</span>
+            </Link>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              type="button"
+              onClick={handleAddToCart}
+              disabled={stok === 'tukendi'}
+              className={`w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
+                stok === 'tukendi'
+                  ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                  : cartAdded
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-brand-red hover:bg-brand-red-dark text-white'
+              }`}
+            >
+              {cartAdded ? (
+                <>
+                  <Check size={14} />
+                  <span>Eklendi</span>
+                </>
+              ) : stok === 'tukendi' ? (
+                <span>Tükendi</span>
+              ) : (
+                <>
+                  <ShoppingCart size={14} />
+                  <span>Sepete Ekle</span>
+                </>
+              )}
+            </motion.button>
+          )}
         </div>
 
-        {/* Masaüstünde: Mevcut 3'lü Buton Düzeni (Dokunulmadı) */}
+        {/* Masaüstünde: 3'lü Buton Düzeni */}
         <div className="hidden md:grid md:grid-cols-3 gap-1.5">
           <motion.button
             whileTap={{ scale: 0.9 }}
@@ -414,22 +435,33 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           >
             <GitCompare size={12} />
           </button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            type="button"
-            onClick={handleAddToCart}
-            disabled={stok === 'tukendi'}
-            className={`flex items-center justify-center gap-1 text-xs font-display font-semibold uppercase tracking-wider px-2 py-1.5 border transition-all duration-300 ${
-              stok === 'tukendi'
-                ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50'
-                : cartAdded
-                  ? 'bg-green-600 border-green-600 text-white'
-                  : 'bg-brand-red border-brand-red text-white hover:bg-brand-red/80'
-            }`}
-          >
-            {cartAdded ? <Check size={12} /> : <ShoppingCart size={12} />}
-            {cartAdded ? '✓' : 'Ekle'}
-          </motion.button>
+          {product.fiyat_sorunuz ? (
+            <Link
+              href={`/urun/${product.slug || product.id}`}
+              className="flex items-center justify-center gap-1 text-[11px] font-display font-bold uppercase tracking-wider px-2 py-1.5 border border-slate-900 bg-slate-900 text-white hover:bg-brand-red hover:border-brand-red transition-all"
+              title="Fiyat Teklifi İsteyin"
+            >
+              <MessageSquareText size={12} />
+              <span>Teklif</span>
+            </Link>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={handleAddToCart}
+              disabled={stok === 'tukendi'}
+              className={`flex items-center justify-center gap-1 text-xs font-display font-semibold uppercase tracking-wider px-2 py-1.5 border transition-all duration-300 ${
+                stok === 'tukendi'
+                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50'
+                  : cartAdded
+                    ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-brand-red border-brand-red text-white hover:bg-brand-red/80'
+              }`}
+            >
+              {cartAdded ? <Check size={12} /> : <ShoppingCart size={12} />}
+              {cartAdded ? '✓' : 'Ekle'}
+            </motion.button>
+          )}
         </div>
       </div>
 

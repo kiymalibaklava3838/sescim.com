@@ -1,15 +1,40 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg id="katman_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1080 1080">
-  <!-- Generator: Adobe Illustrator 30.3.0, SVG Export Plug-In . SVG Version: 2.1.3 Build 182)  -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
+    <filter id="knob-shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="3" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <linearGradient id="knob-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EA262D"/>
+      <stop offset="50%" stop-color="#D61F26"/>
+      <stop offset="100%" stop-color="#AE1117"/>
+    </linearGradient>
+    <linearGradient id="track-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
     <style>
-      .st0 {
-        fill: #d61f26;
+      .track-outline { stroke: #64748B; opacity: 0.55; }
+      @media (prefers-color-scheme: dark) {
+        .track-outline { stroke: #94A3B8; opacity: 0.85; }
       }
     </style>
   </defs>
-  <path d="M533.31,655.56v-82.57h14.2v82.57l-2.97,5.94h-6.61l-4.62-4.29"/>
-  <polygon class="st0" points="516.88 536.66 516.88 558.13 523.15 565.06 557.5 565.06 563.78 558.79 563.78 536.66 516.88 536.66"/>
-  <polygon class="st0" points="563.78 528.07 563.78 508.58 557.06 499.34 524.91 499.34 516.88 507.37 516.88 528.07 563.78 528.07"/>
-  <polyline points="533.5 415.45 548.14 415.45 548.14 492.51 533.5 492.51 533.5 415.45"/>
+
+  <!-- Dikey Fader Yuvası / Track (Açılış animasyonu ve Sescim logo 'i' potu) -->
+  <rect x="58.5" y="8" width="11" height="112" rx="5.5" fill="none" class="track-outline" stroke-width="1.5"/>
+  <rect x="60" y="9.5" width="8" height="109" rx="4" fill="url(#track-grad)"/>
+
+  <!-- Fader Potu (Sescim logo 'i' fader tasarımı) -->
+  <g filter="url(#knob-shadow)">
+    <!-- Chamfered Fader Knob -->
+    <polygon points="46,28 82,28 91,37 91,91 82,100 46,100 37,91 37,37" fill="url(#knob-grad)" stroke="#880E13" stroke-width="1"/>
+    
+    <!-- Üst Işık Parıltısı -->
+    <polygon points="47,29 81,29 89,37 88,39 80,31 48,31 40,39 39,37" fill="#FF7B7B" opacity="0.45"/>
+    
+    <!-- Ortadaki Beyaz Çizgi (İndikatör) -->
+    <rect x="37" y="61" width="54" height="6" fill="#FFFFFF" rx="0.5"/>
+    <rect x="37" y="61" width="54" height="1.5" fill="#FFFFFF"/>
+  </g>
 </svg>

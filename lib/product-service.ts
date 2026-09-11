@@ -86,9 +86,15 @@ export const getRelatedProducts = unstable_cache(
         return selected.map((p: any) => {
           const pricing = pricingMap.get(p.id)
           if (pricing) {
-            return { ...p, sescim_fiyat: pricing.sescim_fiyat, sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, sescim_aktif: pricing.sescim_aktif }
+            return { 
+              ...p, 
+              sescim_fiyat: pricing.sescim_fiyat, 
+              sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
+              sescim_aktif: pricing.sescim_aktif,
+              fiyat_sorunuz: pricing.fiyat_sorunuz 
+            }
           }
-          return { ...p, sescim_aktif: true }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
         }).filter((p: any) => p.sescim_aktif)
       } catch (e) {
         return selected
@@ -119,9 +125,15 @@ export const getCrossSellProducts = unstable_cache(
         return data.map((p: any) => {
           const pricing = pricingMap.get(p.id)
           if (pricing) {
-            return { ...p, sescim_fiyat: pricing.sescim_fiyat, sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, sescim_aktif: pricing.sescim_aktif }
+            return { 
+              ...p, 
+              sescim_fiyat: pricing.sescim_fiyat, 
+              sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
+              sescim_aktif: pricing.sescim_aktif,
+              fiyat_sorunuz: pricing.fiyat_sorunuz 
+            }
           }
-          return { ...p, sescim_aktif: true }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
         }).filter((p: any) => p.sescim_aktif)
       } catch (e) {
         return data

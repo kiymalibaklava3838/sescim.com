@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff } from 'lucide-react'
+import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff, MessageSquareText } from 'lucide-react'
 import { PARA_BIRIMLERI } from '@/lib/kur'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { createClient } from '@/lib/supabase'
@@ -36,6 +36,7 @@ interface Product {
   sescim_fiyat?: number | null
   sescim_indirimli_fiyat?: number | null
   sescim_aktif?: boolean
+  fiyat_sorunuz?: boolean
 }
 
 interface Props {
@@ -64,6 +65,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const [editSescimFiyat, setEditSescimFiyat] = useState('')
   const [editSescimIndirimli, setEditSescimIndirimli] = useState('')
   const [editIsFeatured, setEditIsFeatured] = useState(false)
+  const [editFiyatSorunuz, setEditFiyatSorunuz] = useState(false)
   const [editStok, setEditStok] = useState('stokta')
   const [editParaBirimi, setEditParaBirimi] = useState('USD')
   const [editBayiParaBirimi, setEditBayiParaBirimi] = useState('USD')
@@ -104,7 +106,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
           return {
             ...p,
             sescim_fiyat: pricing?.sescim_fiyat ?? null,
-            sescim_aktif: pricing?.sescim_aktif ?? true
+            sescim_aktif: pricing?.sescim_aktif ?? true,
+            fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
           }
         })
         setProducts(mergedData)
@@ -143,7 +146,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
-        sescim_aktif: product.sescim_aktif
+        sescim_aktif: product.sescim_aktif,
+        fiyat_sorunuz: product.fiyat_sorunuz
       })
       await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
     } catch (e) {
@@ -157,9 +161,26 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
-        sescim_aktif: newValue
+        sescim_aktif: newValue,
+        fiyat_sorunuz: product.fiyat_sorunuz
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, sescim_aktif: newValue } : p))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const toggleFiyatSorunuz = async (product: Product) => {
+    const newValue = !(product.fiyat_sorunuz ?? false)
+    try {
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(product.id, {
+        sescim_fiyat: product.sescim_fiyat,
+        sescim_aktif: product.sescim_aktif,
+        fiyat_sorunuz: newValue
+      })
+      setProducts(products.map(p => p.id === product.id ? { ...p, fiyat_sorunuz: newValue } : p))
+      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -212,6 +233,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setEditSescimFiyat((prod as any).sescim_fiyat?.toString() || '')
     setEditSescimIndirimli((prod as any).sescim_indirimli_fiyat?.toString() || '')
     setEditIsFeatured(prod.is_featured || false)
+    setEditFiyatSorunuz(!!(prod as any).fiyat_sorunuz || !!p.fiyat_sorunuz)
     setEditStok(prod.stok_durumu || 'stokta')
     setEditParaBirimi(prod.para_birimi || 'USD')
     setEditBayiParaBirimi(prod.bayi_para_birimi || 'USD')
@@ -269,16 +291,15 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       ...(fiyatDegisti ? { fiyat_guncelleme: new Date().toISOString() } : {}),
     }).eq('id', editProduct.id)
 
-    // Sescim özel fiyatını Sescim veritabanındaki sescim_fiyatlar tablosuna kaydet
+    // Sescim özel fiyatını ve distribütör fiyat_sorunuz kuralını kaydet
     try {
-      const sescimDb = createClient()
-      await sescimDb.from('sescim_fiyatlar').upsert({
-        urun_id: editProduct.id,
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(editProduct.id, {
         sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
         sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
-        sescim_aktif: true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'urun_id' })
+        sescim_aktif: editProduct.sescim_aktif ?? true,
+        fiyat_sorunuz: editFiyatSorunuz
+      })
     } catch (e) {
       console.error('Failed to update sescim_fiyatlar:', e)
     }
@@ -449,7 +470,14 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-display font-bold text-sm uppercase text-slate-900 truncate tracking-wide">{product.ad}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-display font-bold text-sm uppercase text-slate-900 truncate tracking-wide">{product.ad}</div>
+                    {product.fiyat_sorunuz && (
+                      <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-amber-100 text-amber-800 border border-amber-300 rounded shadow-xs">
+                        FİYAT TEKLİFİ
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                     <span className="font-body text-slate-900/40 text-[10px] uppercase tracking-wider">{product.kategori}</span>
                     {product.fiyat && (
@@ -474,6 +502,13 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                   </div>
                   <button onClick={() => toggleSescimAktif(product)} className={`w-9 h-9 border flex items-center justify-center transition-all mt-3 ${product.sescim_aktif === false ? 'border-red-500/50 text-red-500 bg-red-500/10' : 'border-green-500/50 text-green-500 bg-green-500/10'}`} title={product.sescim_aktif === false ? "Sescim'de Gizli" : "Sescim'de Göster"}>
                     {product.sescim_aktif === false ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                  <button 
+                    onClick={() => toggleFiyatSorunuz(product)} 
+                    className={`w-9 h-9 border flex items-center justify-center transition-all mt-3 ${product.fiyat_sorunuz ? 'border-amber-500 text-amber-600 bg-amber-500/15 shadow-xs font-bold' : 'border-slate-300 text-slate-400 hover:border-amber-500/60 hover:text-amber-600'}`} 
+                    title={product.fiyat_sorunuz ? "Fiyat Gizli (Fiyat Teklifi İçin Bize Ulaşın Modu Aktif) — Tıklayarak normale döndürün" : "Fiyat Normal Gösteriliyor — Tıklayarak 'Fiyat Teklifi İçin Bize Ulaşın' moduna alın"}
+                  >
+                    <MessageSquareText size={13} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
@@ -570,6 +605,26 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                       </select>
                     </div>
                   </div>
+
+                  {/* Distribütör Fiyat Koruması */}
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="editFiyatSorunuzCheckbox"
+                      checked={editFiyatSorunuz}
+                      onChange={(e) => setEditFiyatSorunuz(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <label htmlFor="editFiyatSorunuzCheckbox" className="text-xs text-slate-800 cursor-pointer select-none">
+                      <strong className="font-display font-bold uppercase tracking-wider block text-amber-900">
+                        Distribütör Satış Kuralı: Fiyat Gizli (&quot;Fiyat Teklifi İçin Bize Ulaşın&quot;)
+                      </strong>
+                      <span className="text-[11px] text-slate-600 block mt-0.5">
+                        Aktif edildiğinde ürün fiyatı sitede gizlenir; sepete ekleme yerine WhatsApp ve doğrudan teklif isteme butonları gösterilir.
+                      </span>
+                    </label>
+                  </div>
+
                   {/* Stok Durumu — admin bilinçli seçim yapabilsin */}
                   <div>
                     <label className="font-display font-semibold text-xs tracking-widest uppercase text-slate-900/40 block mb-2">Stok Durumu</label>

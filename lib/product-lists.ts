@@ -13,6 +13,7 @@ export interface SavedProduct {
   fotograf?: string | null
   fotograflar?: string[] | null
   indirimli_fiyat?: number | null
+  fiyat_sorunuz?: boolean
 }
 
 const FAV_KEY = 'akdag-favoriler'

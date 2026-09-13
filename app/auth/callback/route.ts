@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getSiteUrl } from '@/lib/site-url'
 
 /**
  * Supabase PKCE auth callback handler.
  *
- * Supabase şifre sıfırlama ve davet e-postalarındaki linkler buraya gelir.
+ * Supabase şifre sıfırlama, Google OAuth ve e-posta doğrulama linkleri buraya gelir.
  * ?code parametresini oturuma çevirir, sonra hedef sayfaya yönlendirir.
- *
- * Supabase Dashboard → Authentication → URL Configuration kısmına
- * bu URL'yi eklemeyi unutmayın:
- *   https://www.akdagelektronik.com/auth/callback
  */
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
@@ -20,12 +17,22 @@ export async function GET(req: NextRequest) {
   const errorParam = searchParams.get('error')
   const errorDescription = searchParams.get('error_description') || ''
 
+  // Dinamik ve güvenli canlı origin belirleme
+  const forwardedHost = req.headers.get('x-forwarded-host')
+  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https'
+  let baseOrigin = getSiteUrl()
+  if (forwardedHost && !forwardedHost.includes('localhost')) {
+    baseOrigin = `${forwardedProto}://${forwardedHost}`
+  } else if (origin && !origin.includes('localhost')) {
+    baseOrigin = origin
+  }
+
   // Supabase'den direkt hata geldi (ör: link süresi dolmuş)
   if (errorParam) {
     console.error('[auth/callback] Supabase hata parametresi:', errorParam, errorDescription)
 
     // Link süresi dolmuş veya geçersizse şifre sıfırlama sayfasına yönlendir
-    const sifreSifirlaUrl = new URL(`${origin}/uye/sifre-sifirla`)
+    const sifreSifirlaUrl = new URL(`${baseOrigin}/uye/sifre-sifirla`)
     sifreSifirlaUrl.searchParams.set('error', 'link_suresi_doldu')
     return NextResponse.redirect(sifreSifirlaUrl.toString())
   }
@@ -53,7 +60,7 @@ export async function GET(req: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${baseOrigin}${next}`)
     }
 
     console.error('[auth/callback] exchangeCodeForSession hatası:', error.message)
@@ -62,5 +69,5 @@ export async function GET(req: NextRequest) {
   // Hata da yok, code da yoksa büyük ihtimalle Implicit Flow (hash fragment) kullanılıyordur.
   // Sunucu hash fragment'i göremediği için doğrudan hedefe yönlendiriyoruz,
   // böylece tarayıcı tarafındaki Supabase istemcisi URL'deki hash'i yakalayabilir.
-  return NextResponse.redirect(`${origin}${next}`)
+  return NextResponse.redirect(`${baseOrigin}${next}`)
 }

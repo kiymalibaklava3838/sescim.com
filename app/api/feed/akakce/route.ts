@@ -90,7 +90,7 @@ export async function GET() {
       const model = p.model_kodu || ''
       const barcode = p.barkod || ''
       const categoryHierarchy = [p.kategori, p.alt_kategori, p.urun_tipi].filter(Boolean).join(' > ')
-      const shippingFee = finalPriceTL >= 1999 ? '0.00' : '99.00'
+      const shippingFee = finalPriceTL >= 1999 ? '0.00' : '149.00'
 
       xml += '  <product>\n'
       xml += `    <merchantItemId>${p.id}</merchantItemId>\n`

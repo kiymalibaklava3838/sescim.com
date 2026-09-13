@@ -168,7 +168,7 @@ export default async function UrunDetayPage({ params }: Props) {
         '@type': 'OfferShippingDetails',
         shippingRate: {
           '@type': 'MonetaryAmount',
-          value: priceTL >= 1999 ? 0 : 99,
+          value: priceTL >= 1999 ? 0 : 149,
           currency: 'TRY',
         },
         shippingDestination: {

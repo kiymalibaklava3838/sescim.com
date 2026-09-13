@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { sendEmail } from '@/lib/send-email'
+import { iadeTalebiAlindiHTML } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,32 +110,14 @@ export async function POST(req: NextRequest) {
       if (talepRecord.email) {
         await sendEmail(
           talepRecord.email,
-          `${iadeKodu} Nolu İade / Değişim Talebiniz Alındı | Sescim`,
-          `
-            <div style="font-family:sans-serif;padding:24px;background:#f8fafc;color:#1e293b">
-              <div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;padding:32px;border-radius:8px">
-                <h2 style="color:#DA291C;margin-top:0">İade &amp; Değişim Talebiniz Alındı</h2>
-                <p>Merhaba <strong>${talepRecord.ad_soyad}</strong>,</p>
-                <p>#${order.siparis_no} numaralı siparişiniz için oluşturduğunuz talep işleme alınmıştır.</p>
-                
-                <div style="background:#f1f5f9;border-left:4px solid #DA291C;padding:16px;margin:20px 0">
-                  <div style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:bold">Yurtiçi Kargo İade Anlaşma Kodunuz:</div>
-                  <div style="font-size:24px;font-weight:900;color:#0f172a;font-family:monospace;letter-spacing:2px;margin:6px 0">${YURTICI_IADE_KODU}</div>
-                  <div style="font-size:12px;color:#475569">Sescim Takip Kodu: <strong>${iadeKodu}</strong></div>
-                </div>
-
-                <h3>Kargo Gönderim Talimatı:</h3>
-                <ol style="line-height:1.8;color:#334155">
-                  <li>Ürünü orijinal kutusu, garanti belgesi ve tüm aksesuarlarıyla birlikte paketleyiniz.</li>
-                  <li>Size en yakın <strong>Yurtiçi Kargo</strong> şubesine gidiniz.</li>
-                  <li>Görevliye <strong>${YURTICI_IADE_KODU}</strong> nolu Sescim iade kodumuzu iletiniz.</li>
-                  <li>Kargo ücreti ödemeden paketinizi teslim ediniz.</li>
-                </ol>
-
-                <p style="color:#64748b;font-size:12px;margin-top:24px">Ürün depomuza ulaşıp teknik kontrolü tamamlandıktan sonra ücret iadeniz / değişiminiz 2 iş günü içinde gerçekleştirilecektir.</p>
-              </div>
-            </div>
-          `
+          `${iadeKodu} Nolu ${talep_tipi === 'degisim' ? 'Değişim' : 'İade'} Talebiniz Alındı | sescim.com`,
+          iadeTalebiAlindiHTML({
+            siparis_no: order.siparis_no,
+            ad_soyad: talepRecord.ad_soyad,
+            iade_kodu: iadeKodu,
+            kargo_kodu: YURTICI_IADE_KODU,
+            talep_tipi,
+          })
         )
       }
     } catch (mailErr) {

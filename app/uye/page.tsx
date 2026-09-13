@@ -34,10 +34,14 @@ export default function UyePage() {
   const supabase = useRef(createClient()).current
 
   const handleGoogleLogin = async () => {
+    const origin = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
+      ? window.location.origin
+      : 'https://sescim.com'
+
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/uye/panel`,
+        redirectTo: `${origin}/auth/callback?next=/uye/panel`,
       },
     })
   }

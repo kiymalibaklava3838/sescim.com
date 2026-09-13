@@ -27,6 +27,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       body: JSON.stringify({
         from: SENDER_EMAIL,
         to: [to],
+        reply_to: 'info@sescim.com',
         subject,
         html,
       }),

@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { paytrTokenSchema } from '@/lib/api-schemas'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
+import { getSiteUrl } from '@/lib/site-url'
 
 const PAYTR_MERCHANT_ID = process.env.PAYTR_MERCHANT_ID!
 const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY!
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     const musteriAdSoyad = dbSiparis.ad_soyad || ad_soyad
     const musteriTelefon = dbSiparis.telefon || telefon
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const siteUrl = getSiteUrl()
 
     // PayTR, sepet öğeleri için TL cinsinden string bekler (örn: "150.00")
     const sepetIcerik = JSON.stringify(

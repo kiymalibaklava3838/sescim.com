@@ -16,9 +16,11 @@ export default function SifreSifirlaPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    const siteUrl = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
+      ? window.location.origin
+      : 'https://sescim.com'
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/uye/sifre-guncelle`,
+      redirectTo: `${siteUrl}/uye/sifre-guncelle`,
     })
     if (err) setError(err.message)
     else setSuccess(true)

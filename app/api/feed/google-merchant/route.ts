@@ -124,7 +124,7 @@ export async function GET() {
       xml += '      <g:shipping>\n'
       xml += '        <g:country>TR</g:country>\n'
       xml += '        <g:service>Standart Sigortalı Kargo</g:service>\n'
-      xml += `        <g:price>${finalPriceTL >= 1999 ? '0.00' : '99.00'} TRY</g:price>\n`
+      xml += `        <g:price>${finalPriceTL >= 1999 ? '0.00' : '149.00'} TRY</g:price>\n`
       xml += '      </g:shipping>\n'
       xml += '    </item>\n'
     }

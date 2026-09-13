@@ -8,11 +8,6 @@ import { dovizToTL, KurData } from '@/lib/kur'
 export const dynamic = 'force-dynamic'
 export const revalidate = 3600 // 1 saat önbellek
 
-function stripHtml(html: string): string {
-  if (!html) return ''
-  return html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()
-}
-
 async function getLiveKur(): Promise<KurData> {
   try {
     const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
@@ -35,13 +30,13 @@ export async function GET() {
   try {
     const baseUrl = getSiteUrl()
     const supabase = await createAkdagServerClient()
+    const sescimDb = await createServerSupabaseClient()
     const kur = await getLiveKur()
 
-    // 1. Hem Akdağ hem Sescim veritabanındaki ürünleri çek (Hibrit)
-    const sescimDb = await createServerSupabaseClient()
+    // 1. Akdağ ve Sescim ürünlerini çek
     const [akdagRes, sescimRes] = await Promise.all([
-      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, marka, model_kodu').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').limit(5000) : Promise.resolve({ data: [] })
+      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, barkod').limit(10000),
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, barkod, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').limit(5000) : Promise.resolve({ data: [] })
     ])
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({
@@ -51,13 +46,11 @@ export async function GET() {
     }))
     const aProducts = akdagRes.data || []
 
-    // Deduplicate by id
     const productMap = new Map<string, any>()
     sProducts.forEach((p: any) => productMap.set(p.id, p))
     aProducts.forEach((p: any) => { if (!productMap.has(p.id)) productMap.set(p.id, p) })
     const products = Array.from(productMap.values())
 
-    // 2. Sescim fiyatlandırmasını eşle
     const urunIds = products.map((p: any) => p.id)
     const pricingMap = await getSescimPricingMap(urunIds)
 
@@ -68,20 +61,15 @@ export async function GET() {
       return isAktif && !isFiyatSorunuz
     })
 
-    // 3. Google Merchant XML Feed oluştur
+    // Cimri XML formatı
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
-    xml += '<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n'
-    xml += '  <channel>\n'
-    xml += '    <title>Sescim - Yeni Nesil Müzik Market</title>\n'
-    xml += `    <link>${baseUrl}</link>\n`
-    xml += '    <description>Sescim Profesyonel Ses, Işık ve Görüntü Sistemleri Google Alışveriş ve Merchant Center Ürün Akışı</description>\n'
+    xml += '<products>\n'
 
     for (const p of validProducts) {
       const pb = p.para_birimi || 'TRY'
       const pricing = pricingMap.get(p.id)
-      // Normal fiyat (Sescim fiyatı varsa öncelikli)
+
       const normalRaw = pricing?.sescim_fiyat ?? p.fiyat ?? 0
-      // İndirimli fiyat (Sescim indirimli fiyatı varsa öncelikli)
       const discountedRaw = pricing?.sescim_indirimli_fiyat ?? (p.indirimli_fiyat && p.indirimli_fiyat < (p.fiyat || 0) ? p.indirimli_fiyat : null)
 
       const normalPriceTL = normalRaw > 0 ? dovizToTL(normalRaw, pb, kur) : 0
@@ -92,45 +80,39 @@ export async function GET() {
 
       if (finalPriceTL <= 0) continue
 
-      const isOutlet = !!pricing?.is_outlet
       const stok = p.stok_durumu || 'stokta'
-      const availability = (stok === 'tukendi' || stok === 'tükendi') ? 'out_of_stock' : 'in_stock'
+      const isOutOfStock = stok === 'tukendi' || stok === 'tükendi'
+      const stockStatus = isOutOfStock ? 0 : 1
+      const stockQty = isOutOfStock ? 0 : (p.stok_adedi || 10)
       const link = `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`
       const image = Array.isArray(p.fotograflar) && p.fotograflar[0] ? p.fotograflar[0] : `${baseUrl}/logo.png`
       const brand = p.marka || 'Akdağ Elektronik'
-      const mpn = p.model_kodu || p.id
-      const desc = stripHtml(p.aciklama || p.ad).slice(0, 5000)
-      const categoryPath = [p.kategori, p.alt_kategori, p.urun_tipi].filter(Boolean).join(' > ')
+      const model = p.model_kodu || ''
+      const barcode = p.barkod || ''
+      const categoryHierarchy = [p.kategori, p.alt_kategori, p.urun_tipi].filter(Boolean).join(' > ')
+      const shippingFee = finalPriceTL >= 1999 ? '0.00' : '99.00'
 
-      xml += '    <item>\n'
-      xml += `      <g:id>${p.id}</g:id>\n`
-      xml += `      <g:title><![CDATA[${p.ad || ''}]]></g:title>\n`
-      xml += `      <g:description><![CDATA[${desc}]]></g:description>\n`
-      xml += `      <g:link>${link}</g:link>\n`
-      xml += `      <g:image_link>${image}</g:image_link>\n`
-      xml += `      <g:condition>${isOutlet ? 'refurbished' : 'new'}</g:condition>\n`
-      xml += `      <g:availability>${availability}</g:availability>\n`
-      if (hasDiscount) {
-        xml += `      <g:price>${normalPriceTL.toFixed(2)} TRY</g:price>\n`
-        xml += `      <g:sale_price>${discountedPriceTL.toFixed(2)} TRY</g:sale_price>\n`
-      } else {
-        xml += `      <g:price>${finalPriceTL.toFixed(2)} TRY</g:price>\n`
+      xml += '  <product>\n'
+      xml += `    <merchantItemId>${p.id}</merchantItemId>\n`
+      xml += `    <productName><![CDATA[${p.ad || ''}]]></productName>\n`
+      xml += `    <brand><![CDATA[${brand}]]></brand>\n`
+      if (model) xml += `    <model><![CDATA[${model}]]></model>\n`
+      if (barcode) xml += `    <barcode>${barcode}</barcode>\n`
+      if (categoryHierarchy) xml += `    <categoryHierarchy><![CDATA[${categoryHierarchy}]]></categoryHierarchy>\n`
+      xml += `    <pricePlusTax>${finalPriceTL.toFixed(2)}</pricePlusTax>\n`
+      if (hasDiscount && normalPriceTL > 0) {
+        xml += `    <listPricePlusTax>${normalPriceTL.toFixed(2)}</listPricePlusTax>\n`
       }
-      xml += `      <g:brand><![CDATA[${brand}]]></g:brand>\n`
-      xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`
-      if (categoryPath) {
-        xml += `      <g:product_type><![CDATA[${categoryPath}]]></g:product_type>\n`
-      }
-      xml += '      <g:shipping>\n'
-      xml += '        <g:country>TR</g:country>\n'
-      xml += '        <g:service>Standart Sigortalı Kargo</g:service>\n'
-      xml += `        <g:price>${finalPriceTL >= 1999 ? '0.00' : '99.00'} TRY</g:price>\n`
-      xml += '      </g:shipping>\n'
-      xml += '    </item>\n'
+      xml += '    <currency>TRY</currency>\n'
+      xml += `    <itemUrl>${link}</itemUrl>\n`
+      xml += `    <imageUrl>${image}</imageUrl>\n`
+      xml += `    <stockStatus>${stockStatus}</stockStatus>\n`
+      xml += `    <stockQuantity>${stockQty}</stockQuantity>\n`
+      xml += `    <shippingFee>${shippingFee}</shippingFee>\n`
+      xml += '  </product>\n'
     }
 
-    xml += '  </channel>\n'
-    xml += '</rss>'
+    xml += '</products>'
 
     return new NextResponse(xml, {
       status: 200,
@@ -140,7 +122,7 @@ export async function GET() {
       },
     })
   } catch (e: any) {
-    console.error('Google Merchant feed generation error:', e)
-    return new NextResponse(`Feed oluşturma hatası: ${e.message}`, { status: 500 })
+    console.error('Cimri feed generation error:', e)
+    return new NextResponse(`Cimri feed oluşturma hatası: ${e.message}`, { status: 500 })
   }
 }

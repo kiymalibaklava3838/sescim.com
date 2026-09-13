@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Tag, ArrowRight } from 'lucide-react'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProductGrid from '@/components/ProductGrid'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { Metadata } from 'next'
@@ -24,28 +25,38 @@ export default async function AramaPage({
   
   if (q.trim()) {
     const supabase = await createAkdagServerClient()
-    const { data } = await supabase
-      .from('urunler')
-      .select(LIGHT_PRODUCT_FIELDS)
-      .or(`ad.ilike.%${q}%,marka.ilike.%${q}%,kategori.ilike.%${q}%`)
+    const sescimDb = await createServerSupabaseClient()
+
+    const [akdagRes, sescimRes] = await Promise.all([
+      supabase.from('urunler').select(LIGHT_PRODUCT_FIELDS).or(`ad.ilike.%${q}%,marka.ilike.%${q}%,kategori.ilike.%${q}%`),
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at').or(`ad.ilike.%${q}%,marka.ilike.%${q}%,kategori_id.ilike.%${q}%`) : Promise.resolve({ data: [] })
+    ])
+
+    const sData = (sescimRes.data || []).map((p: any) => ({
+      ...p,
+      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+      sescim_aktif: p.sescim_aktif !== false
+    }))
+    const aData = akdagRes.data || []
+    const combined = [...sData, ...aData]
       
-    if (data && data.length > 0) {
+    if (combined && combined.length > 0) {
       try {
         const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
-        const urunIds = data.map((p: any) => p.id)
+        const urunIds = combined.map((p: any) => p.id)
         const pricingMap = await getSescimPricingMap(urunIds)
-        products = data.map((p: any) => {
+        products = combined.map((p: any) => {
           const pricing = pricingMap.get(p.id)
           return {
             ...p,
-            sescim_fiyat: pricing?.sescim_fiyat ?? null,
-            sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? null,
-            sescim_aktif: pricing?.sescim_aktif ?? true,
+            sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+            sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
+            sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
             fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
           }
         }).filter(p => p.sescim_aktif !== false)
       } catch {
-        products = data
+        products = combined
       }
     } else {
       products = []

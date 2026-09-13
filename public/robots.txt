@@ -1,6 +1,12 @@
 User-agent: *
 Allow: /
+Allow: /api/feed/
 Disallow: /admin
+Disallow: /bayi
+Disallow: /checkout
+Disallow: /sepet
+Disallow: /uye
+Disallow: /hesabim
 Disallow: /api/
 
 Sitemap: https://sescim.com/sitemap.xml

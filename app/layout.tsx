@@ -97,16 +97,61 @@ const orgJsonLd = {
   legalName: 'Akdağ Elektronik ve Ses Sistemleri',
   url: siteUrl,
   logo: `${siteUrl}/logo.png`,
+  email: 'info@sescim.com',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Cumhuriyet Mah. Sur Cad. No:17/A',
+    addressLocality: 'Melikgazi',
+    addressRegion: 'Kayseri',
+    postalCode: '38040',
+    addressCountry: 'TR'
+  },
   contactPoint: {
     '@type': 'ContactPoint',
     telephone: '+90-352-231-69-15',
+    email: 'info@sescim.com',
     contactType: 'customer service',
     areaServed: 'TR',
     availableLanguage: 'Turkish'
   },
   sameAs: [
     'https://www.instagram.com/sescim',
+    'https://youtube.com/@sescim',
+    'https://twitter.com/sescim',
   ],
+}
+
+const storeJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': ['MusicStore', 'ElectronicsStore'],
+  name: 'Sescim - Yeni Nesil Müzik Market',
+  image: `${siteUrl}/logo.png`,
+  '@id': `${siteUrl}/#store`,
+  url: siteUrl,
+  telephone: '+90-352-231-69-15',
+  email: 'info@sescim.com',
+  priceRange: '₺₺₺',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Cumhuriyet Mah. Sur Cad. No:17/A',
+    addressLocality: 'Melikgazi',
+    addressRegion: 'Kayseri',
+    postalCode: '38040',
+    addressCountry: 'TR'
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: 38.7205,
+    longitude: 35.4826
+  },
+  openingHoursSpecification: [
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      opens: '09:00',
+      closes: '19:00'
+    }
+  ]
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -144,13 +189,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <script
           type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(storeJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
         <Navbar />
         <CartDrawer />
         <CartToast />
         <QuickViewModal />
-        <main className="flex-1 pb-16 lg:pb-0">{children}</main>
+        <main className="flex-1 pb-16 lg:pb-0 w-full min-w-0 overflow-x-clip">{children}</main>
         <Footer />
         <MobileBottomNav />
         <KvkkBanner />

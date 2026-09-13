@@ -73,12 +73,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sepette geçerli ürün bulunamadı' }, { status: 400 })
     }
 
-    const { data: dbProducts, error: prodErr } = await akdagDb
-      .from('urunler')
-      .select('id, ad, kategori, alt_kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi')
-      .in('id', urunIds)
+    const [akdagRes, sescimRes] = await Promise.all([
+      akdagDb.from('urunler').select('id, ad, kategori, alt_kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi').in('id', urunIds),
+      db.from('urunler').select('id, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi').in('id', urunIds)
+    ])
 
-    if (prodErr || !dbProducts) {
+    const dbProducts = [
+      ...(sescimRes.data || []).map((p: any) => ({ ...p, kaynak: 'sescim' })),
+      ...(akdagRes.data || []).map((p: any) => ({ ...p, kaynak: 'akdag' }))
+    ]
+
+    if (dbProducts.length === 0) {
       return NextResponse.json({ error: 'Ürün fiyatları doğrulanamadı' }, { status: 500 })
     }
 
@@ -214,41 +219,20 @@ export async function POST(req: NextRequest) {
     for (const item of urunler) {
       if (!item.urun_id) continue
 
-      // Önce mevcut durumu al (siparise_gore mantığı için gerekli)
-      const { data: urun } = await akdagDb
+      const dbProd = dbProducts.find((p) => p.id === item.urun_id)
+      const targetDb = dbProd?.kaynak === 'sescim' ? db : akdagDb
+
+      // Önce mevcut durumu al
+      const { data: urun } = await targetDb
         .from('urunler')
         .select('stok_durumu, stok_adedi')
         .eq('id', item.urun_id)
         .single()
 
       if (typeof urun?.stok_adedi === 'number') {
-        // Atomic stok düşürme — PostgreSQL fonksiyonu ile race condition olmadan güncelle
-        // Supabase SQL: UPDATE urunler SET stok_adedi = GREATEST(stok_adedi - p_adet, 0) WHERE id = p_urun_id
-        const { error: rpcErr } = await akdagDb.rpc('atomic_stok_dusur', {
-          p_urun_id: item.urun_id,
-          p_adet: item.adet,
-        })
-
-        if (rpcErr) {
-          // RPC henüz eklenmemişse fallback (eski davranış) — uyarı logla
-          console.warn('[stok] atomic_stok_dusur RPC bulunamadı, fallback kullanılıyor. Lütfen stok-migration.sql dosyasını Supabase SQL Editor\'da çalıştırın.', rpcErr.message)
-          const kalan = Math.max(0, urun.stok_adedi - item.adet)
-          const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-          await akdagDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
-        }
-      }
-
-      if (urun?.stok_durumu === 'stokta') {
-        const { count } = await db
-          .from('siparisler')
-          .select('*', { count: 'exact', head: true })
-          .neq('durum', 'iptal')
-          .neq('durum', 'teslim_edildi')
-          .filter('urunler', 'cs', JSON.stringify([{ urun_id: item.urun_id }]))
-
-        if ((count || 0) >= 5) {
-          await akdagDb.from('urunler').update({ stok_durumu: 'siparise_gore' }).eq('id', item.urun_id)
-        }
+        const kalan = Math.max(0, urun.stok_adedi - item.adet)
+        const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
+        await targetDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
       }
     }
 

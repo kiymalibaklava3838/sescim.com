@@ -35,7 +35,8 @@ export default function IletisimPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-lg mb-1">Adres</h3>
-                    <p className="text-slate-300">Müzik Sokak, No:42, Şişli/İstanbul</p>
+                    <p className="text-slate-300">Cumhuriyet Mah. Sur Cad. No:17/A</p>
+                    <p className="text-slate-400 text-sm">Melikgazi / Kayseri</p>
                   </div>
                 </div>
 
@@ -45,7 +46,8 @@ export default function IletisimPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-lg mb-1">Telefon</h3>
-                    <p className="text-slate-300">+90 850 123 45 67</p>
+                    <p className="text-slate-300">+90 352 231 69 15</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Pzt - Cmt: 09:00 - 19:00</p>
                   </div>
                 </div>
 
@@ -55,7 +57,7 @@ export default function IletisimPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-lg mb-1">E-posta</h3>
-                    <p className="text-slate-300">destek@sescim.com</p>
+                    <p className="text-slate-300">info@sescim.com</p>
                   </div>
                 </div>
               </div>

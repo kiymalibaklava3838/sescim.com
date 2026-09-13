@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'Günün Fırsatları & Flaş İndirimler | Sescim',
+  title: 'Günün Fırsatları & Flaş İndirimler',
   description: 'Seçili profesyonel ses sistemleri, stüdyo monitörleri, sahne ışıkları ve DJ ekipmanlarında günün fırsatları ve flaş indirimler.',
 }
 

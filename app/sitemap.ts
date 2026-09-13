@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { HIERARCHY_DATA } from '@/lib/categories'
 import { getSiteUrl } from '@/lib/site-url'
 
@@ -50,21 +51,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }))
 
-  // 3. Products
-  const { data: products } = await supabase
-    .from('urunler')
-    .select('slug, updated_at, fotograflar')
-    .limit(50000)
+  // 3. Products (Hibrit Akdağ + Sescim)
+  const sescimDb = await createServerSupabaseClient()
+  const [akdagRes, sescimRes] = await Promise.all([
+    supabase.from('urunler').select('id, slug, updated_at, fotograflar').limit(50000),
+    sescimDb ? sescimDb.from('urunler').select('id, slug, updated_at, fotograflar').limit(5000) : Promise.resolve({ data: [] })
+  ])
 
-  const productSitemap = (products || [])
-    .filter((product) => product.slug)
-    .map((product) => ({
-      url: `${baseUrl}/urun/${product.slug}`,
-      lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-      ...(product.fotograflar?.[0] ? { images: [product.fotograflar[0]] } : {})
-    }))
+  const slugMap = new Map<string, any>()
+  ;(sescimRes.data || []).forEach((p: any) => { if (p.slug) slugMap.set(p.slug, p) })
+  ;(akdagRes.data || []).forEach((p: any) => { if (p.slug && !slugMap.has(p.slug)) slugMap.set(p.slug, p) })
+  const products = Array.from(slugMap.values())
+
+  const productSitemap = products.map((product) => ({
+    url: `${baseUrl}/urun/${product.slug}`,
+    lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+    ...(product.fotograflar?.[0] ? { images: [product.fotograflar[0]] } : {})
+  }))
 
   return [...staticPages, ...categorySitemap, ...productSitemap]
 }

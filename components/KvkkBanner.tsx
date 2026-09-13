@@ -7,52 +7,60 @@ export default function KvkkBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const accepted = localStorage.getItem('kvkk-accepted')
-    if (!accepted) setVisible(true)
+    try {
+      const accepted = typeof window !== 'undefined' ? localStorage.getItem('kvkk-accepted') : null
+      if (!accepted) setVisible(true)
+    } catch {
+      // Gizli sekme veya depolama engelli tarayıcılarda da görünür yap
+      setVisible(true)
+    }
   }, [])
 
   const accept = () => {
-    localStorage.setItem('kvkk-accepted', '1')
+    try {
+      localStorage.setItem('kvkk-accepted', '1')
+    } catch {}
     setVisible(false)
   }
 
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 p-4 md:p-6">
-      <div className="max-w-4xl mx-auto bg-[#141414] border border-white/10 p-5 md:p-6 shadow-2xl"
-        style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-          <div className="flex items-start gap-4 flex-1">
-            <Cookie size={20} className="text-brand-red flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-display font-bold text-sm uppercase tracking-wide text-white mb-1">
+    <div className="fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] inset-x-3 md:inset-x-auto md:left-6 md:bottom-6 md:max-w-md z-[60] transition-all duration-300">
+      <div className="bg-slate-950/95 backdrop-blur-md border border-white/15 p-4 sm:p-5 rounded-2xl shadow-2xl shadow-black/40 text-white">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-brand-red/20 text-brand-red shrink-0 mt-0.5">
+            <Cookie size={20} />
+          </div>
+          <div className="flex-1 min-w-0 pr-1">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-white">
                 Çerez Politikası
               </p>
-              <p className="font-body text-white/40 text-xs leading-relaxed">
-                Bu site, hizmet kalitesini artırmak amacıyla çerezler kullanmaktadır.
-                Siteyi kullanmaya devam ederek{' '}
-                <a href="/gizlilik-politikasi" className="text-brand-red hover:underline">
-                  KVKK Aydınlatma Metni
-                </a>
-                &apos;ni kabul etmiş sayılırsınız.
-              </p>
+              <button
+                type="button"
+                onClick={accept}
+                className="text-white/40 hover:text-white transition-colors p-1 -mr-1 rounded-lg"
+                aria-label="Kapat"
+              >
+                <X size={16} />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0 w-full md:w-auto">
-            <button
-              onClick={accept}
-              className="btn-primary text-xs flex-1 md:flex-none justify-center"
-            >
-              Kabul Et
-            </button>
-            <button
-              onClick={accept}
-              className="text-white/20 hover:text-white/50 transition-colors p-1"
-              aria-label="Kapat"
-            >
-              <X size={16} />
-            </button>
+            <p className="font-body text-slate-400 text-xs leading-relaxed mb-3">
+              Deneyiminizi iyileştirmek için yasal mevzuata uygun çerezler kullanıyoruz.{' '}
+              <a href="/gizlilik-politikasi" className="text-brand-red hover:underline font-medium">
+                Aydınlatma Metni
+              </a>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={accept}
+                className="w-full py-2 px-4 rounded-xl bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs uppercase tracking-wider transition-colors shadow-sm text-center"
+              >
+                Kabul Et
+              </button>
+            </div>
           </div>
         </div>
       </div>

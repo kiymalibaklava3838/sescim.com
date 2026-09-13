@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = {
-  title: 'Kampanyalar & İndirim Kuponları | Sescim',
+  title: 'Kampanyalar & İndirim Kuponları',
   description: 'Sescim güncel indirim kuponları, hoşgeldin fırsatları ve özel ses ekipmanı kampanyaları.',
 };
 

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Upload, Plus, X, Check, AlertCircle, Tag, ChevronRight } from 'lucide-react'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
+import { Upload, Plus, X, Check, AlertCircle, Tag, ChevronRight, MessageSquareText } from 'lucide-react'
 import { PARA_BIRIMLERI } from '@/lib/kur'
 import { compressImage, formatFileSize } from './ImageCompressor'
 import { NEW_KATEGORI_HIYERARSI, type CategoryNode } from '@/lib/categories'
@@ -41,6 +42,7 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
   const [bayi_fiyati, setBayiF] = useState('')
   const [sescim_fiyat, setSescimFiyat] = useState('')
   const [sescim_indirimli_fiyat, setSescimIndirimli] = useState('')
+  const [fiyatSorunuz, setFiyatSorunuz] = useState(false)
   const [is_featured, setIsFeatured] = useState(false)
   const [stok, setStok] = useState('stokta')
   const [paraBirimi, setParaBirimi] = useState(initialData?.paraBirimi || 'USD')
@@ -95,19 +97,43 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     }
   }
 
-  // Önerileri kullanıcı yazdıkça (on-demand) çekiyoruz - Optimizasyon: Büyük veri çekimi kaldırıldı.
+  // Önerileri kullanıcı yazdıkça hem Sescim hem Akdağ kataloğundan (read-only) çekiyoruz
   const fetchMarkaSuggestions = async (val: string) => {
     if (val.length < 2) return
-    const supabase = createClient()
-    const { data } = await supabase.from('urunler').select('marka').ilike('marka', `%${val}%`).limit(10)
-    if (data) setExistingMarkalar(Array.from(new Set(data.map((x: any) => x.marka).filter(Boolean))))
+    try {
+      const akdag = createAkdagBrowserClient()
+      const sescim = createClient()
+      const [akdagRes, sescimRes] = await Promise.all([
+        akdag.from('urunler').select('marka').ilike('marka', `%${val}%`).limit(10),
+        sescim.from('urunler').select('marka').ilike('marka', `%${val}%`).limit(10)
+      ])
+      const combined = [
+        ...(akdagRes.data || []).map((x: any) => x.marka),
+        ...(sescimRes.data || []).map((x: any) => x.marka)
+      ].filter(Boolean)
+      setExistingMarkalar(Array.from(new Set(combined)))
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const fetchAlanSuggestions = async (val: string) => {
     if (val.length < 2) return
-    const supabase = createClient()
-    const { data } = await supabase.from('urunler').select('kullanim_alani').ilike('kullanim_alani', `%${val}%`).limit(10)
-    if (data) setExistingAlanlar(Array.from(new Set(data.map((x: any) => x.kullanim_alani).filter(Boolean))))
+    try {
+      const akdag = createAkdagBrowserClient()
+      const sescim = createClient()
+      const [akdagRes, sescimRes] = await Promise.all([
+        akdag.from('urunler').select('kullanim_alani').ilike('kullanim_alani', `%${val}%`).limit(10),
+        sescim.from('urunler').select('kullanim_alani').ilike('kullanim_alani', `%${val}%`).limit(10)
+      ])
+      const combined = [
+        ...(akdagRes.data || []).map((x: any) => x.kullanim_alani),
+        ...(sescimRes.data || []).map((x: any) => x.kullanim_alani)
+      ].filter(Boolean)
+      setExistingAlanlar(Array.from(new Set(combined)))
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   // Hiyerarşi seçenekleri
@@ -166,27 +192,36 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
         .replace(/^-+|-+$/g, '')
     }
 
+    const baseSlug = generateSlug(ad.trim()) || `urun-${Date.now()}`
+    const finalSlug = `${baseSlug}-${Date.now().toString().slice(-4)}`
+    const finalFiyat = parseFloat(fiyat)
+    const finalSescimFiyat = sescim_fiyat ? parseFloat(sescim_fiyat) : finalFiyat
+    const finalSescimIndirimli = sescim_indirimli_fiyat ? parseFloat(sescim_indirimli_fiyat) : null
+
     const payload: any = {
       ad: ad.trim(),
-      slug: generateSlug(ad.trim()),
+      slug: finalSlug,
       aciklama: aciklama.trim(),
-      kategori: anaCat.name,
-      alt_kategori: altCat?.name || null,
-      urun_tipi: detayCat?.name || null,
-      fiyat: parseFloat(fiyat),
+      kategori_id: anaCat.name,
+      alt_kategori_id: altCat?.name || null,
+      fiyat: finalFiyat,
       bayi_fiyati: bayi_fiyati ? parseFloat(bayi_fiyati) : null,
+      sescim_fiyat: finalSescimFiyat,
+      sescim_indirimli_fiyat: finalSescimIndirimli,
+      sescim_aktif: true,
+      aktif: true,
       is_featured: is_featured,
       stok_durumu: stokDurumu,
       stok_adedi: stokAdetNum,
       kritik_stok: kritikStokNum,
       para_birimi: paraBirimi,
-      bayi_para_birimi: bayiParaBirimi,
       marka: marka.trim() || null,
       model_kodu: modelKodu.trim() || null,
       kullanim_alani: kullanimAlani.trim() || null,
+      ozellikler: []
     }
 
-    // Aynı model koduna (stok koduna) sahip bir ürün olup olmadığını kontrol et
+    // Aynı model koduna sahip bir ürün olup olmadığını Sescim veritabanında kontrol et
     let existingUrun: any = null
     if (modelKodu.trim()) {
       const { data } = await supabase
@@ -201,7 +236,6 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     let targetUrunId = existingUrun?.id
 
     if (existingUrun) {
-      // Eğer yeni bir fotoğraf yüklenmediyse ve eski fotoğraflar varsa, eski fotoğrafları koru
       if (fotograflar.length === 0 && existingUrun.fotograflar) {
         payload.fotograflar = existingUrun.fotograflar
       } else {
@@ -225,15 +259,22 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
       if (insertedData) targetUrunId = insertedData.id
     }
 
-    // Sescim özel fiyatı girilmişse sescim_fiyatlar tablosuna kaydet
-    if (!dbErr && targetUrunId && (sescim_fiyat || sescim_indirimli_fiyat)) {
+    if (dbErr) {
+      console.error('Sescim ürün ekleme hatası:', dbErr)
+      setError('Ürün eklenirken bir hata oluştu: ' + (dbErr.message || 'Veritabanı hatası'))
+      setLoading(false)
+      return
+    }
+
+    // Sescim fiyat ve teklif kuralını sescim_fiyatlar tablosuna kaydet
+    if (targetUrunId) {
       try {
-        const sescimDb = createClient()
-        await sescimDb.from('sescim_fiyatlar').upsert({
+        await supabase.from('sescim_fiyatlar').upsert({
           urun_id: targetUrunId,
-          sescim_fiyat: sescim_fiyat ? parseFloat(sescim_fiyat) : null,
-          sescim_indirimli_fiyat: sescim_indirimli_fiyat ? parseFloat(sescim_indirimli_fiyat) : null,
+          sescim_fiyat: finalSescimFiyat,
+          sescim_indirimli_fiyat: finalSescimIndirimli,
           sescim_aktif: true,
+          fiyat_sorunuz: fiyatSorunuz,
           updated_at: new Date().toISOString()
         }, { onConflict: 'urun_id' })
       } catch (e) {
@@ -241,23 +282,21 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
       }
     }
 
-    if (!dbErr && taslakId) {
-      await supabase.from('wolvox_taslak').delete().eq('id', taslakId)
+    if (taslakId) {
+      await supabase.from('wolvox_taslak').delete().eq('id', taslakId).catch(() => {})
     }
 
     // Önbelleği temizle (Anında Yayınlama)
-    if (!dbErr) {
-      fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
-      if (existingUrun?.id) {
-        fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: `/urun/${existingUrun.id}` }) }).catch(() => {})
-      }
+    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/urunler' }) }).catch(() => {})
+    if (existingUrun?.id) {
+      fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: `/urun/${existingUrun.id}` }) }).catch(() => {})
     }
 
     setLoading(false)
-    if (dbErr) { setError(`Kaydedilemedi: ${dbErr.message}`); return }
     setSuccess(true)
     setAd(''); setAciklama(''); setAnaCat(NEW_KATEGORI_HIYERARSI[0]); setAltCat(null); setDetayCat(null)
-    setFiyat(''); setBayiF(''); setSescimFiyat(''); setSescimIndirimli(''); setIsFeatured(false); setStok('stokta'); setParaBirimi('USD'); setBayiParaBirimi('USD')
+    setFiyat(''); setBayiF(''); setSescimFiyat(''); setSescimIndirimli(''); setFiyatSorunuz(false); setIsFeatured(false); setStok('stokta'); setParaBirimi('USD'); setBayiParaBirimi('USD')
     setMarka(''); setKullanimAlani(''); setStokAdedi('0'); setKritikStok('5')
     setEntries([])
     setTimeout(() => setSuccess(false), 3000)
@@ -439,6 +478,76 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
             </select>
             <input type="number" min="0" step="0.01" value={bayi_fiyati} onChange={e => setBayiF(e.target.value)} className="input-dark flex-1" placeholder="Boş bırakılabilir" />
           </div>
+        </div>
+
+        {/* Sescim Perakende Fiyatları */}
+        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
+          <div>
+            <label className="font-display font-semibold text-xs tracking-widest uppercase text-brand-red block mb-1.5">
+              Sescim Satış Fiyatı (TL)
+              <span className="ml-1 text-white/30 text-[10px] normal-case tracking-normal block">Boşsa normal fiyattan hesaplanır</span>
+            </label>
+            <input 
+              type="number" 
+              min="0" 
+              step="0.01" 
+              value={sescim_fiyat} 
+              onChange={e => setSescimFiyat(e.target.value)} 
+              className="input-dark w-full border-brand-red/30 focus:border-brand-red" 
+              placeholder="Örn: 15450.00" 
+            />
+          </div>
+          <div>
+            <label className="font-display font-semibold text-xs tracking-widest uppercase text-white/40 block mb-1.5">
+              Sescim İndirimli Fiyatı (TL)
+              <span className="ml-1 text-white/30 text-[10px] normal-case tracking-normal block">Varsa bu fiyat geçerli olur</span>
+            </label>
+            <input 
+              type="number" 
+              min="0" 
+              step="0.01" 
+              value={sescim_indirimli_fiyat} 
+              onChange={e => setSescimIndirimli(e.target.value)} 
+              className="input-dark w-full" 
+              placeholder="Örn: 12900.00" 
+            />
+          </div>
+        </div>
+
+        {/* Distribütör Teklif Kuralı - Fiyat Teklifi İste */}
+        <div className="pt-2 border-t border-white/5">
+          <label className={`flex items-center justify-between p-3 rounded border transition-all cursor-pointer ${
+            fiyatSorunuz 
+              ? 'bg-amber-500/10 border-amber-500/40 text-white' 
+              : 'bg-white/[0.02] border-white/10 hover:border-white/20 text-white/70'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <MessageSquareText size={16} className={fiyatSorunuz ? 'text-amber-400' : 'text-white/40'} />
+              <div>
+                <span className="text-xs font-semibold block text-white">FİYAT TEKLİFİ İÇİN BİZE ULAŞIN</span>
+                <span className="text-[10px] text-white/40 block font-body">Ürünün fiyatı sitede gizlenir, doğrudan teklif & iletişim butonu çıkar</span>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={fiyatSorunuz}
+              onChange={(e) => setFiyatSorunuz(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/20 focus:ring-offset-0 cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {/* Öne Çıkarılan Ürün */}
+        <div className="pt-1">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-white/60 hover:text-white">
+            <input
+              type="checkbox"
+              checked={is_featured}
+              onChange={e => setIsFeatured(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/5 text-brand-red focus:ring-0 cursor-pointer"
+            />
+            <span>Öne Çıkan Ürünler Vitrininde Göster</span>
+          </label>
         </div>
 
         <div>

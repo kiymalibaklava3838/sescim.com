@@ -1,4 +1,5 @@
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Package, ArrowRight, Star } from 'lucide-react'
@@ -16,6 +17,7 @@ interface Props {
 
 export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler", sortBy = "created_at", ascending = false, filterByFeatured = true }: Props = {}) {
   const supabase = await createAkdagServerClient()
+  const sescimDb = await createServerSupabaseClient()
   const kur = await getKur()
   
   let query = supabase
@@ -24,20 +26,41 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     .order(sortBy, { ascending })
     .limit(10)
 
+  let sQuery = sescimDb
+    ? sescimDb
+        .from('urunler')
+        .select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
+        .order(sortBy, { ascending })
+        .limit(10)
+    : null
+
   if (filterByFeatured) {
     query = query.eq('is_featured', true)
+    if (sQuery) sQuery = sQuery.eq('is_featured', true)
   }
 
-  let { data } = await query
+  const [akdagRes, sescimRes] = await Promise.all([
+    query,
+    sQuery ? sQuery : Promise.resolve({ data: [] })
+  ])
+
+  let data = [
+    ...(sescimRes.data || []).map((p: any) => ({
+      ...p,
+      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+      sescim_aktif: p.sescim_aktif !== false
+    })),
+    ...(akdagRes.data || [])
+  ]
 
   // Eğer özel olarak öne çıkarılan ürün işaretlenmemişse, boş kalmaması için popüler ürünleri göster
-  if ((!data || data.length === 0) && filterByFeatured) {
+  if (data.length === 0 && filterByFeatured) {
     const fallback = await supabase
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)
       .order(sortBy, { ascending })
       .limit(10)
-    data = fallback.data
+    data = fallback.data || []
   }
 
   if (!data || data.length === 0) return null

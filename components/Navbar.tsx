@@ -381,14 +381,15 @@ export default function Navbar() {
       <div className="border-t border-slate-200 hidden md:block bg-white shadow-sm relative z-40">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between">
-            {/* Left: Mega Menu Trigger */}
-            <div className="relative group">
-              <Link href="/urunler" className="flex items-center gap-2 bg-brand-red text-white px-5 py-3.5 font-semibold hover:bg-brand-red/90 transition-colors">
-                <Menu size={20} />
-                <span>Tüm Kategoriler</span>
-              </Link>
+            {/* Left: Mega Menu Trigger & Keşfet Button */}
+            <div className="flex items-center">
+              <div className="relative group">
+                <Link href="/urunler" className="flex items-center gap-2 bg-brand-red text-white px-5 py-3.5 font-semibold hover:bg-brand-red/90 transition-colors">
+                  <Menu size={20} />
+                  <span>Tüm Kategoriler</span>
+                </Link>
 
-              {/* Mega Menu Dropdown */}
+                {/* Mega Menu Dropdown */}
               <div className="absolute top-full left-0 w-[800px] lg:w-[950px] bg-white shadow-2xl shadow-slate-900/10 border border-slate-200 z-50 flex rounded-b-xl rounded-tr-xl overflow-hidden min-h-[450px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 origin-top-left transform translate-y-2 group-hover:translate-y-0">
                 {/* Left Sidebar - Main Categories */}
                 <div className="w-1/3 bg-slate-50/80 border-r border-slate-200 flex flex-col py-3">
@@ -457,6 +458,19 @@ export default function Navbar() {
                 </div>
               </div>
             </div>
+
+            {/* Ayrı Keşfet Sayfası Butonu (Masaüstü Kullanıcı Kolaylığı) */}
+            <Link
+              href="/urunler"
+              className="flex items-center gap-2 px-4 py-3.5 font-display font-bold uppercase tracking-wider text-xs lg:text-sm text-slate-800 hover:text-brand-red hover:bg-slate-50 transition-all duration-200 border-r border-slate-200 group/kesfet ml-1"
+              title="Tüm Ürün Kataloğunu ve İlham Veren Setleri Keşfedin"
+            >
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-brand-red flex items-center justify-center group-hover/kesfet:bg-brand-red group-hover/kesfet:text-white transition-all shadow-xs">
+                <Compass size={16} className="group-hover/kesfet:rotate-45 transition-transform duration-300" />
+              </div>
+              <span>Keşfet</span>
+            </Link>
+          </div>
 
             {/* Right: Static Links */}
             <div className="flex items-center gap-6 lg:gap-8">

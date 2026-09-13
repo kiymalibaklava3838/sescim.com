@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProductSearch from '@/components/ProductSearch'
 import ProductGrid from '@/components/ProductGrid'
 import Pagination from '@/components/Pagination'
@@ -51,17 +52,18 @@ function getCategoryPathBreadcrumbs(slugArray: string[], marka?: string) {
   return crumbs
 }
 
-// Filtre seçeneklerini cache-leyerek egress tasarrufu yapıyoruz
+// Filtre seçeneklerini cache-leyerek egress tasarrufu yapıyoruz (Akdağ + Sescim hibrit)
 const getCachedFilters = unstable_cache(
   async () => {
     const supabase = await createAkdagServerClient()
-    const { data } = await supabase
-      .from('urunler')
-      .select('marka, kullanim_alani')
-      .limit(5000)
-    
-    const markalar = Array.from(new Set((data || []).map((r) => r.marka).filter(Boolean))).sort() as string[]
-    const kullanimAlanlari = Array.from(new Set((data || []).map((r) => r.kullanim_alani).filter(Boolean))).sort() as string[]
+    const sescimDb = await createServerSupabaseClient()
+    const [akdagRes, sescimRes] = await Promise.all([
+      supabase.from('urunler').select('marka, kullanim_alani').limit(5000),
+      sescimDb ? sescimDb.from('urunler').select('marka, kullanim_alani').limit(5000) : Promise.resolve({ data: [] })
+    ])
+    const allData = [...(akdagRes.data || []), ...(sescimRes.data || [])]
+    const markalar = Array.from(new Set(allData.map((r: any) => r.marka).filter(Boolean))).sort() as string[]
+    const kullanimAlanlari = Array.from(new Set(allData.map((r: any) => r.kullanim_alani).filter(Boolean))).sort() as string[]
     
     return { markalar, kullanimAlanlari }
   },
@@ -88,15 +90,15 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
   if (searchParams?.marka) {
     const marka = searchParams.marka
-    const title = `${marka} Ürünleri, Modelleri ve Fiyatları | Sescim`
+    const rawTitle = `${marka} Ürünleri, Modelleri ve Fiyatları`
     const description = `Tüm orijinal ${marka} profesyonel ses, sahne ve stüdyo ekipmanları en uygun fiyat ve distribütör garantisiyle Sescim'de.`
     const url = `${baseUrl}/urunler?marka=${encodeURIComponent(marka)}`
     return { 
-      title,
+      title: rawTitle,
       description,
       alternates: { canonical: url },
       openGraph: {
-        title,
+        title: `${rawTitle} | Sescim`,
         description,
         url,
         siteName: 'Sescim',
@@ -106,7 +108,7 @@ export async function generateMetadata({ params, searchParams }: Props) {
       },
       twitter: {
         card: 'summary_large_image',
-        title,
+        title: `${rawTitle} | Sescim`,
         description,
         images: [`${baseUrl}/logo.png`],
       },
@@ -114,15 +116,15 @@ export async function generateMetadata({ params, searchParams }: Props) {
   }
 
   if (!params.slug || params.slug.length === 0) {
-    const title = 'Tüm Profesyonel Ses, Işık ve Görüntü Ürünleri | Sescim'
+    const rawTitle = 'Tüm Profesyonel Ses, Işık ve Görüntü Ürünleri'
     const description = 'Tüm profesyonel ses sistemleri, mikserler, hoparlörler, mikrofonlar ve sahne sistemleri en uygun fiyat ve taksit seçenekleriyle Sescim\'de.'
     const url = `${baseUrl}/urunler`
     return { 
-      title,
+      title: rawTitle,
       description,
       alternates: { canonical: url },
       openGraph: {
-        title,
+        title: `${rawTitle} | Sescim`,
         description,
         url,
         siteName: 'Sescim',
@@ -132,7 +134,7 @@ export async function generateMetadata({ params, searchParams }: Props) {
       },
       twitter: {
         card: 'summary_large_image',
-        title,
+        title: `${rawTitle} | Sescim`,
         description,
         images: [`${baseUrl}/logo.png`],
       },
@@ -140,19 +142,19 @@ export async function generateMetadata({ params, searchParams }: Props) {
   }
 
   const category = findCategoryBySlug(params.slug)
-  if (!category) return { title: 'Ürünler | Sescim' }
+  if (!category) return { title: 'Ürünler' }
 
   const catName = category.name
-  const title = `${catName} Modelleri ve Fiyatları | Sescim`
+  const rawTitle = `${catName} Modelleri ve Fiyatları`
   const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, orijinal ürün garantisi, aynı gün kargo ve 12 aya varan taksit seçenekleriyle Sescim'de.`
   const url = `${baseUrl}/urunler/${params.slug.join('/')}`
 
   return { 
-    title,
+    title: rawTitle,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title,
+      title: `${rawTitle} | Sescim`,
       description,
       url,
       siteName: 'Sescim',
@@ -162,7 +164,7 @@ export async function generateMetadata({ params, searchParams }: Props) {
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: `${rawTitle} | Sescim`,
       description,
       images: [`${baseUrl}/logo.png`],
     },
@@ -201,33 +203,85 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
   const isMainDiscoverPage = slugArray.length === 0 && !filters.q && !filters.marka && !filters.stok && !filters.min && !filters.max
 
-  // Ürün sorgusu - sayfa zaten force-dynamic olduğundan ayrıca cache gerekmez
+  // Ürün sorgusu - Sescim kendi ürünleri + Akdağ ortak kataloğu
   const fetchProducts = async () => {
     const sb = await createAkdagServerClient()
-    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
+    const sescimDb = await createServerSupabaseClient()
 
-    if (filters.q) q = q.ilike('ad', `%${filters.q}%`)
+    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
+    let sq = sescimDb ? sescimDb.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at', { count: 'exact' }) : null
+
+    if (filters.q) {
+      q = q.ilike('ad', `%${filters.q}%`)
+      if (sq) sq = sq.ilike('ad', `%${filters.q}%`)
+    }
     if (filters.activeCategory) {
       const targetNames = Array.isArray(filters.activeCategory.dbName)
         ? filters.activeCategory.dbName
         : [filters.activeCategory.dbName || filters.activeCategory.name]
 
-      if (filters.slugLength === 1) q = q.in('kategori', targetNames)
-      else if (filters.slugLength === 2) q = q.in('alt_kategori', targetNames)
-      else if (filters.slugLength === 3) q = q.in('urun_tipi', targetNames)
+      if (filters.slugLength === 1) {
+        q = q.in('kategori', targetNames)
+        if (sq) sq = sq.in('kategori_id', targetNames)
+      } else if (filters.slugLength === 2) {
+        q = q.in('alt_kategori', targetNames)
+        if (sq) sq = sq.in('alt_kategori_id', targetNames)
+      } else if (filters.slugLength === 3) {
+        q = q.in('urun_tipi', targetNames)
+      }
     }
-    if (filters.min) q = q.gte('fiyat', filters.min)
-    if (filters.max) q = q.lte('fiyat', filters.max)
-    if (filters.stok && filters.stok !== 'tum') q = q.eq('stok_durumu', filters.stok)
-    if (filters.marka && filters.marka !== 'tum') q = q.ilike('marka', filters.marka)
-    if (filters.kullanim && filters.kullanim !== 'tum') q = q.eq('kullanim_alani', filters.kullanim)
+    if (filters.min) {
+      q = q.gte('fiyat', filters.min)
+      if (sq) sq = sq.gte('fiyat', filters.min)
+    }
+    if (filters.max) {
+      q = q.lte('fiyat', filters.max)
+      if (sq) sq = sq.lte('fiyat', filters.max)
+    }
+    if (filters.stok && filters.stok !== 'tum') {
+      q = q.eq('stok_durumu', filters.stok)
+      if (sq) sq = sq.eq('stok_durumu', filters.stok)
+    }
+    if (filters.marka && filters.marka !== 'tum') {
+      q = q.ilike('marka', filters.marka)
+      if (sq) sq = sq.ilike('marka', filters.marka)
+    }
+    if (filters.kullanim && filters.kullanim !== 'tum') {
+      q = q.eq('kullanim_alani', filters.kullanim)
+      if (sq) sq = sq.eq('kullanim_alani', filters.kullanim)
+    }
 
-    if (filters.sirala === 'yeni') q = q.order('created_at', { ascending: false })
-    else if (filters.sirala === 'fiyat_artan') q = q.order('fiyat', { ascending: true })
-    else if (filters.sirala === 'fiyat_azalan') q = q.order('fiyat', { ascending: false })
-    else if (filters.sirala === 'ad_asc') q = q.order('ad', { ascending: true })
+    if (filters.sirala === 'yeni') {
+      q = q.order('created_at', { ascending: false })
+      if (sq) sq = sq.order('created_at', { ascending: false })
+    } else if (filters.sirala === 'fiyat_artan') {
+      q = q.order('fiyat', { ascending: true })
+      if (sq) sq = sq.order('fiyat', { ascending: true })
+    } else if (filters.sirala === 'fiyat_azalan') {
+      q = q.order('fiyat', { ascending: false })
+      if (sq) sq = sq.order('fiyat', { ascending: false })
+    } else if (filters.sirala === 'ad_asc') {
+      q = q.order('ad', { ascending: true })
+      if (sq) sq = sq.order('ad', { ascending: true })
+    }
 
-    return q.range(from, to)
+    const [akdagRes, sescimRes] = await Promise.all([
+      q,
+      sq ? sq : Promise.resolve({ data: [], count: 0 })
+    ])
+
+    const sData = (sescimRes.data || []).map((p: any) => ({
+      ...p,
+      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+      sescim_aktif: p.sescim_aktif !== false
+    }))
+    const aData = akdagRes.data || []
+
+    const combined = [...sData, ...aData]
+    const totalCount = (sescimRes.count || 0) + (akdagRes.count || 0)
+    const paged = combined.slice(from, to + 1)
+
+    return { data: paged, count: totalCount }
   }
 
   let products: any[] = []

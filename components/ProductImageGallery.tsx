@@ -58,9 +58,9 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <div 
-        className="relative aspect-square bg-white border border-slate-200/90 rounded-2xl overflow-hidden group select-none shadow-sm"
+        className="relative aspect-square w-full bg-white border border-slate-200/90 rounded-2xl overflow-hidden group select-none shadow-sm"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -129,7 +129,7 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
       </div>
 
       {images.length > 1 && (
-        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide smooth-touch-scroll">
+        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide smooth-touch-scroll w-full min-w-0">
           {images.map((img, i) => (
             <button
               key={i}

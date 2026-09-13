@@ -144,19 +144,35 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
         .slice(0, 4)
       setCategoryResults(matchedCats)
 
-      // 3. Ürün Sorgusu (Hem ürün adı hem marka içinde arama)
+      // 3. Ürün Sorgusu (Akdağ + Sescim hibrit arama)
       try {
-        const { data: prodData } = await supabase
-          .from('urunler')
-          .select(SEARCH_SUGGESTION_FIELDS)
-          .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
-          .limit(6)
+        const { createClient } = await import('@/lib/supabase')
+        const sescimDb = createClient()
 
-        let prods: any[] = (prodData as any) || []
+        const [akdagRes, sescimRes] = await Promise.all([
+          supabase
+            .from('urunler')
+            .select(SEARCH_SUGGESTION_FIELDS)
+            .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
+            .limit(6),
+          sescimDb
+            .from('urunler')
+            .select('id, slug, ad, kategori:kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, marka, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif')
+            .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
+            .limit(6)
+        ])
+
+        const sProds: any[] = (sescimRes.data || []).map((p: any) => ({
+          ...p,
+          sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+          sescim_aktif: p.sescim_aktif !== false
+        }))
+        const aProds: any[] = (akdagRes.data as any) || []
+
+        let prods: any[] = [...sProds, ...aProds].slice(0, 6)
+
         if (prods.length > 0) {
           try {
-            const { createClient } = await import('@/lib/supabase')
-            const sescimDb = createClient()
             const { data: sfData } = await sescimDb
               .from('sescim_fiyatlar')
               .select('urun_id, sescim_fiyat, sescim_aktif, fiyat_sorunuz')
@@ -169,8 +185,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   const s = sfMap.get(p.id)
                   return {
                     ...p,
-                    sescim_fiyat: s?.sescim_fiyat ?? null,
-                    sescim_aktif: s?.sescim_aktif ?? true,
+                    sescim_fiyat: s?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+                    sescim_aktif: s?.sescim_aktif ?? p.sescim_aktif ?? true,
                     fiyat_sorunuz: s?.fiyat_sorunuz ?? false
                   }
                 })

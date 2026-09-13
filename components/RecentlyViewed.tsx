@@ -43,14 +43,14 @@ export default function RecentlyViewed() {
   if (products.length === 0) return null
 
   return (
-    <div className="mt-16 pt-12 border-t border-slate-200">
+    <div className="mt-16 pt-12 border-t border-slate-200 w-full min-w-0">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-8 h-px bg-slate-800" />
         <span className="font-display font-black text-sm tracking-[0.2em] uppercase text-slate-800">
           Son İnceledikleriniz
         </span>
       </div>
-      <div className="flex overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 gap-4 snap-x custom-scrollbar">
+      <div className="flex overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 gap-4 snap-x custom-scrollbar w-full min-w-0">
         {products.map((product) => (
           <div key={product.id} className="min-w-[160px] md:min-w-[200px] flex-shrink-0 snap-start h-full">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full">

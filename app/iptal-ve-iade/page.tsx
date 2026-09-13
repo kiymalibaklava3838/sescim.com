@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, RotateCcw, Clock, CheckCircle, XCircle, Package, RefreshCcw } from 'lucide-react'
 
 export const metadata = {
-  title: 'İptal ve İade Koşulları | Sescim',
+  title: 'İptal ve İade Koşulları',
   description: 'Sescim iptal ve iade koşulları — cayma hakkı, iade süreci ve para iadesi bilgileri.',
 }
 

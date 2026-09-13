@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, Shield, Eye, Lock, Database, UserCheck, Trash2, ShieldCheck } from 'lucide-react'
 
 export const metadata = {
-  title: 'KVKK ve Gizlilik Politikası | Sescim',
+  title: 'KVKK ve Gizlilik Politikası',
   description: 'Sescim kişisel verilerin korunması ve gizlilik politikası — KVKK aydınlatma metni.',
 }
 

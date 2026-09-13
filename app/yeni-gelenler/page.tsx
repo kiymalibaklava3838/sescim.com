@@ -1,8 +1,8 @@
 import FeaturedProducts from '@/components/FeaturedProducts';
 
 export const metadata = {
-  title: 'Yeni Gelenler | Sescim',
-  description: 'Mağazamıza eklenen en yeni ürünler.',
+  title: 'Yeni Gelenler',
+  description: 'Mağazamıza eklenen en yeni profesyonel ses, ışık ve müzik ekipmanları.',
 };
 
 export default function YeniGelenlerPage() {

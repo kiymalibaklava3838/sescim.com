@@ -113,10 +113,10 @@ export default function SmartBundleBuilder({ mainProduct, accessories, kur }: Pr
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-sm w-full min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full min-w-0">
           
-          <div className="lg:col-span-8 flex flex-wrap sm:flex-nowrap items-center gap-3 md:gap-4 overflow-x-auto pb-2">
+          <div className="lg:col-span-8 w-full min-w-0 flex flex-nowrap items-center gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide">
             
             <div className="flex-1 min-w-[140px] max-w-[200px] border border-slate-200 rounded-xl p-3 bg-slate-50/70 flex flex-col justify-between relative group hover:border-slate-300 transition-colors">
               <div className="absolute top-2 left-2 z-10">

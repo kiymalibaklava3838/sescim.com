@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Phone, Mail, MapPin } from 'lucide-react'
 
 export const metadata = {
-  title: 'Mesafeli Satış Sözleşmesi | Sescim',
+  title: 'Mesafeli Satış Sözleşmesi',
   description: 'Sescim mesafeli satış sözleşmesi — alıcı ve satıcı hakları, ürün teslimat koşulları.',
 }
 
@@ -30,10 +30,11 @@ export default function MesafeliSatisSozlesmesi() {
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
                 <div className="font-display font-bold text-sm uppercase text-brand-red mb-3">SATICI</div>
                 <ul className="space-y-2 text-sm font-body text-slate-600">
-                  <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Unvan: Sescim</li>
+                  <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Unvan: Akdağ Elektronik (Satış Platformu: sescim.com)</li>
                   <li className="flex gap-2"><MapPin size={13} className="text-brand-red shrink-0 mt-0.5" />Adres: Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
                   <li className="flex gap-2"><Phone size={13} className="text-brand-red shrink-0 mt-0.5" />Telefon: +90 352 231 69 15</li>
                   <li className="flex gap-2"><Mail size={13} className="text-brand-red shrink-0 mt-0.5" />E-posta: info@sescim.com</li>
+                  <li className="flex gap-2 text-xs text-slate-500 pt-1 border-t border-slate-200/60">sescim.com alan adı üzerinden gerçekleştirilen tüm satış ve faturalandırma işlemleri Akdağ Elektronik güvencesiyle yürütülmektedir.</li>
                 </ul>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">

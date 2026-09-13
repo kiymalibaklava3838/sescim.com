@@ -1,13 +1,40 @@
 import { unstable_cache } from 'next/cache'
 import { createAkdagServerClient } from './supabase-akdag'
+import { createServerSupabaseClient } from './supabase-server'
 
 /**
  * Ürün verisini ID'ye göre getirir ve cache-ler.
- * Bu sayede veritabanına giden gereksiz istekleri (Egress) engeller.
- * revalidate: 3600 -> Veri 1 saat boyunca cache-den gelir.
+ * Önce Sescim Supabase'de arar, bulunamazsa Akdağ Supabase'den çeker.
  */
 export const getProduct = unstable_cache(
   async (id: string) => {
+    // 1. Önce Sescim Supabase'de ara (Sescim'e özel eklenmiş ürünler)
+    try {
+      const sescimDb = await createServerSupabaseClient()
+      if (sescimDb) {
+        const sescimRes = await sescimDb.from('urunler')
+          .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
+          .eq('id', id)
+          .maybeSingle()
+
+        if (sescimRes.data) {
+          let prod: any = { ...sescimRes.data }
+          try {
+            const { getSescimPricing } = await import('./sescim-pricing')
+            const pricing = await getSescimPricing(prod.id)
+            if (pricing) {
+              prod = { ...prod, ...pricing }
+            }
+          } catch (e) {}
+          const { sanitizeProductForClient } = await import('./pricing-engine')
+          return { data: sanitizeProductForClient(prod), error: null }
+        }
+      }
+    } catch (e) {
+      console.error('Error querying Sescim DB for product', id, e)
+    }
+
+    // 2. Sescim'de yoksa Akdağ Supabase'den çek
     const supabase = await createAkdagServerClient()
     const result = await supabase.from('urunler')
       .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
@@ -35,10 +62,37 @@ export const getProduct = unstable_cache(
 
 export const getProductBySlug = unstable_cache(
   async (slug: string) => {
-    const supabase = await createAkdagServerClient()
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
     const queryColumn = isUUID ? 'id' : 'slug'
 
+    // 1. Önce Sescim Supabase'de ara (Sescim'e özel eklenmiş ürünler)
+    try {
+      const sescimDb = await createServerSupabaseClient()
+      if (sescimDb) {
+        const sescimRes = await sescimDb.from('urunler')
+          .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
+          .eq(queryColumn, slug)
+          .maybeSingle()
+
+        if (sescimRes.data) {
+          let prod: any = { ...sescimRes.data }
+          try {
+            const { getSescimPricing } = await import('./sescim-pricing')
+            const pricing = await getSescimPricing(prod.id)
+            if (pricing) {
+              prod = { ...prod, ...pricing }
+            }
+          } catch (e) {}
+          const { sanitizeProductForClient } = await import('./pricing-engine')
+          return { data: sanitizeProductForClient(prod), error: null }
+        }
+      }
+    } catch (e) {
+      console.error('Error querying Sescim DB for product slug', slug, e)
+    }
+
+    // 2. Sescim'de yoksa Akdağ Supabase'den çek
+    const supabase = await createAkdagServerClient()
     const result = await supabase.from('urunler')
       .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
       .eq(queryColumn, slug)

@@ -48,7 +48,7 @@ export default function ProductBadges({
     stokAdedi <= kritikStok
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pointer-events-none">
+    <div className="flex flex-wrap items-center gap-1.5 pointer-events-none w-full min-w-0">
       {/* İndirim Rozeti */}
       {indirimYuzdesi > 0 && (
         <span className="bg-brand-red text-white text-[10px] font-display font-black uppercase px-2 py-0.5 rounded tracking-wider shadow-sm flex items-center gap-1">

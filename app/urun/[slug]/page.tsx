@@ -32,7 +32,7 @@ interface Props { params: { slug: string } }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data: product } = await getProductBySlug(params.slug)
-  if (!product) return { title: 'Ürün Bulunamadı | Sescim' }
+  if (!product) return { title: 'Ürün Bulunamadı' }
 
   const url = `${getSiteUrl()}/urun/${product.slug}`
   const brand = product.marka || 'Akdağ Elektronik'
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const image = product.fotograflar?.[0] || `${getSiteUrl()}/logo.png`
 
   return {
-    title: `${product.ad} | Sescim`,
+    title: product.ad,
     description: cleanDescription,
     alternates: { canonical: url },
     openGraph: {
@@ -221,7 +221,7 @@ export default async function UrunDetayPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen pt-8 pb-24">
+    <div className="min-h-screen pt-4 sm:pt-8 pb-24 w-full overflow-x-clip">
       <ProductViewTracker product={{
         id: product.id,
         slug: product.slug,
@@ -234,10 +234,10 @@ export default async function UrunDetayPage({ params }: Props) {
       }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 w-full min-w-0">
         
         {/* Tam Hiyerarşik Breadcrumb (Madde 1) */}
-        <div className="flex flex-wrap items-center gap-y-2 text-slate-500 text-[11px] sm:text-xs font-display font-semibold uppercase tracking-widest mb-10 overflow-hidden">
+        <div className="flex flex-wrap items-center gap-y-2 text-slate-500 text-[11px] sm:text-xs font-display font-semibold uppercase tracking-widest mb-6 sm:mb-10 overflow-hidden">
           {breadcrumbs.map((crumb, idx) => (
             <div key={crumb.href} className="flex items-center">
               <Link href={crumb.href} className="hover:text-brand-red transition-colors whitespace-nowrap">
@@ -252,14 +252,16 @@ export default async function UrunDetayPage({ params }: Props) {
           <span className="text-slate-600 truncate max-w-[200px] sm:max-w-xs">{product.ad}</span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-16">
-          <ProductImageGallery images={product.fotograflar || []} alt={product.ad} />
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-16 items-start w-full min-w-0">
+          <div className="w-full min-w-0">
+            <ProductImageGallery images={product.fotograflar || []} alt={product.ad} />
+          </div>
 
-          <div>
+          <div className="w-full min-w-0">
             <div className="font-display font-semibold text-xs tracking-widest uppercase text-brand-red mb-3">
               {product.urun_tipi || product.alt_kategori || product.kategori}
             </div>
-            <h1 className="font-display font-black text-4xl md:text-5xl uppercase text-slate-900 leading-tight mb-4">{product.ad}</h1>
+            <h1 className="font-display font-black text-2xl sm:text-3xl md:text-5xl uppercase text-slate-900 leading-tight mb-4 break-words">{product.ad}</h1>
             <div className="w-12 h-0.5 bg-brand-red mb-4" />
 
             {/* Ürün Rozetleri & Aciliyet Tetikleyicileri */}
@@ -338,12 +340,12 @@ export default async function UrunDetayPage({ params }: Props) {
               </span>
             </div>
 
-            <p className="font-body text-slate-600 text-base leading-relaxed mb-8 whitespace-pre-line">{product.aciklama}</p>
+            <p className="font-body text-slate-600 text-sm sm:text-base leading-relaxed mb-8 whitespace-pre-line break-words">{product.aciklama}</p>
 
             <ShareButtons productName={product.ad} />
 
             {/* CTA */}
-            <div className="border border-slate-200 bg-slate-50 p-6 space-y-3 mt-8 rounded-2xl shadow-sm">
+            <div className="border border-slate-200 bg-slate-50 p-4 sm:p-6 space-y-3 mt-8 rounded-2xl shadow-sm w-full min-w-0">
               {isFiyatSorunuz ? (
                 <div className="space-y-3">
                   <a

@@ -519,7 +519,7 @@ export default function ProductReviews({ urun_id }: Props) {
                     </span>
                   </div>
 
-                  <p className="text-slate-700 font-body text-xs sm:text-sm leading-relaxed whitespace-pre-line mb-4">
+                  <p className="text-slate-700 font-body text-xs sm:text-sm leading-relaxed whitespace-pre-line break-words mb-4">
                     {rev.yorum}
                   </p>
 

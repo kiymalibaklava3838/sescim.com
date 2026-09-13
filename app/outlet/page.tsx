@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'Outlet & Teşhir Ürünleri | Sescim',
+  title: 'Outlet & Teşhir Ürünleri',
   description: '1 Yıl garantili, test edilmiş teşhir, kutusu açık ve seri sonu profesyonel ses-ışık ekipmanları en uygun fiyatlarla Sescim Outlet\'te.',
 }
 

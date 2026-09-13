@@ -6,6 +6,7 @@ import PersonalizedRecommendationsSection from '@/components/PersonalizedRecomme
 import HeroSlider from '@/components/HeroSlider'
 import TrustBadges from '@/components/TrustBadges'
 import WorldBrandsTrustBanner from '@/components/WorldBrandsTrustBanner'
+import { getActiveParsedBanners } from '@/lib/banner-service'
 
 const categories = [
   { icon: Speaker, label: 'Ses Sistemleri', slug: 'ses-sistemleri' },
@@ -18,12 +19,14 @@ const categories = [
   { icon: Plug, label: 'Kablo & Aksesuar', slug: 'kablo-stand-ve-aksesuar' },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const initialBanners = await getActiveParsedBanners().catch(() => [])
+
   return (
     <div className="bg-slate-50 min-h-screen">
 
       {/* HERO SLIDER AREA */}
-      <HeroSlider />
+      <HeroSlider initialSlides={initialBanners.length > 0 ? initialBanners : undefined} />
 
       {/* DÜNYANIN MARKALARI SESCİM'DE — GÜVEN VİTRİNİ */}
       <WorldBrandsTrustBanner />

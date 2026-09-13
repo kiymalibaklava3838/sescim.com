@@ -37,6 +37,7 @@ interface Product {
   sescim_indirimli_fiyat?: number | null
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
+  kaynak?: 'sescim' | 'akdag'
 }
 
 interface Props {
@@ -87,46 +88,93 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
 
   const loadProducts = async () => {
     setLoading(true)
-    const supabase = createAkdagBrowserClient()
-    let query = supabase.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
-    if (searchQuery) {
-      query = query.or(`ad.ilike.%${searchQuery}%,kategori.ilike.%${searchQuery}%,marka.ilike.%${searchQuery}%`)
-    }
-    const { data, count, error } = await query
-      .order('created_at', { ascending: false })
-      .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1)
-    if (!error && data) {
-      try {
-        const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
-        const urunIds = data.map((p: any) => p.id)
-        const pricingMap = await getSescimPricingMap(urunIds)
-        
-        const mergedData = data.map((p: any) => {
-          const pricing = pricingMap.get(p.id)
-          return {
-            ...p,
-            sescim_fiyat: pricing?.sescim_fiyat ?? null,
-            sescim_aktif: pricing?.sescim_aktif ?? true,
-            fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
-          }
-        })
-        setProducts(mergedData)
-      } catch (e) {
-        console.error('Failed to fetch Sescim prices for admin', e)
-        setProducts((data || []) as any)
+    const akdagClient = createAkdagBrowserClient()
+    const sescimClient = createClient()
+
+    try {
+      // 1. Sescim'in kendi ürünlerini çek
+      let sescimQuery = sescimClient.from('urunler')
+        .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
+      if (searchQuery) {
+        sescimQuery = sescimQuery.or(`ad.ilike.%${searchQuery}%,kategori_id.ilike.%${searchQuery}%,marka.ilike.%${searchQuery}%`)
       }
-      setTotalCount(count || 0)
+      const { data: sescimData } = await sescimQuery.order('created_at', { ascending: false })
+
+      // 2. Akdağ ortak kataloğunu çek (salt okunur)
+      let akdagQuery = akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS)
+      if (searchQuery) {
+        akdagQuery = akdagQuery.or(`ad.ilike.%${searchQuery}%,kategori.ilike.%${searchQuery}%,marka.ilike.%${searchQuery}%`)
+      }
+      const { data: akdagData } = await akdagQuery.order('created_at', { ascending: false })
+
+      const mappedSescim: Product[] = (sescimData || []).map((p: any) => ({
+        ...p,
+        kaynak: 'sescim',
+        sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+        sescim_aktif: p.sescim_aktif !== false
+      }))
+
+      const mappedAkdag: Product[] = (akdagData || []).map((p: any) => ({
+        ...p,
+        kaynak: 'akdag'
+      }))
+
+      // Sescim'e ait ürünler listenin başında
+      const allCombined = [...mappedSescim, ...mappedAkdag]
+      const total = allCombined.length
+      setTotalCount(total)
+
+      // Sayfalama
+      const pageStart = currentPage * ITEMS_PER_PAGE
+      const pageEnd = pageStart + ITEMS_PER_PAGE
+      const pageItems = allCombined.slice(pageStart, pageEnd)
+
+      // Sescim_fiyatlar tablosundan override verilerini çek
+      const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
+      const urunIds = pageItems.map(p => p.id)
+      const pricingMap = await getSescimPricingMap(urunIds)
+
+      const finalMerged = pageItems.map(p => {
+        const pricing = pricingMap.get(p.id)
+        return {
+          ...p,
+          sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+          sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
+          sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
+          fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
+        }
+      })
+
+      setProducts(finalMerged)
+    } catch (e) {
+      console.error('Failed to load combined products in admin', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const toggleFeatured = async (product: Product) => {
-    const supabase = createAkdagBrowserClient()
     const newValue = !product.is_featured
-    const { error } = await supabase.from('urunler').update({ is_featured: newValue }).eq('id', product.id)
-    if (!error) {
+    if (product.kaynak === 'sescim') {
+      try {
+        const sescimDb = createClient()
+        await sescimDb.from('urunler').update({ is_featured: newValue }).eq('id', product.id)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    try {
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(product.id, {
+        sescim_fiyat: product.sescim_fiyat,
+        sescim_aktif: product.sescim_aktif,
+        fiyat_sorunuz: product.fiyat_sorunuz,
+        is_firsat: newValue
+      })
       setProducts(products.map(p => p.id === product.id ? { ...p, is_featured: newValue } : p))
       await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -137,11 +185,12 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
 
   const saveSescimFiyat = async (product: Product) => {
     try {
-      const supabase = createAkdagBrowserClient()
-      await supabase.from('urunler').update({
-        sescim_fiyat: product.sescim_fiyat,
-        updated_at: new Date().toISOString()
-      }).eq('id', product.id)
+      if (product.kaynak === 'sescim') {
+        const sescimDb = createClient()
+        await sescimDb.from('urunler').update({
+          sescim_fiyat: product.sescim_fiyat
+        }).eq('id', product.id)
+      }
 
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
@@ -158,6 +207,13 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const toggleSescimAktif = async (product: Product) => {
     const newValue = !(product.sescim_aktif ?? true)
     try {
+      if (product.kaynak === 'sescim') {
+        const sescimDb = createClient()
+        await sescimDb.from('urunler').update({
+          sescim_aktif: newValue
+        }).eq('id', product.id)
+      }
+
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
@@ -165,6 +221,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         fiyat_sorunuz: product.fiyat_sorunuz
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, sescim_aktif: newValue } : p))
+      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -217,11 +274,32 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const openEdit = async (p: Product) => {
     setEditLoading(true)
     setEditProduct(p)
-    const supabase = createAkdagBrowserClient()
-    const { data: fullProduct } = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, is_featured, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu')
-      .eq('id', p.id)
-      .single()
+    let fullProduct = null
+
+    if (p.kaynak === 'sescim') {
+      try {
+        const sescimDb = createClient()
+        const { data } = await sescimDb.from('urunler')
+          .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, is_featured, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, sescim_fiyat, sescim_indirimli_fiyat')
+          .eq('id', p.id)
+          .maybeSingle()
+        fullProduct = data
+      } catch (e) {
+        console.error(e)
+      }
+    } else {
+      try {
+        const akdagDb = createAkdagBrowserClient()
+        const { data } = await akdagDb.from('urunler')
+          .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, bayi_fiyati, is_featured, para_birimi, bayi_para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu')
+          .eq('id', p.id)
+          .maybeSingle()
+        fullProduct = data
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
     const prod = fullProduct || p
     setEditAd(prod.ad)
     setEditAciklama(prod.aciklama || '')
@@ -230,8 +308,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setEditUrunTipi((prod as any).urun_tipi || '')
     setEditFiyat(prod.fiyat?.toString() || '')
     setEditBayiF(prod.bayi_fiyati?.toString() || '')
-    setEditSescimFiyat((prod as any).sescim_fiyat?.toString() || '')
-    setEditSescimIndirimli((prod as any).sescim_indirimli_fiyat?.toString() || '')
+    setEditSescimFiyat(((prod as any).sescim_fiyat ?? p.sescim_fiyat)?.toString() || '')
+    setEditSescimIndirimli(((prod as any).sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat)?.toString() || '')
     setEditIsFeatured(prod.is_featured || false)
     setEditFiyatSorunuz(!!(prod as any).fiyat_sorunuz || !!p.fiyat_sorunuz)
     setEditStok(prod.stok_durumu || 'stokta')
@@ -252,46 +330,49 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const handleSave = async () => {
     if (!editProduct || !editAd || !editAciklama) return
     setSaving(true)
-    const supabase = createAkdagBrowserClient()
+    const sescimDb = createClient()
     const fiyatDegisti = editFiyat !== editProduct.fiyat?.toString() || editBayiF !== editProduct.bayi_fiyati?.toString()
     const stokAdedi = Math.max(0, parseInt(editStokAdedi || '0'))
     const kritikStok = Math.max(0, parseInt(editKritikStok || '0'))
-    // Siparişe Göre veya Tükendi admin tarafından bilinçli seçilmişse koru
-    // Sadece 'stokta' seçilip adedi 0 ise otomatik 'tukendi' yap
     const stokDurumu = editStok !== 'stokta' ? editStok : (stokAdedi <= 0 ? 'tukendi' : 'stokta')
+    
+    // Fotoğrafları Sescim storage bucket'ına yükle
     const yeniUrls: string[] = []
     for (const entry of newPhotos) {
       const path = `urunler/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
-      const { error: uploadErr } = await supabase.storage.from('urun-fotograflari').upload(path, entry.file)
+      const { error: uploadErr } = await sescimDb.storage.from('urun-fotograflari').upload(path, entry.file)
       if (!uploadErr) {
-        const { data } = supabase.storage.from('urun-fotograflari').getPublicUrl(path)
+        const { data } = sescimDb.storage.from('urun-fotograflari').getPublicUrl(path)
         yeniUrls.push(data.publicUrl)
       }
     }
     const sonFotograflar = [...editFotograflar, ...yeniUrls]
-    await supabase.from('urunler').update({
-      ad: editAd.trim(),
-      aciklama: editAciklama.trim(),
-      kategori: editKategori,
-      alt_kategori: editAltKategori || null,
-      urun_tipi: editUrunTipi || null,
-      fotograflar: sonFotograflar,
-      fiyat: editFiyat ? parseFloat(editFiyat) : null,
-      bayi_fiyati: editBayiF ? parseFloat(editBayiF) : null,
-      is_featured: editIsFeatured,
-      stok_durumu: stokDurumu,
-      stok_adedi: stokAdedi,
-      kritik_stok: kritikStok,
-      para_birimi: editParaBirimi,
-      bayi_para_birimi: editBayiParaBirimi,
-      marka: editMarka.trim() || null,
-      kullanim_alani: editKullanim.trim() || null,
-      model_kodu: editModelKodu.trim() || null,
-      updated_at: new Date().toISOString(),
-      ...(fiyatDegisti ? { fiyat_guncelleme: new Date().toISOString() } : {}),
-    }).eq('id', editProduct.id)
 
-    // Sescim özel fiyatını ve distribütör fiyat_sorunuz kuralını kaydet
+    if (editProduct.kaynak === 'sescim') {
+      // Sescim ürünü ise Sescim urunler tablosundaki bilgileri güncelle
+      await sescimDb.from('urunler').update({
+        ad: editAd.trim(),
+        aciklama: editAciklama.trim(),
+        kategori_id: editKategori,
+        alt_kategori_id: editAltKategori || null,
+        fotograflar: sonFotograflar,
+        fiyat: editFiyat ? parseFloat(editFiyat) : null,
+        bayi_fiyati: editBayiF ? parseFloat(editBayiF) : null,
+        sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : (editFiyat ? parseFloat(editFiyat) : null),
+        sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
+        is_featured: editIsFeatured,
+        stok_durumu: stokDurumu,
+        stok_adedi: stokAdedi,
+        kritik_stok: kritikStok,
+        para_birimi: editParaBirimi,
+        marka: editMarka.trim() || null,
+        kullanim_alani: editKullanim.trim() || null,
+        model_kodu: editModelKodu.trim() || null,
+        ...(fiyatDegisti ? { fiyat_guncelleme: new Date().toISOString() } : {}),
+      }).eq('id', editProduct.id)
+    }
+
+    // Sescim fiyat ve distribütör teklif kuralını sescim_fiyatlar tablosuna kaydet
     try {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(editProduct.id, {
@@ -303,19 +384,46 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     } catch (e) {
       console.error('Failed to update sescim_fiyatlar:', e)
     }
+
     fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => { })
+    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/urunler' }) }).catch(() => { })
     setSaving(false)
     setSaveSuccess(true)
     setTimeout(() => { setEditProduct(null); loadProducts() }, 800)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return
-    setDeleting(id)
-    const supabase = createAkdagBrowserClient()
-    await supabase.from('urunler').delete().eq('id', id)
+    const target = products.find(p => p.id === id)
+    if (!target) return
+
+    if (target.kaynak === 'sescim') {
+      if (!confirm(`"${target.ad}" ürününü Sescim veritabanından kalıcı olarak silmek istediğinize emin misiniz?`)) return
+      setDeleting(id)
+      try {
+        const sescimDb = createClient()
+        await sescimDb.from('urunler').delete().eq('id', id)
+        await sescimDb.from('sescim_fiyatlar').delete().eq('urun_id', id)
+      } catch (e) {
+        console.error('Silme hatası:', e)
+      }
+    } else {
+      // Akdağ ürünü: Akdağ Supabase salt okunurdur, Akdağ'a dokunulmaz!
+      if (!confirm(`"${target.ad}" Akdağ ortak kataloğundan gelmektedir. Akdağ kataloğu değiştirilemez, ancak ürünü Sescim mağazasından gizleyebilirsiniz. Gizlemek istiyor musunuz?`)) return
+      setDeleting(id)
+      try {
+        const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+        await upsertSescimPricing(id, {
+          sescim_fiyat: target.sescim_fiyat,
+          sescim_aktif: false,
+          fiyat_sorunuz: target.fiyat_sorunuz
+        })
+      } catch (e) {
+        console.error('Gizleme hatası:', e)
+      }
+    }
     setDeleting(null)
     fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => { })
+    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/urunler' }) }).catch(() => { })
     loadProducts()
   }
 
@@ -472,6 +580,15 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="font-display font-bold text-sm uppercase text-slate-900 truncate tracking-wide">{product.ad}</div>
+                    {product.kaynak === 'sescim' ? (
+                      <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 rounded shadow-xs">
+                        SESCİM
+                      </span>
+                    ) : (
+                      <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200 rounded shadow-xs">
+                        AKDAĞ
+                      </span>
+                    )}
                     {product.fiyat_sorunuz && (
                       <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-amber-100 text-amber-800 border border-amber-300 rounded shadow-xs">
                         FİYAT TEKLİFİ

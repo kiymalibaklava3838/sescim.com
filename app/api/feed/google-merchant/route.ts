@@ -118,6 +118,7 @@ export async function GET() {
       }
       xml += `      <g:brand><![CDATA[${brand}]]></g:brand>\n`
       xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`
+      xml += '      <g:identifier_exists>no</g:identifier_exists>\n'
       if (categoryPath) {
         xml += `      <g:product_type><![CDATA[${categoryPath}]]></g:product_type>\n`
       }

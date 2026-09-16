@@ -139,59 +139,63 @@ export default async function UrunDetayPage({ params }: Props) {
     productJsonLd.aggregateRating = aggregateRating
   }
 
-  if (!isFiyatSorunuz && priceTL && priceTL > 0) {
-    productJsonLd.offers = {
-      '@type': 'Offer',
-      price: priceTL,
-      priceCurrency: 'TRY',
-      priceValidUntil: '2027-12-31',
-      availability:
-        stok === 'tukendi'
-          ? 'https://schema.org/OutOfStock'
-          : 'https://schema.org/InStock',
-      url: `${base}/urun/${product.slug}`,
-      itemCondition: (product as any).is_outlet ? 'https://schema.org/RefurbishedCondition' : 'https://schema.org/NewCondition',
-      seller: {
-        '@type': 'Organization',
-        name: 'Sescim',
-        url: base,
+  const effectivePrice = (!isFiyatSorunuz && priceTL && priceTL > 0) ? priceTL : 0
+  const isAvailable = !isFiyatSorunuz && effectivePrice > 0 && stok !== 'tukendi' && stok !== 'tükendi'
+  const validFromDate = product.created_at
+    ? new Date(product.created_at).toISOString().split('T')[0]
+    : '2024-01-01'
+
+  productJsonLd.offers = {
+    '@type': 'Offer',
+    price: effectivePrice,
+    priceCurrency: 'TRY',
+    validFrom: validFromDate,
+    priceValidUntil: '2027-12-31',
+    availability: isAvailable
+      ? 'https://schema.org/InStock'
+      : 'https://schema.org/OutOfStock',
+    url: `${base}/urun/${product.slug}`,
+    itemCondition: (product as any).is_outlet ? 'https://schema.org/RefurbishedCondition' : 'https://schema.org/NewCondition',
+    seller: {
+      '@type': 'Organization',
+      name: 'Sescim',
+      url: base,
+    },
+    hasMerchantReturnPolicy: {
+      '@type': 'MerchantReturnPolicy',
+      applicableCountry: 'TR',
+      returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+      merchantReturnDays: 14,
+      returnMethod: 'https://schema.org/ReturnByMail',
+      returnFees: 'https://schema.org/FreeReturn',
+    },
+    shippingDetails: {
+      '@type': 'OfferShippingDetails',
+      shippingRate: {
+        '@type': 'MonetaryAmount',
+        value: effectivePrice >= 1999 ? 0 : 149,
+        currency: 'TRY',
       },
-      hasMerchantReturnPolicy: {
-        '@type': 'MerchantReturnPolicy',
-        applicableCountry: 'TR',
-        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
-        merchantReturnDays: 14,
-        returnMethod: 'https://schema.org/ReturnByMail',
-        returnFees: 'https://schema.org/FreeReturn',
+      shippingDestination: {
+        '@type': 'DefinedRegion',
+        addressCountry: 'TR',
       },
-      shippingDetails: {
-        '@type': 'OfferShippingDetails',
-        shippingRate: {
-          '@type': 'MonetaryAmount',
-          value: priceTL >= 1999 ? 0 : 149,
-          currency: 'TRY',
+      deliveryTime: {
+        '@type': 'ShippingDeliveryTime',
+        handlingTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 0,
+          maxValue: 1,
+          unitCode: 'DAY',
         },
-        shippingDestination: {
-          '@type': 'DefinedRegion',
-          addressCountry: 'TR',
-        },
-        deliveryTime: {
-          '@type': 'ShippingDeliveryTime',
-          handlingTime: {
-            '@type': 'QuantitativeValue',
-            minValue: 0,
-            maxValue: 1,
-            unitCode: 'DAY',
-          },
-          transitTime: {
-            '@type': 'QuantitativeValue',
-            minValue: 1,
-            maxValue: 3,
-            unitCode: 'DAY',
-          },
+        transitTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 1,
+          maxValue: 3,
+          unitCode: 'DAY',
         },
       },
-    }
+    },
   }
 
   // Google BreadcrumbList Schema (SERP URL Hiyerarşisi için)

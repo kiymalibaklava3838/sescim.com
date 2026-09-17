@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Sescim.com Production Build
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,

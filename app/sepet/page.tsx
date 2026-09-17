@@ -24,6 +24,7 @@ import FreeShippingBar from '@/components/FreeShippingBar'
 import { calculateCouponDiscount, matchesCategory } from '@/lib/coupon-helper'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import { calculateShippingFee, SHIPPING_CONFIG } from '@/lib/shipping'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -319,6 +320,11 @@ export default function SepetPage() {
   const submitOrder = async () => {
     setError('')
     if (!items.length) { setError('Sepetiniz boş.'); return }
+    const quoteOnlyItem = items.find(i => isQuoteOnlyProduct({ marka: i.marka, fiyat_sorunuz: i.fiyat_sorunuz }))
+    if (quoteOnlyItem) {
+      setError(`Sepetinizdeki "${quoteOnlyItem.ad}" ürünü distribütör kuralları gereği doğrudan online satın alınamaz. Lütfen ürünü sepetten çıkarıp teklif isteyiniz.`)
+      return
+    }
     if (!adSoyad.trim() || !email.trim()) { setError('Ad soyad ve e-posta zorunludur.'); return }
     if (!telefon.trim()) { setError('Telefon numarası zorunludur.'); return }
     if (!teslimatAdresi.trim()) {
@@ -448,10 +454,16 @@ export default function SepetPage() {
                         {i.ad}
                       </Link>
                       <div className="font-body text-slate-400 text-[11px] sm:text-xs mt-0.5 truncate">{i.kategori}</div>
-                      <div className="font-display font-bold text-brand-red text-sm sm:text-base mt-1">
-                        {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
-                        <span className="text-slate-400 font-body font-medium text-[11px] ml-1.5 hidden xs:inline">({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})</span>
-                      </div>
+                      {isQuoteOnlyProduct({ marka: i.marka, fiyat_sorunuz: i.fiyat_sorunuz }) ? (
+                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 mt-1">
+                          Özel Teklif Ürünü (Doğrudan Satılamaz)
+                        </div>
+                      ) : (
+                        <div className="font-display font-bold text-brand-red text-sm sm:text-base mt-1">
+                          {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                          <span className="text-slate-400 font-body font-medium text-[11px] ml-1.5 hidden xs:inline">({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">

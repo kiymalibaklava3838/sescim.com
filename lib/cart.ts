@@ -1,3 +1,5 @@
+import { isQuoteOnlyProduct } from './distributor-rules'
+
 export interface CartItem {
   id: string
   ad: string
@@ -9,6 +11,8 @@ export interface CartItem {
   indirimli_fiyat: number | null      // TL karşılığı
   indirimli_fiyat_doviz?: number | null // Orijinal döviz
   adet: number
+  marka?: string
+  fiyat_sorunuz?: boolean
 }
 
 import { createClient } from '@/lib/supabase'
@@ -111,6 +115,9 @@ export function saveCart(items: CartItem[]) {
 }
 
 export function addToCart(item: Omit<CartItem, 'adet'>) {
+  if (isQuoteOnlyProduct({ marka: item.marka, fiyat_sorunuz: item.fiyat_sorunuz })) {
+    return
+  }
   const cart = getCart()
   const existing = cart.find(c => c.id === item.id)
   if (existing) {
@@ -137,8 +144,10 @@ export function addToCart(item: Omit<CartItem, 'adet'>) {
 }
 
 export function addManyToCart(items: Array<Omit<CartItem, 'adet'> & { adet: number }>) {
+  const allowed = items.filter(i => !isQuoteOnlyProduct({ marka: i.marka, fiyat_sorunuz: i.fiyat_sorunuz }))
+  if (allowed.length === 0) return
   const cart = getCart()
-  for (const incoming of items) {
+  for (const incoming of allowed) {
     const existing = cart.find(c => c.id === incoming.id)
     if (existing) {
       existing.adet += incoming.adet

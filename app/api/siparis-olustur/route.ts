@@ -7,6 +7,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { calculateCouponDiscount } from '@/lib/coupon-helper'
 import { calculateShippingFee } from '@/lib/shipping'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -54,14 +55,14 @@ export async function POST(req: NextRequest) {
     const akdagDb = akdagAdmin()
 
     // 1. Döviz kurlarını al
-    let dolarKuru = 32.5
-    let euroKuru = 35.2
+    let dolarKuru = 38.0
+    let euroKuru = 41.0
     try {
       const kurRes = await fetch(`${req.nextUrl.origin}/api/kur`)
       if (kurRes.ok) {
         const kurData = await kurRes.json()
-        dolarKuru = kurData.USD || 32.5
-        euroKuru = kurData.EUR || 35.2
+        dolarKuru = kurData.USD || 38.0
+        euroKuru = kurData.EUR || 41.0
       }
     } catch {}
 
@@ -73,9 +74,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sepette geçerli ürün bulunamadı' }, { status: 400 })
     }
 
-    const [akdagRes, sescimRes] = await Promise.all([
-      akdagDb.from('urunler').select('id, ad, kategori, alt_kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi').in('id', urunIds),
-      db.from('urunler').select('id, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi').in('id', urunIds)
+    const [akdagRes, sescimRes, sescimFiyatlarRes] = await Promise.all([
+      akdagDb.from('urunler').select('id, ad, kategori, alt_kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('id', urunIds),
+      db.from('urunler').select('id, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('id', urunIds),
+      db.from('sescim_fiyatlar').select('urun_id, fiyat_sorunuz').in('urun_id', urunIds)
     ])
 
     const dbProducts = [
@@ -86,6 +88,11 @@ export async function POST(req: NextRequest) {
     if (dbProducts.length === 0) {
       return NextResponse.json({ error: 'Ürün fiyatları doğrulanamadı' }, { status: 500 })
     }
+
+    const fiyatSorunuzMap = new Map<string, boolean>()
+    ;(sescimFiyatlarRes.data || []).forEach((f: any) => {
+      fiyatSorunuzMap.set(f.urun_id, f.fiyat_sorunuz === true)
+    })
 
     // Ürünlerin gerçek fiyatlarını hesapla ve doğrulanmış sepet dizisini oluştur
     // Fiyat Hiyerarşisi:
@@ -98,6 +105,17 @@ export async function POST(req: NextRequest) {
       const dbProd = dbProducts.find((p) => p.id === item.urun_id)
       if (!dbProd) {
         return NextResponse.json({ error: `Ürün bulunamadı: ${item.ad}` }, { status: 400 })
+      }
+
+      const quoteOnly = isQuoteOnlyProduct({
+        marka: dbProd.marka,
+        fiyat_sorunuz: fiyatSorunuzMap.get(dbProd.id)
+      })
+
+      if (quoteOnly) {
+        return NextResponse.json({
+          error: `"${dbProd.ad}" distribütör kuralları gereği doğrudan internet üzerinden satılamaz. Lütfen fiyat teklifi alınız.`
+        }, { status: 400 })
       }
 
       const basePrice = (dbProd.sescim_fiyat !== null && dbProd.sescim_fiyat !== undefined && Number(dbProd.sescim_fiyat) > 0)

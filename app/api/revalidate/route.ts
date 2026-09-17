@@ -1,11 +1,11 @@
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
-    if (!(await rateLimit(`revalidate:${ip}`, 30, 60_000))) {
+    if (!(await rateLimit(`revalidate:${ip}`, 60, 60_000))) {
       return NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 })
     }
 
@@ -21,13 +21,28 @@ export async function POST(request: Request) {
     const { path } = body
 
     if (path) {
-      revalidatePath(path)
+      try {
+        revalidatePath(path)
+      } catch {}
     }
 
-    // Her revalidation tetiklendiğinde anasayfa ve ürün kataloğunu
-    // dinamik olarak güncelliyoruz.
-    revalidatePath('/')
-    revalidatePath('/urunler')
+    // Ürün önbelleklerini anında temizle (Detay sayfaları vb.)
+    try {
+      revalidateTag('products')
+      revalidateTag('product-detail')
+      revalidateTag('product-detail-slug')
+    } catch (e) {
+      console.warn('revalidateTag error:', e)
+    }
+
+    // Her revalidation tetiklendiğinde anasayfa, katalog, feed ve sitemap rotalarını temizle
+    try {
+      revalidatePath('/')
+      revalidatePath('/urunler')
+      revalidatePath('/api/feed/google-merchant')
+      revalidatePath('/api/feed/cimri')
+      revalidatePath('/sitemap.xml')
+    } catch {}
 
     return NextResponse.json({
       revalidated: true,
@@ -38,3 +53,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+

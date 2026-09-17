@@ -10,6 +10,7 @@ import { SEARCH_SUGGESTION_FIELDS } from '@/lib/product-queries'
 import { formatFiyat, dovizToTL, type KurData, DEFAULT_KUR } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { HIERARCHY_DATA } from '@/lib/categories'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 interface Product {
   id: string
@@ -157,7 +158,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
             .limit(6),
           sescimDb
             .from('urunler')
-            .select('id, slug, ad, kategori:kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, marka, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif')
+            .select('id, slug, ad, kategori:kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, marka, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz')
             .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
             .limit(6)
         ])
@@ -165,9 +166,13 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
         const sProds: any[] = (sescimRes.data || []).map((p: any) => ({
           ...p,
           sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
-          sescim_aktif: p.sescim_aktif !== false
+          sescim_aktif: p.sescim_aktif !== false,
+          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: p.fiyat_sorunuz })
         }))
-        const aProds: any[] = (akdagRes.data as any) || []
+        const aProds: any[] = ((akdagRes.data as any) || []).map((p: any) => ({
+          ...p,
+          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
+        }))
 
         let prods: any[] = [...sProds, ...aProds].slice(0, 6)
 
@@ -183,11 +188,13 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
               prods = prods
                 .map(p => {
                   const s = sfMap.get(p.id)
+                  const rawFiyatSorunuz = s?.fiyat_sorunuz ?? p.fiyat_sorunuz ?? false
+                  const quoteOnly = isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: rawFiyatSorunuz })
                   return {
                     ...p,
                     sescim_fiyat: s?.sescim_fiyat ?? p.sescim_fiyat ?? null,
                     sescim_aktif: s?.sescim_aktif ?? p.sescim_aktif ?? true,
-                    fiyat_sorunuz: s?.fiyat_sorunuz ?? false
+                    fiyat_sorunuz: quoteOnly
                   }
                 })
                 .filter(p => p.sescim_aktif !== false)
@@ -196,6 +203,12 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
             console.error('Failed to merge sescim_fiyatlar in search:', sfErr)
           }
         }
+
+        // Son güvenlik katmanı: Marka veya ürün bazında teklif usulü kontrolü
+        prods = prods.map(p => ({
+          ...p,
+          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: p.fiyat_sorunuz })
+        }))
 
         setResults(prods)
       } catch (e) {

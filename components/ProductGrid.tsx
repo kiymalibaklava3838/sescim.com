@@ -17,6 +17,7 @@ import {
   toggleFavorite,
   type SavedProduct,
 } from '@/lib/product-lists'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 interface Product {
   id: string
@@ -142,8 +143,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     ? (Date.now() - new Date(product.fiyat_guncelleme).getTime()) < 7 * 24 * 60 * 60 * 1000
     : false
 
+  const isFiyatSorunuz = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
   const aktifFiyat = product.sescim_fiyat ?? product.fiyat
-  const normalFiyatTL = aktifFiyat ? dovizToTL(aktifFiyat, pb, kurData) : null
+  const normalFiyatTL = (!isFiyatSorunuz && aktifFiyat) ? dovizToTL(aktifFiyat, pb, kurData) : null
 
   const [fav, setFav] = useState(false)
   const [cmp, setCmp] = useState(false)
@@ -183,7 +185,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     fotograf: product.fotograflar?.[0] || null,
     fotograflar: product.fotograflar || [],
     indirimli_fiyat: product.sescim_indirimli_fiyat ?? null,
-    fiyat_sorunuz: !!product.fiyat_sorunuz,
+    fiyat_sorunuz: isFiyatSorunuz,
   })
 
   // Sepete ekleme handler
@@ -191,7 +193,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     e.preventDefault()
     e.stopPropagation()
     const finalFiyat = product.sescim_fiyat ?? product.fiyat
-    if (!finalFiyat || stok === 'tukendi') return
+    if (isFiyatSorunuz || !finalFiyat || stok === 'tukendi') return
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
     const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
@@ -315,7 +317,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           )}
 
           <div className="mt-auto space-y-0.5">
-            {product.fiyat_sorunuz ? (
+            {isFiyatSorunuz ? (
               <div className="flex flex-col py-1">
                 <span className="font-display font-black text-sm sm:text-base text-slate-900 tracking-tight uppercase">
                   FİYAT SORUNUZ
@@ -341,7 +343,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               <span className="font-body text-slate-500 text-xs">Fiyat Yok</span>
             )}
 
-            {product.fiyat_guncelleme && !product.fiyat_sorunuz && (
+            {product.fiyat_guncelleme && !isFiyatSorunuz && (
               <div className="font-body text-slate-400 text-[10px]">
                 {new Date(product.fiyat_guncelleme).toLocaleDateString('tr-TR')}
               </div>
@@ -372,7 +374,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       <div className="border-t border-slate-200 p-2">
         {/* Mobilde Tam Genişlikte Buton */}
         <div className="md:hidden">
-          {product.fiyat_sorunuz ? (
+          {isFiyatSorunuz ? (
             <Link
               href={`/urun/${product.slug || product.id}`}
               className="w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider bg-slate-900 hover:bg-brand-red text-white transition-all shadow-xs"
@@ -435,7 +437,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           >
             <GitCompare size={12} />
           </button>
-          {product.fiyat_sorunuz ? (
+          {isFiyatSorunuz ? (
             <Link
               href={`/urun/${product.slug || product.id}`}
               className="flex items-center justify-center gap-1 text-[11px] font-display font-bold uppercase tracking-wider px-2 py-1.5 border border-slate-900 bg-slate-900 text-white hover:bg-brand-red hover:border-brand-red transition-all"

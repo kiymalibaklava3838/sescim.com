@@ -4,6 +4,9 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { HIERARCHY_DATA } from '@/lib/categories'
 import { getSiteUrl } from '@/lib/site-url'
 
+// Vercel kotalarını ve sunucu çağrılarını korumak için 24 saat (86400 sn) Edge önbelleği
+export const revalidate = 86400
+
 // Category slugs collector
 function collectCategorySlugs(node: any, path: string = ''): string[] {
   const currentPath = `${path}/${node.slug}`

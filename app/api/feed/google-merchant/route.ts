@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { dovizToTL, KurData } from '@/lib/kur'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 3600 // 1 saat önbellek
@@ -64,7 +65,10 @@ export async function GET() {
     const validProducts = products.filter((p: any) => {
       const pricing = pricingMap.get(p.id)
       const isAktif = pricing ? pricing.sescim_aktif !== false : p.sescim_aktif !== false
-      const isFiyatSorunuz = pricing ? !!pricing.fiyat_sorunuz : !!p.fiyat_sorunuz
+      const isFiyatSorunuz = isQuoteOnlyProduct({
+        marka: p.marka,
+        fiyat_sorunuz: pricing ? pricing.fiyat_sorunuz : p.fiyat_sorunuz
+      })
       return isAktif && !isFiyatSorunuz
     })
 
@@ -92,11 +96,14 @@ export async function GET() {
 
       if (finalPriceTL <= 0) continue
 
+      // Google Merchant görseli olmayan ürünleri reddeder ('Resim çok küçük' hatası)
+      const mainImage = Array.isArray(p.fotograflar) && p.fotograflar[0] ? p.fotograflar[0] : null
+      if (!mainImage || !mainImage.startsWith('http')) continue
+
       const isOutlet = !!pricing?.is_outlet
       const stok = p.stok_durumu || 'stokta'
       const availability = (stok === 'tukendi' || stok === 'tükendi') ? 'out_of_stock' : 'in_stock'
       const link = `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`
-      const image = Array.isArray(p.fotograflar) && p.fotograflar[0] ? p.fotograflar[0] : `${baseUrl}/logo.png`
       const brand = p.marka || 'Akdağ Elektronik'
       const mpn = p.model_kodu || p.id
       const desc = stripHtml(p.aciklama || p.ad).slice(0, 5000)
@@ -107,7 +114,14 @@ export async function GET() {
       xml += `      <g:title><![CDATA[${p.ad || ''}]]></g:title>\n`
       xml += `      <g:description><![CDATA[${desc}]]></g:description>\n`
       xml += `      <g:link>${link}</g:link>\n`
-      xml += `      <g:image_link>${image}</g:image_link>\n`
+      xml += `      <g:image_link>${mainImage}</g:image_link>\n`
+      if (Array.isArray(p.fotograflar) && p.fotograflar.length > 1) {
+        for (const addImg of p.fotograflar.slice(1, 11)) {
+          if (addImg && addImg.startsWith('http')) {
+            xml += `      <g:additional_image_link>${addImg}</g:additional_image_link>\n`
+          }
+        }
+      }
       xml += `      <g:condition>${isOutlet ? 'refurbished' : 'new'}</g:condition>\n`
       xml += `      <g:availability>${availability}</g:availability>\n`
       if (hasDiscount) {
@@ -137,7 +151,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600',
       },
     })
   } catch (e: any) {

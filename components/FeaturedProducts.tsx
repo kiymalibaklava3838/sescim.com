@@ -7,6 +7,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { StaggerContainer, StaggerItem, AnimatedButton } from './MotionComponents'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 interface Props {
   title?: string
@@ -75,7 +76,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? true,
-      fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
+      fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing?.fiyat_sorunuz })
     }
   }).filter(p => p.sescim_aktif !== false)
 
@@ -145,7 +146,13 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                   </div>
                   
                   <div className="mt-4 flex flex-col justify-end">
-                    {indirimli ? (
+                    {product.fiyat_sorunuz ? (
+                      <div className="flex flex-col min-h-[44px] justify-end">
+                        <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded text-center uppercase tracking-wide">
+                          FİYAT SORUNUZ
+                        </span>
+                      </div>
+                    ) : indirimli ? (
                       <div className="flex flex-col">
                         <span className="text-slate-400 text-xs line-through">
                           {formatFiyat(normalFiyatTL || 0, 'TRY')}
@@ -164,7 +171,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                     
                     <Link href={`/urun/${product.slug}`} className="block mt-3">
                       <AnimatedButton className="bg-brand-red text-white w-full py-2 rounded-md font-semibold text-sm hover:bg-red-700 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:translate-y-2 lg:group-hover:translate-y-0 duration-300">
-                        İncele
+                        {product.fiyat_sorunuz ? 'Teklif Al' : 'İncele'}
                       </AnimatedButton>
                     </Link>
                   </div>

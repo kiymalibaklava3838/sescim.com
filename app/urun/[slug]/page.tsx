@@ -20,6 +20,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { ProductCard } from '@/components/ProductGrid'
 import RecentlyViewed from '@/components/RecentlyViewed'
 import ProductViewTracker from '@/components/ProductViewTracker'
@@ -86,7 +87,10 @@ export default async function UrunDetayPage({ params }: Props) {
   const pb = product.para_birimi || 'TRY'
 
   // Fiyat hesaplama (TL)
-  const isFiyatSorunuz = !!(product as any).fiyat_sorunuz
+  const isFiyatSorunuz = isQuoteOnlyProduct({
+    marka: product.marka,
+    fiyat_sorunuz: !!(product as any).fiyat_sorunuz
+  })
   const activePriceRaw = (product as any).sescim_indirimli_fiyat ?? (product as any).sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
   const priceTL = (!isFiyatSorunuz && activePriceRaw) ? dovizToTL(activePriceRaw, pb, kur) : null
 
@@ -145,22 +149,23 @@ export default async function UrunDetayPage({ params }: Props) {
     ? new Date(product.created_at).toISOString().split('T')[0]
     : '2024-01-01'
 
-  productJsonLd.offers = {
-    '@type': 'Offer',
-    price: effectivePrice,
-    priceCurrency: 'TRY',
-    validFrom: validFromDate,
-    priceValidUntil: '2027-12-31',
-    availability: isAvailable
-      ? 'https://schema.org/InStock'
-      : 'https://schema.org/OutOfStock',
-    url: `${base}/urun/${product.slug}`,
-    itemCondition: (product as any).is_outlet ? 'https://schema.org/RefurbishedCondition' : 'https://schema.org/NewCondition',
-    seller: {
-      '@type': 'Organization',
-      name: 'Sescim',
-      url: base,
-    },
+  if (!isFiyatSorunuz && effectivePrice > 0) {
+    productJsonLd.offers = {
+      '@type': 'Offer',
+      price: effectivePrice,
+      priceCurrency: 'TRY',
+      validFrom: validFromDate,
+      priceValidUntil: '2027-12-31',
+      availability: isAvailable
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      url: `${base}/urun/${product.slug}`,
+      itemCondition: (product as any).is_outlet ? 'https://schema.org/RefurbishedCondition' : 'https://schema.org/NewCondition',
+      seller: {
+        '@type': 'Organization',
+        name: 'Sescim',
+        url: base,
+      },
     hasMerchantReturnPolicy: {
       '@type': 'MerchantReturnPolicy',
       applicableCountry: 'TR',
@@ -197,6 +202,7 @@ export default async function UrunDetayPage({ params }: Props) {
       },
     },
   }
+}
 
   // Google BreadcrumbList Schema (SERP URL Hiyerarşisi için)
   const breadcrumbJsonLd = {

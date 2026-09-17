@@ -287,10 +287,12 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     }
 
     // Önbelleği temizle (Anında Yayınlama)
-    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/urunler' }) }).catch(() => {})
+    const headers = { 'Content-Type': 'application/json' }
+    fetch('/api/revalidate', { method: 'POST', headers, body: JSON.stringify({ path: '/' }) }).catch(() => {})
+    fetch('/api/revalidate', { method: 'POST', headers, body: JSON.stringify({ path: '/urunler' }) }).catch(() => {})
     if (existingUrun?.id) {
-      fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: `/urun/${existingUrun.id}` }) }).catch(() => {})
+      const pSlug = existingUrun.slug || existingUrun.id
+      fetch('/api/revalidate', { method: 'POST', headers, body: JSON.stringify({ path: `/urun/${pSlug}` }) }).catch(() => {})
     }
 
     setLoading(false)

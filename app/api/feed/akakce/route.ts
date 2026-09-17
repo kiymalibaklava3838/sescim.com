@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { dovizToTL, KurData } from '@/lib/kur'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 3600 // 1 saat önbellek
@@ -57,7 +58,10 @@ export async function GET() {
     const validProducts = products.filter((p: any) => {
       const pricing = pricingMap.get(p.id)
       const isAktif = pricing ? pricing.sescim_aktif !== false : p.sescim_aktif !== false
-      const isFiyatSorunuz = pricing ? !!pricing.fiyat_sorunuz : !!p.fiyat_sorunuz
+      const isFiyatSorunuz = isQuoteOnlyProduct({
+        marka: p.marka,
+        fiyat_sorunuz: pricing ? pricing.fiyat_sorunuz : p.fiyat_sorunuz
+      })
       return isAktif && !isFiyatSorunuz
     })
 

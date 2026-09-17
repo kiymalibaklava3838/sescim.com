@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import { createAkdagServerClient } from './supabase-akdag'
 import { createServerSupabaseClient } from './supabase-server'
+import { isQuoteOnlyProduct } from './distributor-rules'
 
 /**
  * Ürün verisini ID'ye göre getirir ve cache-ler.
@@ -26,6 +27,7 @@ export const getProduct = unstable_cache(
               prod = { ...prod, ...pricing }
             }
           } catch (e) {}
+          prod.fiyat_sorunuz = isQuoteOnlyProduct({ marka: prod.marka, fiyat_sorunuz: prod.fiyat_sorunuz })
           const { sanitizeProductForClient } = await import('./pricing-engine')
           return { data: sanitizeProductForClient(prod), error: null }
         }
@@ -51,6 +53,7 @@ export const getProduct = unstable_cache(
       } catch (e) {
         console.error('Sescim pricing fetch failed for product', id, e)
       }
+      ;(result.data as any).fiyat_sorunuz = isQuoteOnlyProduct({ marka: result.data.marka, fiyat_sorunuz: (result.data as any).fiyat_sorunuz })
       const { sanitizeProductForClient } = await import('./pricing-engine')
       result.data = sanitizeProductForClient(result.data)
     }
@@ -83,6 +86,7 @@ export const getProductBySlug = unstable_cache(
               prod = { ...prod, ...pricing }
             }
           } catch (e) {}
+          prod.fiyat_sorunuz = isQuoteOnlyProduct({ marka: prod.marka, fiyat_sorunuz: prod.fiyat_sorunuz })
           const { sanitizeProductForClient } = await import('./pricing-engine')
           return { data: sanitizeProductForClient(prod), error: null }
         }
@@ -108,6 +112,7 @@ export const getProductBySlug = unstable_cache(
       } catch (e) {
         console.error('Sescim pricing fetch failed for product slug', slug, e)
       }
+      ;(result.data as any).fiyat_sorunuz = isQuoteOnlyProduct({ marka: result.data.marka, fiyat_sorunuz: (result.data as any).fiyat_sorunuz })
       const { sanitizeProductForClient } = await import('./pricing-engine')
       result.data = sanitizeProductForClient(result.data)
     }
@@ -145,10 +150,10 @@ export const getRelatedProducts = unstable_cache(
               sescim_fiyat: pricing.sescim_fiyat, 
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
               sescim_aktif: pricing.sescim_aktif,
-              fiyat_sorunuz: pricing.fiyat_sorunuz 
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
         }).filter((p: any) => p.sescim_aktif)
       } catch (e) {
         return selected
@@ -184,10 +189,10 @@ export const getCrossSellProducts = unstable_cache(
               sescim_fiyat: pricing.sescim_fiyat, 
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
               sescim_aktif: pricing.sescim_aktif,
-              fiyat_sorunuz: pricing.fiyat_sorunuz 
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
         }).filter((p: any) => p.sescim_aktif)
       } catch (e) {
         return data

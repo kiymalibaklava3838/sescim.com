@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: dbSiparis, error: siparisErr } = await supabaseAdmin
       .from('siparisler')
-      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu')
+      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu, teslimat_adresi')
       .eq('siparis_no', siparis_no)
       .single()
 
@@ -89,15 +89,16 @@ export async function POST(req: NextRequest) {
       merchant_id: PAYTR_MERCHANT_ID,
       user_ip,
       merchant_oid: siparis_no,
-      email,
+      email: musteriEmail,
       payment_amount: tutarKurus,
       paytr_token: paytrToken,
       user_basket: sepetBase64,
+      user_address: dbSiparis.teslimat_adresi || 'Türkiye',
       debug_on: '1',
       no_installment: '0',
       max_installment: '0',
-      user_name: ad_soyad,
-      user_phone: telefon || '',
+      user_name: musteriAdSoyad,
+      user_phone: musteriTelefon || '',
       merchant_ok_url: `${siteUrl}/odeme/basarili`,
       merchant_fail_url: `${siteUrl}/odeme/hata`,
       timeout_limit: '30',

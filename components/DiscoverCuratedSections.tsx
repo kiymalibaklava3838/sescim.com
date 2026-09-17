@@ -13,6 +13,7 @@ import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { getRecentlyViewed, ViewedProductItem } from '@/lib/personalized-discover'
 import { NEW_KATEGORI_HIYERARSI } from '@/lib/categories'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 const categoryIcons: Record<string, any> = {
   'Ses Sistemleri': Speaker,
@@ -66,6 +67,7 @@ export default function DiscoverCuratedSections({
 
     const priceTL = rawPrice ? dovizToTL(rawPrice, pb, kur) : null
     const oldPriceTL = rawOldPrice ? dovizToTL(rawOldPrice, pb, kur) : null
+    const isQuoteOnly = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
 
     // Stok Mikro Bilgisi
     let stockInfo = { text: 'Stokta', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
@@ -117,14 +119,22 @@ export default function DiscoverCuratedSections({
           {/* Fiyat ve Sade Mikro Stok Bilgisi */}
           <div className="pt-2 border-t border-slate-100 flex items-end justify-between gap-1">
             <div className="min-w-0">
-              {oldPriceTL && (
-                <div className="text-[10px] text-slate-400 line-through leading-none mb-0.5 font-mono">
-                  {formatFiyat(oldPriceTL, 'TRY')}
+              {isQuoteOnly ? (
+                <div className="font-display font-bold text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded uppercase leading-tight">
+                  Fiyat Sorunuz
                 </div>
+              ) : (
+                <>
+                  {oldPriceTL && (
+                    <div className="text-[10px] text-slate-400 line-through leading-none mb-0.5 font-mono">
+                      {formatFiyat(oldPriceTL, 'TRY')}
+                    </div>
+                  )}
+                  <div className="font-display font-black text-sm sm:text-base text-slate-900 leading-tight">
+                    {priceTL ? formatFiyat(priceTL, 'TRY') : 'Fiyat Yok'}
+                  </div>
+                </>
               )}
-              <div className="font-display font-black text-sm sm:text-base text-slate-900 leading-tight">
-                {priceTL ? formatFiyat(priceTL, 'TRY') : 'Fiyat Yok'}
-              </div>
             </div>
 
             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${stockInfo.color} whitespace-nowrap shrink-0`}>

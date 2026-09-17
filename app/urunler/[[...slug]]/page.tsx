@@ -19,6 +19,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { unstable_cache } from 'next/cache'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -306,11 +307,11 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               sescim_fiyat: pricing.sescim_fiyat,
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
               sescim_aktif: pricing.sescim_aktif,
-              fiyat_sorunuz: pricing.fiyat_sorunuz
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }
           // Sescim'de kaydı olmayan ürünler her zaman gösterilir (default: true)
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
         })
         .filter((p: any) => p.sescim_aktif === true)
     } catch (e) {
@@ -364,10 +365,10 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               sescim_fiyat: pr.sescim_fiyat,
               sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
               sescim_aktif: pr.sescim_aktif,
-              fiyat_sorunuz: pr.fiyat_sorunuz
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pr.fiyat_sorunuz })
             }
           }
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: false }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
         }).filter((p: any) => p.sescim_aktif === true)
 
         newArrivals = formatCurated(newArrivals)

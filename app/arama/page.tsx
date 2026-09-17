@@ -4,6 +4,7 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProductGrid from '@/components/ProductGrid'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { Metadata } from 'next'
 
 export async function generateMetadata({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }): Promise<Metadata> {
@@ -52,11 +53,14 @@ export default async function AramaPage({
             sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
             sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
             sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
-            fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
+            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing?.fiyat_sorunuz })
           }
         }).filter(p => p.sescim_aktif !== false)
       } catch {
-        products = combined
+        products = combined.map((p: any) => ({
+          ...p,
+          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: p.fiyat_sorunuz })
+        }))
       }
     } else {
       products = []

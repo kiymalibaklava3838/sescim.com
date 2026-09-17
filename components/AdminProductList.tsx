@@ -18,6 +18,7 @@ interface FileEntry {
 
 interface Product {
   id: string
+  slug?: string
   ad: string
   kategori: string
   fotograflar: string[]
@@ -94,7 +95,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     try {
       // 1. Sescim'in kendi ürünlerini çek
       let sescimQuery = sescimClient.from('urunler')
-        .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
+        .select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
       if (searchQuery) {
         sescimQuery = sescimQuery.or(`ad.ilike.%${searchQuery}%,kategori_id.ilike.%${searchQuery}%,marka.ilike.%${searchQuery}%`)
       }
@@ -172,7 +173,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         is_firsat: newValue
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, is_featured: newValue } : p))
-      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+      await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -198,7 +199,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         sescim_aktif: product.sescim_aktif,
         fiyat_sorunuz: product.fiyat_sorunuz
       })
-      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+      await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -221,7 +222,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         fiyat_sorunuz: product.fiyat_sorunuz
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, sescim_aktif: newValue } : p))
-      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+      await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -237,7 +238,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         fiyat_sorunuz: newValue
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, fiyat_sorunuz: newValue } : p))
-      await fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => {})
+      await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
     } catch (e) {
       console.error(e)
     }
@@ -385,8 +386,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       console.error('Failed to update sescim_fiyatlar:', e)
     }
 
-    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/' }) }).catch(() => { })
-    fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ path: '/urunler' }) }).catch(() => { })
+    const targetSlug = (editProduct as any).slug || editProduct.id
+    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${targetSlug}` }) }).catch(() => { })
     setSaving(false)
     setSaveSuccess(true)
     setTimeout(() => { setEditProduct(null); loadProducts() }, 800)

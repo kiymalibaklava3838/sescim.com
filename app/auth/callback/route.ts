@@ -12,7 +12,10 @@ import { getSiteUrl } from '@/lib/site-url'
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/uye/panel'
+  let next = searchParams.get('next') ?? '/hesabim'
+  if (next.startsWith('/uye/panel')) {
+    next = '/hesabim'
+  }
   // Supabase hata durumunda error ve error_description parametresi gönderir
   const errorParam = searchParams.get('error')
   const errorDescription = searchParams.get('error_description') || ''

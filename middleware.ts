@@ -68,9 +68,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/uye', request.url))
   }
 
-  // Üye panel koruması
-  if (request.nextUrl.pathname.startsWith('/uye/panel') && !user) {
-    return NextResponse.redirect(new URL('/uye', request.url))
+  // Üye panel yönlendirmesi — /uye/panel yerine doğrudan /hesabim
+  if (request.nextUrl.pathname.startsWith('/uye/panel')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/uye', request.url))
+    }
+    return NextResponse.redirect(new URL('/hesabim', request.url))
   }
 
   return response

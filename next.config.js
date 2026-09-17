@@ -19,6 +19,19 @@ const nextConfig = {
         hostname: 'images.unsplash.com',
       },
     ],
+  async redirects() {
+    return [
+      {
+        source: '/uye/panel',
+        destination: '/hesabim',
+        permanent: true,
+      },
+      {
+        source: '/uye/panel/:path*',
+        destination: '/hesabim',
+        permanent: true,
+      },
+    ]
   },
   async headers() {
     return [

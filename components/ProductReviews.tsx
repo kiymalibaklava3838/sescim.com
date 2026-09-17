@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Star, MessageSquare, Loader2, Camera, X, Check, Image as ImageIcon, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { compressImageToWebP } from '@/lib/image-compressor'
 
@@ -296,9 +297,9 @@ export default function ProductReviews({ urun_id }: Props) {
                 <p className="text-xs text-slate-600 font-medium mb-4">
                   Değerlendirme yapabilmek ve fotoğraf ekleyebilmek için lütfen giriş yapın.
                 </p>
-                <a href="/uye/giris" className="btn-primary py-2.5 text-xs justify-center w-full">
+                <Link href="/uye" className="btn-primary py-2.5 text-xs justify-center w-full">
                   Giriş Yap
-                </a>
+                </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">

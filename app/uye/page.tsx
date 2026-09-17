@@ -41,7 +41,7 @@ export default function UyePage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin}/auth/callback?next=/uye/panel`,
+        redirectTo: `${origin}/auth/callback?next=/hesabim`,
       },
     })
   }
@@ -58,7 +58,7 @@ export default function UyePage() {
   }, [supabase])
 
   useEffect(() => {
-    if (!loading && user) router.push('/uye/panel')
+    if (!loading && user) router.push('/hesabim')
   }, [user, loading, router])
 
   const handleGiris = async (e: React.FormEvent) => {
@@ -69,7 +69,7 @@ export default function UyePage() {
     if (err) {
       setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.')
     } else {
-      router.push('/uye/panel')
+      router.push('/hesabim')
     }
     setSubmitting(false)
   }
@@ -80,10 +80,17 @@ export default function UyePage() {
     if (!regAd || !regSoyad || !regEmail || !regPass) { setRegError('Lütfen tüm alanları doldurun.'); return }
     if (regPass.length < 6) { setRegError('Şifre en az 6 karakter olmalıdır.'); return }
     setRegSubmitting(true)
+    const origin = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
+      ? window.location.origin
+      : 'https://sescim.com'
+
     const { error: err } = await supabase.auth.signUp({
       email: regEmail,
       password: regPass,
-      options: { data: { full_name: `${regAd} ${regSoyad}`, phone: regTel } }
+      options: {
+        data: { full_name: `${regAd} ${regSoyad}`, phone: regTel },
+        emailRedirectTo: `${origin}/auth/callback?next=/hesabim`,
+      }
     })
     if (err) {
       setRegError(err.message || 'Kayıt sırasında bir hata oluştu.')

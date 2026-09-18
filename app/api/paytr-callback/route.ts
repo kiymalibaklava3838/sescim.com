@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 import { odemeOnaylandiHTML, odemeAdminBildirimHTML, siparisIptalHTML } from '@/lib/email'
 import { sendEmail } from '@/lib/send-email'
 
-const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY!
-const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT!
+const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY || 'tBPqZRRP7mkd4i8H'
+const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT || 'ZiQ3B3TsknEt39dA'
 
 export async function GET() {
   // PayTR veya harici test araçlarının ping/sağlık kontrolleri için 200 OK yanıtı

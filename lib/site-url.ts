@@ -5,7 +5,7 @@
 export function getSiteUrl(): string {
   const url = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
-    return 'https://sescim.com'
+    return 'https://www.sescim.com'
   }
   return url.replace(/\/+$/, '')
 }

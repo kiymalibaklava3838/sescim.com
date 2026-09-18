@@ -435,6 +435,54 @@ export function odemeOnaylandiHTML(data: {
   `)
 }
 
+export function odemeAdminBildirimHTML(data: {
+  siparis_no: string
+  ad_soyad: string
+  email?: string
+  telefon?: string
+  toplam_tutar: number
+  urunler?: Array<{ ad: string; adet: number; fiyat: number }>
+}): string {
+  const siteUrl = getSiteUrl()
+  const urunlerHTML = (data.urunler || []).map(u =>
+    `<tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #262626;color:#ccc;font-size:13px">${u.ad} ×${u.adet}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #262626;color:#fff;font-size:13px;font-weight:700;text-align:right">${(u.fiyat * u.adet).toLocaleString('tr-TR')} ₺</td>
+    </tr>`
+  ).join('')
+
+  return `<!DOCTYPE html>
+<html lang="tr">
+<body style="${BASE_STYLE}">
+<div style="max-width:540px;margin:0 auto;padding:24px 16px">
+  <div style="background-color:#22c55e;padding:18px 24px;border-radius:8px 8px 0 0">
+    <div style="color:#ffffff;font-size:20px;font-weight:900;text-transform:uppercase">💳 PayTR Ödemesi Alındı!</div>
+    <div style="color:rgba(255,255,255,0.95);font-size:13px;margin-top:4px">Sipariş No: <strong>#${data.siparis_no}</strong></div>
+  </div>
+  <div style="background-color:#141414;border:1px solid #262626;padding:20px 24px;margin-bottom:14px">
+    <div style="color:#fff;font-size:16px;font-weight:700">${data.ad_soyad}</div>
+    ${data.email || data.telefon ? `<div style="color:#888;font-size:13px;margin-top:4px">✉️ ${data.email || ''} | 📞 ${data.telefon || ''}</div>` : ''}
+    <div style="color:#22c55e;font-size:13px;font-weight:700;margin-top:6px">✅ PayTR üzerinden kredi kartı tahsilatı başarıyla yapıldı.</div>
+  </div>
+  ${data.urunler && data.urunler.length > 0 ? `
+  <div style="background-color:#141414;border:1px solid #262626;margin-bottom:16px;border-radius:6px;overflow:hidden">
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${urunlerHTML}
+      <tr>
+        <td style="padding:14px 12px;background-color:#1a1a1a;color:#888;font-size:11px;text-transform:uppercase;font-weight:700">Tahsil Edilen Tutar</td>
+        <td style="padding:14px 12px;background-color:#1a1a1a;color:#22c55e;font-size:18px;font-weight:900;text-align:right">${data.toplam_tutar.toLocaleString('tr-TR')} ₺</td>
+      </tr>
+    </table>
+  </div>` : ''}
+  <div style="text-align:center;padding:10px 0">
+    <a href="${siteUrl}/admin" style="display:inline-block;padding:12px 28px;background-color:#DA291C;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:6px">
+      Siparişi Admin Panelinde İncele →
+    </a>
+  </div>
+</div>
+</body>
+</html>`
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MÜŞTERİ E-POSTASI — Dekont Alındı
 // ═══════════════════════════════════════════════════════════════════════════════

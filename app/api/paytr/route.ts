@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: dbSiparis, error: siparisErr } = await supabaseAdmin
       .from('siparisler')
-      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu, teslimat_adresi')
+      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu, teslimat_adresi, urunler')
       .eq('siparis_no', siparis_no)
       .single()
 
@@ -62,9 +62,29 @@ export async function POST(req: NextRequest) {
     const siteUrl = getSiteUrl()
 
     // PayTR, sepet öğeleri için TL cinsinden string bekler (örn: "150.00")
-    const sepetIcerik = JSON.stringify(
-      urunler.map((u) => [u.ad, u.fiyat.toFixed(2), u.adet.toString()])
-    )
+    // PayTR Kuralı: user_basket toplamı ile payment_amount kuruşu kuruşuna eşit olmak zorundadır.
+    const finalUrunler = (dbSiparis.urunler && Array.isArray(dbSiparis.urunler) && dbSiparis.urunler.length > 0)
+      ? dbSiparis.urunler
+      : urunler
+
+    const itemsSum = finalUrunler.reduce((sum: number, u: any) => sum + (Number(u.fiyat || 0) * Number(u.adet || 1)), 0)
+
+    let basketArray: [string, string, number][] = []
+    if (Math.abs(itemsSum - gercekTutar) < 0.05) {
+      basketArray = finalUrunler.map((u: any) => [
+        String(u.ad || 'Ürün').slice(0, 100).replace(/[^\w\s\-\.\,\(\)çğıöşüÇĞİÖŞÜ]/gi, ''),
+        Number(u.fiyat).toFixed(2),
+        Number(u.adet || 1)
+      ])
+    } else {
+      // Kargo ücreti veya kupon indirimi varsa PayTR'ın "sepet tutarı uyuşmuyor" hatası vermemesi için
+      const ozet = finalUrunler.map((u: any) => `${u.ad} (x${u.adet})`).join(', ').slice(0, 90)
+      basketArray = [
+        [`${ozet || 'Sipariş Bedeli'}`, gercekTutar.toFixed(2), 1]
+      ]
+    }
+
+    const sepetIcerik = JSON.stringify(basketArray)
     const sepetBase64 = Buffer.from(sepetIcerik).toString('base64')
 
     const test_mode = process.env.PAYTR_TEST_MODE === '1' ? '1' : '0'

@@ -292,10 +292,16 @@ export default function AdminSiparisler() {
                     <span className={`font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                     <span className="font-body text-slate-900/20 text-xs">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span>
                     {siparis.odeme_durumu === 'odendi' && (
-                      <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400">Ödendi</span>
+                      <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-green-500/10 border border-green-500/30 text-green-600">ÖDENDİ (PayTR)</span>
+                    )}
+                    {siparis.odeme_durumu === 'odeme_hatasi' && (
+                      <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-red-500/10 border border-red-500/30 text-red-600">ÖDEME BAŞARISIZ</span>
+                    )}
+                    {siparis.odeme_durumu === 'beklemede' && (siparis.odeme_tipi === 'kredi_karti' || siparis.odeme_tipi === 'kart') && (
+                      <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-600">ÖDEME BEKLİYOR</span>
                     )}
                     {siparis.dekont_url && (
-                      <span className="font-display font-black text-[10px] bg-brand-red text-slate-900 px-2 py-0.5 animate-pulse">DEKONT YÜKLÜ</span>
+                      <span className="font-display font-black text-[10px] bg-brand-red text-white px-2 py-0.5 animate-pulse rounded">DEKONT YÜKLÜ</span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 mt-0.5 flex-wrap">
@@ -379,10 +385,16 @@ export default function AdminSiparisler() {
                       </h4>
                       <div className="space-y-4">
                         <div className="bg-slate-100 p-4 border border-slate-200">
-                           <div className="font-body text-xs text-slate-900/40 mb-1">Yöntem: <span className="text-slate-900/80">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span></div>
-                           <div className="font-body text-xs text-slate-900/40">Durum: <span className={siparis.odeme_durumu === 'odendi' ? 'text-green-400 font-bold' : 'text-yellow-400'}>
-                             {siparis.odeme_durumu === 'odendi' ? 'ÖDEME ALINDI' : 'ÖDEME BEKLENİYOR'}
-                           </span></div>
+                            <div className="font-body text-xs text-slate-900/40 mb-1">Yöntem: <span className="text-slate-900/80 font-bold">{ODEME_TIPI[siparis.odeme_tipi] || siparis.odeme_tipi}</span></div>
+                            <div className="font-body text-xs text-slate-900/40">Durum: <span className={
+                              siparis.odeme_durumu === 'odendi' ? 'text-green-600 font-bold' :
+                              siparis.odeme_durumu === 'odeme_hatasi' ? 'text-red-600 font-bold' :
+                              'text-amber-600 font-bold'
+                            }>
+                              {siparis.odeme_durumu === 'odendi' ? '✅ ÖDEME ALINDI (PayTR)' :
+                               siparis.odeme_durumu === 'odeme_hatasi' ? '❌ ÖDEME BAŞARISIZ / İPTAL' :
+                               '⏳ ÖDEME BEKLİYOR'}
+                            </span></div>
                         </div>
 
                         {siparis.dekont_url && (

@@ -234,23 +234,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: dbErr?.message || 'Sipariş oluşturulamadı' }, { status: 400 })
     }
 
-    for (const item of urunler) {
-      if (!item.urun_id) continue
+    const isKart = (odeme_tipi === 'kredi_karti' || odeme_tipi === 'kart')
 
-      const dbProd = dbProducts.find((p) => p.id === item.urun_id)
-      const targetDb = dbProd?.kaynak === 'sescim' ? db : akdagDb
+    // Havale siparişlerinde stok hemen rezerve edilir
+    // Kart siparişlerinde ise stok PayTR ödeme onayı geldiğinde (paytr-callback) düşülür.
+    // Bu sayede PayTR ekranında vazgeçen veya hatalı kart giren kullanıcılar stoğu tüketmez.
+    if (!isKart) {
+      for (const item of urunler) {
+        if (!item.urun_id) continue
 
-      // Önce mevcut durumu al
-      const { data: urun } = await targetDb
-        .from('urunler')
-        .select('stok_durumu, stok_adedi')
-        .eq('id', item.urun_id)
-        .single()
+        const dbProd = dbProducts.find((p) => p.id === item.urun_id)
+        const targetDb = dbProd?.kaynak === 'sescim' ? db : akdagDb
 
-      if (typeof urun?.stok_adedi === 'number') {
-        const kalan = Math.max(0, urun.stok_adedi - item.adet)
-        const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-        await targetDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
+        // Önce mevcut durumu al
+        const { data: urun } = await targetDb
+          .from('urunler')
+          .select('stok_durumu, stok_adedi')
+          .eq('id', item.urun_id)
+          .single()
+
+        if (typeof urun?.stok_adedi === 'number') {
+          const kalan = Math.max(0, urun.stok_adedi - item.adet)
+          const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
+          await targetDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
+        }
       }
     }
 
@@ -287,22 +294,27 @@ export async function POST(req: NextRequest) {
     }
 
     // E-postaları ayrı try/catch ile gönder — mail hatası siparişi engellemesin
+    // Havale siparişlerinde müşteri banka hesap numaralarını görsün diye hemen onay maili gider.
+    // Kredi kartı siparişlerinde ise ödeme ALINMADAN müşteriye veya admine onay maili gitmez;
+    // kart ödemesi PayTR tarafından onaylandığı an (paytr-callback) iki tarafa da onay maili gönderilir.
     let emailError: string | undefined
-    try {
-      await sendEmail(
-        email,
-        `Siparişiniz Alındı — ${siparis.siparis_no} | sescim.com`,
-        musterionayHTML(emailData)
-      )
-      const adminEmail = process.env.ADMIN_EMAIL || 'info@sescim.com'
-      await sendEmail(
-        adminEmail,
-        `🔔 Yeni Sipariş: ${siparis.siparis_no} — ${toplam_tutar.toLocaleString('tr-TR')} ₺`,
-        adminBildirimHTML(emailData)
-      )
-    } catch (mailErr) {
-      emailError = (mailErr as Error).message
-      console.error('[siparis-olustur] E-posta gönderilemedi, sipariş oluşturuldu:', emailError)
+    if (!isKart) {
+      try {
+        await sendEmail(
+          email,
+          `Siparişiniz Alındı — ${siparis.siparis_no} | sescim.com`,
+          musterionayHTML(emailData)
+        )
+        const adminEmail = process.env.ADMIN_EMAIL || 'info@sescim.com'
+        await sendEmail(
+          adminEmail,
+          `🔔 Yeni Havale Siparişi: ${siparis.siparis_no} — ${toplam_tutar.toLocaleString('tr-TR')} ₺`,
+          adminBildirimHTML(emailData)
+        )
+      } catch (mailErr) {
+        emailError = (mailErr as Error).message
+        console.error('[siparis-olustur] E-posta gönderilemedi, sipariş oluşturuldu:', emailError)
+      }
     }
 
     return NextResponse.json({

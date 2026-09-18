@@ -57,14 +57,68 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. PayTR HMAC-SHA256 Hash Doğrulama (Güvenlik Kalkanı)
-    const hashStr = merchant_oid + PAYTR_MERCHANT_SALT + status + total_amount
-    const expectedHash = crypto
-      .createHmac('sha256', PAYTR_MERCHANT_KEY)
-      .update(hashStr)
-      .digest('base64')
+    const clean = (val?: string) => (val || '').trim().replace(/^["']|["']$/g, '')
+    const activeKey = clean(PAYTR_MERCHANT_KEY)
+    const activeSalt = clean(PAYTR_MERCHANT_SALT)
 
-    if (hash !== expectedHash) {
-      console.error('[paytr-callback] Sahte veya geçersiz PayTR hash imzası:', { merchant_oid, hash, expectedHash })
+    const cleanOid = merchant_oid.trim()
+    const cleanStatus = status.trim()
+    const cleanAmount = total_amount.trim()
+
+    // application/x-www-form-urlencoded ile gelen Base64 hash'lerdeki '+' karakterleri boşluğa dönüşmüş olabilir
+    const rawHash = hash.trim()
+    const plusNormalizedHash = rawHash.replace(/ /g, '+')
+    let decodedHash = rawHash
+    try { decodedHash = decodeURIComponent(rawHash).replace(/ /g, '+') } catch {}
+
+    const acceptedHashes = new Set([rawHash, plusNormalizedHash, decodedHash])
+
+    // Olası aday string kombinasyonları (Tireli, tiresiz ve kuruş alternatifleri)
+    const formattedWithHyphen = cleanOid.startsWith('SCM') && !cleanOid.includes('-')
+      ? `SCM-${cleanOid.slice(3)}`
+      : cleanOid
+    const formattedWithoutHyphen = cleanOid.replace(/[^a-zA-Z0-9]/g, '')
+
+    const candidates = [
+      cleanOid + activeSalt + cleanStatus + cleanAmount,
+      formattedWithoutHyphen + activeSalt + cleanStatus + cleanAmount,
+      formattedWithHyphen + activeSalt + cleanStatus + cleanAmount,
+    ]
+
+    // Eğer total_amount kuruşluysa veya tam sayıysa alternatifleri ekle
+    if (cleanAmount.endsWith('00')) {
+      const kurussuz = cleanAmount.slice(0, -2)
+      candidates.push(cleanOid + activeSalt + cleanStatus + kurussuz)
+      candidates.push(formattedWithoutHyphen + activeSalt + cleanStatus + kurussuz)
+      candidates.push(formattedWithHyphen + activeSalt + cleanStatus + kurussuz)
+    } else {
+      const kuruslu = cleanAmount + '00'
+      candidates.push(cleanOid + activeSalt + cleanStatus + kuruslu)
+      candidates.push(formattedWithoutHyphen + activeSalt + cleanStatus + kuruslu)
+      candidates.push(formattedWithHyphen + activeSalt + cleanStatus + kuruslu)
+    }
+
+    let isValidHash = false
+    let expectedHash = ''
+
+    for (const c of candidates) {
+      const h = crypto.createHmac('sha256', activeKey).update(c).digest('base64')
+      if (acceptedHashes.has(h)) {
+        isValidHash = true
+        expectedHash = h
+        break
+      }
+      if (!expectedHash) expectedHash = h
+    }
+
+    if (!isValidHash) {
+      console.error('[paytr-callback] Sahte veya geçersiz PayTR hash imzası:', {
+        merchant_oid,
+        receivedHash: hash,
+        acceptedHashes: Array.from(acceptedHashes),
+        expectedHash,
+        candidateSample: candidates[0]
+      })
       return new NextResponse('PAYTR_INVALID_HASH', { status: 400 })
     }
 
@@ -73,11 +127,6 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-
-    // 2. Sipariş bilgilerini veritabanından çek (Tireli ve tiresiz format desteği)
-    const formattedWithHyphen = merchant_oid.startsWith('SCM') && !merchant_oid.includes('-')
-      ? `SCM-${merchant_oid.slice(3)}`
-      : merchant_oid
 
     const { data: siparis, error: siparisErr } = await supabase
       .from('siparisler')

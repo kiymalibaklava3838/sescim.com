@@ -176,12 +176,39 @@ export default function HesabimPage() {
 
     const { data: orders } = await supabase
       .from('siparisler')
-      .select('id, siparis_no, created_at, toplam_tutar, durum, urunler, kargo_takip_no, kargo_firmasi, odeme_durumu, odeme_tipi, teslimat_tipi, dekont_url, teslimat_adresi, fatura_tipi, firma_unvani, vergi_no, vergi_dairesi')
-      .eq('user_id', session.user.id)
+      .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
+      .or(`user_id.eq.${session.user.id},email.eq.${session.user.email}`)
       .order('created_at', { ascending: false })
       .limit(30)
 
-    setSiparisler(orders || [])
+    if (orders && orders.length > 0) {
+      const orderIds = orders.map((o: any) => o.id)
+      const { data: allKalemler } = await supabase
+        .from('siparis_kalemleri')
+        .select('*')
+        .in('siparis_id', orderIds)
+      
+      const ordersWithItems = orders.map((o: any) => {
+        const orderKalemler = (allKalemler || []).filter((k: any) => k.siparis_id === o.id)
+        const dekontMatch = (o as any).notlar?.match(/Dekont yüklendi - ([^\s\]]+)/)
+        const dekontUrl = (o as any).dekont_url || (dekontMatch ? dekontMatch[1] : undefined)
+
+        return {
+          ...o,
+          dekont_url: dekontUrl,
+          urunler: orderKalemler.map((k: any) => ({
+            urun_id: k.urun_id || k.id,
+            ad: k.urun_adi,
+            fiyat: Number(k.birim_fiyat),
+            adet: Number(k.adet),
+            fotograf: '',
+          }))
+        }
+      })
+      setSiparisler(ordersWithItems as any)
+    } else {
+      setSiparisler([])
+    }
 
     const { data: addresses } = await supabase
       .from('kullanici_adresleri')
@@ -528,8 +555,7 @@ export default function HesabimPage() {
       const { error: updateError } = await supabase
         .from('siparisler')
         .update({ 
-          dekont_url: publicUrl,
-          notlar: `[Sistem: Dekont yüklendi] ${new Date().toLocaleString('tr-TR')}` 
+          notlar: `[Sistem: Dekont yüklendi - ${publicUrl}] ${new Date().toLocaleString('tr-TR')}` 
         })
         .eq('id', siparisId)
 

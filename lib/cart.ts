@@ -40,44 +40,26 @@ export async function pullCartFromSupabase() {
   if (!uid) return
   
   const supabase = createClient()
-  const { data: sepetData } = await supabase.from('sepet').select('*, urunler(ad, kategori, fotograflar, fiyat, indirimli_fiyat, para_birimi)').eq('user_id', uid)
-  
-  if (sepetData && sepetData.length > 0) {
+  try {
+    const { data: sepetData, error } = await supabase.from('sepet').select('urun_id, adet').eq('user_id', uid)
+    if (error || !sepetData || sepetData.length === 0) return
+
     const localCart = getCart()
     const merged = [...localCart]
     let changed = false
-    
+
     for (const dbItem of sepetData) {
-      const u = dbItem.urunler as any
-      if (!u) continue 
-      
       const existing = merged.find(c => c.id === dbItem.urun_id)
-      if (!existing) {
-        merged.push({
-          id: dbItem.urun_id,
-          ad: u.ad,
-          kategori: u.kategori,
-          fotograf: u.fotograflar?.[0] || '',
-          fiyat: u.fiyat,
-          fiyat_doviz: u.fiyat,
-          para_birimi: u.para_birimi || 'TRY',
-          indirimli_fiyat: u.indirimli_fiyat,
-          indirimli_fiyat_doviz: u.indirimli_fiyat,
-          adet: dbItem.adet
-        })
-        changed = true
-      } else if (existing.adet < dbItem.adet) {
+      if (existing && existing.adet < dbItem.adet) {
         existing.adet = dbItem.adet
         changed = true
       }
     }
     
     if (changed) {
-      localStorage.setItem(CART_KEY, JSON.stringify(merged))
-      window.dispatchEvent(new Event('cart-updated'))
-      syncCartToSupabase(merged)
+      saveCart(merged)
     }
-  }
+  } catch {}
 }
 
 function syncCartToSupabase(items: CartItem[]) {

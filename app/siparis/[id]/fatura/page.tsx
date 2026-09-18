@@ -37,7 +37,17 @@ export default async function SiparisFaturaPage({ params }: Props) {
     notFound()
   }
 
-  const urunler: any[] = Array.isArray(order.urunler) ? order.urunler : []
+  let urunler: any[] = Array.isArray(order.urunler) ? order.urunler : []
+  if (urunler.length === 0) {
+    const { data: kalemler } = await db.from('siparis_kalemleri').select('*').eq('siparis_id', order.id)
+    if (kalemler && kalemler.length > 0) {
+      urunler = kalemler.map((k: any) => ({
+        ad: k.urun_adi,
+        adet: Number(k.adet || 1),
+        fiyat: Number(k.birim_fiyat || 0)
+      }))
+    }
+  }
   const kdvOrani = 0.20 // %20 KDV
   const toplamTutar = Number(order.toplam_tutar) || 0
   const kdvHaricToplam = toplamTutar / (1 + kdvOrani)
@@ -125,17 +135,21 @@ export default async function SiparisFaturaPage({ params }: Props) {
             <span className="font-display font-bold uppercase tracking-wider text-slate-400 block mb-2 text-[10px]">
               FATURA BİLGİLERİ
             </span>
-            {order.fatura_tipi === 'kurumsal' ? (
+            {order.fatura_tipi === 'kurumsal' || (order.fatura_adresi && order.fatura_adresi.includes('[Kurumsal Fatura]')) ? (
               <div className="space-y-1">
                 <div className="font-bold text-sm text-slate-900">
-                  {order.firma_unvani || order.ad_soyad}
+                  {order.firma_unvani || order.fatura_adresi || order.ad_soyad}
                 </div>
-                <p className="text-slate-600">
-                  <strong>Vergi Dairesi:</strong> {order.vergi_dairesi || '—'}
-                </p>
-                <p className="text-slate-600">
-                  <strong>Vergi Numarası:</strong> {order.vergi_no || '—'}
-                </p>
+                {order.vergi_dairesi && (
+                  <p className="text-slate-600">
+                    <strong>Vergi Dairesi:</strong> {order.vergi_dairesi}
+                  </p>
+                )}
+                {order.vergi_no && (
+                  <p className="text-slate-600">
+                    <strong>Vergi Numarası:</strong> {order.vergi_no}
+                  </p>
+                )}
                 <span className="inline-block bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-semibold mt-1">
                   Kurumsal E-Fatura
                 </span>

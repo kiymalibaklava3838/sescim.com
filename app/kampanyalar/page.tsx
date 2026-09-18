@@ -4,8 +4,7 @@ import { Tag, Sparkles, ArrowRight, ShieldCheck, Truck, CreditCard } from 'lucid
 import { createClient } from '@supabase/supabase-js';
 import KampanyalarCoupons from '@/components/KampanyalarCoupons';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 1800; // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata = {
   title: 'Kampanyalar & İndirim Kuponları',

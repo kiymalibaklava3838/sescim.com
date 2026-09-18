@@ -13,6 +13,11 @@ function OdemeBasariliContent() {
   const siparisNo = searchParams.get('merchant_oid') || searchParams.get('siparis_no')
 
   useEffect(() => {
+    // PayTR iframe içinden çıkıp tam ekran başarı sayfasına yönlendir (Iframe Breakout)
+    if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
+      window.top.location.href = window.location.href
+      return
+    }
     // Başarılı ödeme sonrası sepeti sıfırla
     try {
       clearCart()

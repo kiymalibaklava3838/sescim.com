@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       revalidatePath('/urunler')
       revalidatePath('/api/feed/google-merchant')
       revalidatePath('/api/feed/cimri')
+      revalidatePath('/api/feed/akakce')
       revalidatePath('/sitemap.xml')
     } catch {}
 

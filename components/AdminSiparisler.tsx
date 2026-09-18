@@ -36,13 +36,15 @@ interface Siparis {
   vergi_dairesi?: string
   vergi_no?: string
   teslimat_adresi?: string
+  fatura_adresi?: string
   dolar_kuru?: number
   euro_kuru?: number
   created_at: string
-  updated_at: string
+  updated_at?: string
 }
 
 const DURUM_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  odeme_bekliyor: { label: 'Ödeme Bekliyor', color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock },
   beklemede:     { label: 'Beklemede',     color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20', icon: Clock },
   onaylandi:     { label: 'Onaylandı',     color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',   icon: CheckCircle },
   hazirlaniyor:  { label: 'Hazırlanıyor',  color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', icon: Package },
@@ -86,7 +88,7 @@ export default function AdminSiparisler() {
 
     const { data } = await supabase
       .from('siparisler')
-      .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, teslimat_tipi, kargo_takip_no, kargo_firmasi, dekont_url, fatura_tipi, firma_unvani, vergi_dairesi, vergi_no, teslimat_adresi, dolar_kuru, euro_kuru, created_at')
+      .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti')
       .order('created_at', { ascending: false })
       .range(from, to)
     
@@ -128,7 +130,6 @@ export default function AdminSiparisler() {
   const updateOdemeDurumu = async (id: string, durum: string) => {
     await supabase.from('siparisler').update({
       odeme_durumu: durum,
-      updated_at: new Date().toISOString(),
     }).eq('id', id)
     await loadSiparisler(0)
   }
@@ -171,14 +172,20 @@ export default function AdminSiparisler() {
 
     setLoadingItems(prev => ({ ...prev, [id]: true }))
     try {
-      const { data } = await supabase
-        .from('siparisler')
-        .select('urunler')
-        .eq('id', id)
-        .single()
+      const { data: items } = await supabase
+        .from('siparis_kalemleri')
+        .select('*')
+        .eq('siparis_id', id)
       
-      if (data?.urunler) {
-        setSiparisler(prev => prev.map(s => s.id === id ? { ...s, urunler: data.urunler } : s))
+      if (items && items.length > 0) {
+        const mappedItems: SiparisUrun[] = items.map((it: any) => ({
+          urun_id: it.urun_id || it.id,
+          ad: it.urun_adi || 'Ürün',
+          fiyat: Number(it.birim_fiyat) || 0,
+          adet: Number(it.adet) || 1,
+          fotograf: '',
+        }))
+        setSiparisler(prev => prev.map(s => s.id === id ? { ...s, urunler: mappedItems } : s))
       }
     } catch (err) {
       console.error('Ürünler yüklenemedi:', err)
@@ -187,8 +194,15 @@ export default function AdminSiparisler() {
     }
   }
 
+  const getDekontUrl = (s: Siparis) => {
+    if (s.dekont_url) return s.dekont_url
+    const match = s.notlar?.match(/Dekont yüklendi - ([^\s\]]+)/)
+    return match ? match[1] : undefined
+  }
+
   const filtered = siparisler.filter(s => {
-    const durumMatch = filterDurum === 'hepsi' || s.durum === filterDurum || (filterDurum === 'dekontlu' && s.dekont_url)
+    const dUrl = getDekontUrl(s)
+    const durumMatch = filterDurum === 'hepsi' || s.durum === filterDurum || (filterDurum === 'dekontlu' && !!dUrl)
     const searchMatch = !search ||
       s.siparis_no?.toLowerCase().includes(search.toLowerCase()) ||
       s.ad_soyad?.toLowerCase().includes(search.toLowerCase()) ||
@@ -300,7 +314,7 @@ export default function AdminSiparisler() {
                     {siparis.odeme_durumu === 'beklemede' && (siparis.odeme_tipi === 'kredi_karti' || siparis.odeme_tipi === 'kart') && (
                       <span className="font-display font-semibold text-xs tracking-widest uppercase px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-600">ÖDEME BEKLİYOR</span>
                     )}
-                    {siparis.dekont_url && (
+                    {getDekontUrl(siparis) && (
                       <span className="font-display font-black text-[10px] bg-brand-red text-white px-2 py-0.5 animate-pulse rounded">DEKONT YÜKLÜ</span>
                     )}
                   </div>
@@ -343,22 +357,22 @@ export default function AdminSiparisler() {
                         
                         <div className="bg-brand-red/5 p-3 border border-brand-red/10">
                            <div className="flex items-center gap-2 mb-2">
-                              {siparis.fatura_tipi === 'kurumsal' ? <Briefcase size={13} className="text-brand-red" /> : <UserIcon size={13} className="text-brand-red" />}
+                              {siparis.fatura_tipi === 'kurumsal' || (siparis.fatura_adresi && siparis.fatura_adresi.includes('[Kurumsal Fatura]')) ? <Briefcase size={13} className="text-brand-red" /> : <UserIcon size={13} className="text-brand-red" />}
                               <span className="font-display font-bold text-[10px] uppercase tracking-widest text-slate-900/60">
-                                {siparis.fatura_tipi === 'kurumsal' ? 'Kurumsal Fatura' : 'Bireysel Fatura'}
+                                {siparis.fatura_tipi === 'kurumsal' || (siparis.fatura_adresi && siparis.fatura_adresi.includes('[Kurumsal Fatura]')) ? 'Kurumsal Fatura' : 'Bireysel Fatura'}
                               </span>
                            </div>
-                           {siparis.fatura_tipi === 'kurumsal' ? (
+                           {siparis.fatura_tipi === 'kurumsal' || (siparis.fatura_adresi && siparis.fatura_adresi.includes('[Kurumsal Fatura]')) ? (
                              <div className="text-xs text-slate-900/70 space-y-1">
-                                <div className="font-bold uppercase text-slate-900">{siparis.firma_unvani}</div>
-                                <div>{siparis.vergi_dairesi} / {siparis.vergi_no}</div>
+                                <div className="font-bold uppercase text-slate-900">{siparis.firma_unvani || siparis.fatura_adresi}</div>
+                                {siparis.vergi_dairesi && <div>{siparis.vergi_dairesi} / {siparis.vergi_no}</div>}
                              </div>
                            ) : (
                              <div className="text-xs text-slate-900/50">Şahıs faturası kesilecektir.</div>
                            )}
                         </div>
 
-                        {siparis.teslimat_tipi === 'kargo' && siparis.teslimat_adresi && (
+                        {siparis.teslimat_adresi && (
                           <div className="bg-blue-500/5 border border-blue-500/20 p-3 mt-3">
                             <div className="flex items-center gap-2 mb-1.5">
                               <MapPin size={13} className="text-blue-400" />
@@ -397,23 +411,23 @@ export default function AdminSiparisler() {
                             </span></div>
                         </div>
 
-                        {siparis.dekont_url && (
+                        {getDekontUrl(siparis) && (
                           <div className="bg-green-500/10 border border-green-500/20 p-4 space-y-3">
-                             <div className="flex items-center gap-2 text-green-400 font-display font-bold text-[10px] uppercase tracking-widest">
+                             <div className="flex items-center gap-2 text-green-700 font-display font-bold text-[10px] uppercase tracking-widest">
                                 <FileText size={14} /> DEKONT YÜKLENDİ
                              </div>
                              <a 
-                               href={siparis.dekont_url} 
+                               href={getDekontUrl(siparis)} 
                                target="_blank" 
                                rel="noreferrer" 
-                               className="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-slate-900 font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-700 transition-colors"
+                               className="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-white font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-700 transition-colors"
                              >
                                DEKONTU GÖRÜNTÜLE <ExternalLink size={12} />
                              </a>
                              {siparis.odeme_durumu !== 'odendi' && (
                                <button 
                                  onClick={() => updateOdemeDurumu(siparis.id, 'odendi')}
-                                 className="w-full py-2 border border-green-500/30 text-green-400 font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-500/10"
+                                 className="w-full py-2 border border-green-500/30 text-green-700 font-display font-bold text-[10px] uppercase tracking-widest hover:bg-green-500/10"
                                >
                                  ÖDEMEYİ ONAYLA
                                </button>

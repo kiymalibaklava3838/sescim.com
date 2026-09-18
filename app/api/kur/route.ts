@@ -41,7 +41,11 @@ export async function GET(req: NextRequest) {
       expiresAt: now + 300_000, // 5 dk
     }
 
-    return NextResponse.json(kurResult)
+    return NextResponse.json(kurResult, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      },
+    })
   } catch (error) {
     console.warn('Canlı döviz kurları alınamadı, yedek kurlar devrede:', error)
     
@@ -53,6 +57,10 @@ export async function GET(req: NextRequest) {
       source: 'fallback',
     }
 
-    return NextResponse.json(fallbackResult)
+    return NextResponse.json(fallbackResult, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    })
   }
 }

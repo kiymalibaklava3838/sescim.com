@@ -8,8 +8,7 @@ import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import ProductGrid from '@/components/ProductGrid'
 import DealCountdown from '@/components/DealCountdown'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata: Metadata = {
   title: 'Günün Fırsatları & Flaş İndirimler',

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // 1. Sipariş bilgilerini al
     const { data: siparis, error: getErr } = await db
       .from('siparisler')
-      .select('siparis_no, email, ad_soyad, durum, urunler')
+      .select('siparis_no, email, ad_soyad, durum')
       .eq('id', id)
       .single()
 
@@ -57,31 +57,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sipariş bulunamadı' }, { status: 404 })
     }
 
+    const { data: orderKalemler } = await db
+      .from('siparis_kalemleri')
+      .select('urun_id, adet')
+      .eq('siparis_id', id)
+
+    const items = orderKalemler || []
     const eskiDurum = siparis.durum
     const yeniDurum = durum
 
-    // 2. Stok Yönetimi
+    // 2. Stok Yönetimi (Sadece Sescim veritabanı güncellenir, Akdağ DB salt-okunurdur)
     if (eskiDurum !== 'iptal' && yeniDurum === 'iptal') {
-      // Sipariş iptal: stokları geri yükle
-      for (const item of (siparis.urunler as any[])) {
+      // Sipariş iptal: Sescim stoklarını geri yükle
+      for (const item of items) {
         if (!item.urun_id) continue
-        const { data: urun } = await akdagDb.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
-        if (urun) {
-          const yeniStok = (urun.stok_adedi || 0) + item.adet
-          await akdagDb.from('urunler').update({
+        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).maybeSingle()
+        if (urun && typeof urun.stok_adedi === 'number') {
+          const yeniStok = urun.stok_adedi + item.adet
+          await db.from('urunler').update({
             stok_adedi: yeniStok,
             stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
           }).eq('id', item.urun_id)
         }
       }
     } else if (eskiDurum === 'iptal' && yeniDurum !== 'iptal') {
-      // İptal edilmiş sipariş tekrar aktif: stokları düş
-      for (const item of (siparis.urunler as any[])) {
+      // İptal edilmiş sipariş tekrar aktif: Sescim stoklarını düş
+      for (const item of items) {
         if (!item.urun_id) continue
-        const { data: urun } = await akdagDb.from('urunler').select('stok_adedi').eq('id', item.urun_id).single()
-        if (urun) {
-          const yeniStok = Math.max(0, (urun.stok_adedi || 0) - item.adet)
-          await akdagDb.from('urunler').update({
+        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).maybeSingle()
+        if (urun && typeof urun.stok_adedi === 'number') {
+          const yeniStok = Math.max(0, urun.stok_adedi - item.adet)
+          await db.from('urunler').update({
             stok_adedi: yeniStok,
             stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
           }).eq('id', item.urun_id)
@@ -90,9 +96,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Durumu güncelle
-    const updateData: any = { durum: yeniDurum, updated_at: new Date().toISOString() }
+    const updateData: any = { durum: yeniDurum }
     if (kargo_takip_no !== undefined) updateData.kargo_takip_no = kargo_takip_no
-    if (kargo_firmasi !== undefined) updateData.kargo_firmasi = kargo_firmasi
 
     const { error: updErr } = await db
       .from('siparisler')

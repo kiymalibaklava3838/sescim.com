@@ -339,7 +339,11 @@ export default function SepetPage() {
     }
 
     const urunler = items.map((i) => ({
-      urun_id: i.id, ad: i.ad, adet: i.adet, fiyat: livePrice(i), fotograf: i.fotograf,
+      urun_id: i.id || null,
+      ad: (i.ad || 'Ürün').slice(0, 500),
+      adet: Math.max(1, Number(i.adet) || 1),
+      fiyat: livePrice(i),
+      fotograf: i.fotograf || null,
     }))
 
     setBusy(true)
@@ -369,21 +373,33 @@ export default function SepetPage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Sipariş oluşturulamadı.'); setBusy(false); return }
-      clearCart(); refreshCart()
-      try { localStorage.removeItem('akdag_sepet_form') } catch {} 
 
+      // Sepeti hemen silme! Kart ödemesi tamamlandığında /odeme/basarili sayfasında silinecektir.
+      // Sunucu PayTR token'ını siparis-olustur yanıtında doğrudan döndürdüyse beklemeden iframe'i aç
+      if (data.paytr_token) {
+        setPayToken(data.paytr_token)
+        setBusy(false)
+        return
+      }
+
+      // Fallback: Token doğrudan gelmediyse /api/paytr endpoint'ini çağır
       const payRes = await fetch('/api/paytr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          siparis_no: data.siparis_no, tutar: total, ad_soyad: adSoyad.trim(), email: email.trim(), telefon: telefon.trim(),
-          urunler: items.map((i) => ({ ad: i.ad, fiyat: livePrice(i), adet: i.adet })),
+          siparis_no: data.siparis_no,
+          tutar: total,
+          ad_soyad: adSoyad.trim(),
+          email: email.trim(),
+          telefon: telefon.trim() || '',
+          urunler: urunler,
         }),
       })
       const payData = await payRes.json()
       if (!payRes.ok) { setError(payData.error || 'Ödeme başlatılamadı.'); setBusy(false); return }
-      setPayToken(payData.token); setBusy(false)
-    } catch { setError('Bağlantı hatası.'); setBusy(false) }
+      setPayToken(payData.token)
+      setBusy(false)
+    } catch { setError('Bağlantı hatası. Lütfen tekrar deneyiniz.'); setBusy(false) }
   }
 
   return (
@@ -957,6 +973,21 @@ export default function SepetPage() {
         </div>
       </div>
 
+        {/* Ödeme Hazırlanıyor Yükleme Ekranı */}
+        {busy && !payToken && (
+          <div className="fixed inset-0 z-[100000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-12 h-12 border-3 border-slate-200 border-t-brand-red rounded-full animate-spin mb-4" />
+              <h3 className="font-display font-black text-sm tracking-wider uppercase text-slate-900 mb-1">
+                PayTR Güvenli Ödeme Hazırlanıyor
+              </h3>
+              <p className="text-xs text-slate-500 font-body">
+                3D Secure korumalı ödeme penceresi açılıyor, lütfen bekleyiniz...
+              </p>
+            </div>
+          </div>
+        )}
+
         {payToken && (
           <div className="fixed inset-0 z-[100000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
@@ -973,8 +1004,12 @@ export default function SepetPage() {
                   İptal Et
                 </button>
               </div>
-              <div className="flex-1 min-h-0 w-full overflow-hidden">
-                <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full h-full bg-white border-0" />
+              <div className="flex-1 min-h-0 w-full overflow-hidden relative bg-slate-50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2 z-0">
+                  <div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" />
+                  <span className="text-xs font-body">PayTR Güvenli Ödeme Sayfası Yükleniyor...</span>
+                </div>
+                <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full h-full bg-white border-0 relative z-10" />
               </div>
             </div>
           </div>

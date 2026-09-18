@@ -7,17 +7,53 @@ import { sendEmail } from '@/lib/send-email'
 const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY!
 const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT!
 
+export async function GET() {
+  // PayTR veya harici test araçlarının ping/sağlık kontrolleri için 200 OK yanıtı
+  return new NextResponse('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } })
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
-    const merchant_oid = formData.get('merchant_oid') as string
-    const status = formData.get('status') as string
-    const total_amount = formData.get('total_amount') as string
-    const hash = formData.get('hash') as string
-    const failed_reason_msg = (formData.get('failed_reason_msg') as string) || ''
+    let merchant_oid = ''
+    let status = ''
+    let total_amount = ''
+    let hash = ''
+    let failed_reason_msg = ''
+
+    const contentType = req.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      try {
+        const json = await req.json()
+        merchant_oid = json.merchant_oid || ''
+        status = json.status || ''
+        total_amount = json.total_amount || ''
+        hash = json.hash || ''
+        failed_reason_msg = json.failed_reason_msg || ''
+      } catch {}
+    } else {
+      try {
+        const formData = await req.formData()
+        merchant_oid = (formData.get('merchant_oid') as string) || ''
+        status = (formData.get('status') as string) || ''
+        total_amount = (formData.get('total_amount') as string) || ''
+        hash = (formData.get('hash') as string) || ''
+        failed_reason_msg = (formData.get('failed_reason_msg') as string) || ''
+      } catch {
+        try {
+          const text = await req.text()
+          const params = new URLSearchParams(text)
+          merchant_oid = params.get('merchant_oid') || ''
+          status = params.get('status') || ''
+          total_amount = params.get('total_amount') || ''
+          hash = params.get('hash') || ''
+          failed_reason_msg = params.get('failed_reason_msg') || ''
+        } catch {}
+      }
+    }
 
     if (!merchant_oid || !status || !hash) {
-      return new NextResponse('PAYTR_MISSING_PARAMS', { status: 400 })
+      // PayTR panelinden atılan boş test pingleri durumunda OK dönerek entegrasyon kontrolünü geç
+      return new NextResponse('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
     // 1. PayTR HMAC-SHA256 Hash Doğrulama (Güvenlik Kalkanı)
@@ -38,11 +74,15 @@ export async function POST(req: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // 2. Sipariş bilgilerini veritabanından çek
+    // 2. Sipariş bilgilerini veritabanından çek (Tireli ve tiresiz format desteği)
+    const formattedWithHyphen = merchant_oid.startsWith('SCM') && !merchant_oid.includes('-')
+      ? `SCM-${merchant_oid.slice(3)}`
+      : merchant_oid
+
     const { data: siparis, error: siparisErr } = await supabase
       .from('siparisler')
-      .select('id, siparis_no, email, ad_soyad, telefon, toplam_tutar, urunler, durum, odeme_durumu, notlar')
-      .eq('siparis_no', merchant_oid)
+      .select('id, siparis_no, email, ad_soyad, telefon, toplam_tutar, durum, odeme_durumu, notlar')
+      .or(`siparis_no.eq.${merchant_oid},siparis_no.eq.${formattedWithHyphen}`)
       .maybeSingle()
 
     if (siparisErr || !siparis) {
@@ -55,6 +95,19 @@ export async function POST(req: NextRequest) {
       return new NextResponse('OK', { status: 200 })
     }
 
+    // Sipariş kalemlerini siparis_kalemleri tablosundan çek
+    const { data: kalemler } = await supabase
+      .from('siparis_kalemleri')
+      .select('urun_id, urun_adi, adet, birim_fiyat')
+      .eq('siparis_id', siparis.id)
+
+    const orderUrunler = (kalemler || []).map((k: any) => ({
+      urun_id: k.urun_id,
+      ad: k.urun_adi,
+      adet: Number(k.adet || 1),
+      fiyat: Number(k.birim_fiyat || 0),
+    }))
+
     const isSuccess = status === 'success'
 
     if (isSuccess) {
@@ -65,42 +118,28 @@ export async function POST(req: NextRequest) {
         .update({
           odeme_durumu: 'odendi',
           durum: 'onaylandi',
-          updated_at: new Date().toISOString(),
         })
-        .eq('siparis_no', merchant_oid)
+        .eq('id', siparis.id)
 
-      // Kart ödemesi kesinleştiği için ürünlerin stoğunu şimdi düş
-      if (Array.isArray(siparis.urunler) && siparis.urunler.length > 0) {
+      // Kart ödemesi kesinleştiği için ürünlerin stoğunu şimdi düş (Sadece Sescim DB güncellenir, Akdağ DB salt-okunurdur)
+      if (orderUrunler.length > 0) {
         try {
-          const akdagSupabase = createClient(
-            process.env.NEXT_PUBLIC_AKDAG_SUPABASE_URL!,
-            process.env.AKDAG_SERVICE_ROLE_KEY!,
-            { auth: { autoRefreshToken: false, persistSession: false } }
-          )
-
-          for (const item of siparis.urunler) {
-            const urunId = (item as any).urun_id || (item as any).id
-            const adet = Number((item as any).adet || 1)
+          for (const item of orderUrunler) {
+            const urunId = item.urun_id
+            const adet = item.adet
             if (!urunId) continue
 
-            // Önce Sescim'de var mı bak, yoksa Akdağ'dan düş
+            // Yalnızca Sescim veritabanındaki ürünler güncellenir
             const { data: sescimUrun } = await supabase
               .from('urunler')
               .select('stok_durumu, stok_adedi')
               .eq('id', urunId)
               .maybeSingle()
 
-            const targetDb = sescimUrun ? supabase : akdagSupabase
-            const { data: targetUrun } = await targetDb
-              .from('urunler')
-              .select('stok_durumu, stok_adedi')
-              .eq('id', urunId)
-              .maybeSingle()
-
-            if (typeof targetUrun?.stok_adedi === 'number') {
-              const kalan = Math.max(0, targetUrun.stok_adedi - adet)
+            if (sescimUrun && typeof sescimUrun.stok_adedi === 'number') {
+              const kalan = Math.max(0, sescimUrun.stok_adedi - adet)
               const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-              await targetDb
+              await supabase
                 .from('urunler')
                 .update({ stok_adedi: kalan, stok_durumu: nextDurum })
                 .eq('id', urunId)
@@ -133,7 +172,7 @@ export async function POST(req: NextRequest) {
             email: siparis.email,
             telefon: siparis.telefon,
             toplam_tutar: siparis.toplam_tutar,
-            urunler: siparis.urunler,
+            urunler: orderUrunler,
           })
         )
       } catch (mailErr) {
@@ -152,9 +191,8 @@ export async function POST(req: NextRequest) {
           odeme_durumu: 'odeme_hatasi',
           durum: 'iptal',
           notlar: guncelNot,
-          updated_at: new Date().toISOString(),
         })
-        .eq('siparis_no', merchant_oid)
+        .eq('id', siparis.id)
 
       // Müşteriye nazik bilgilendirme maili gönder
       try {

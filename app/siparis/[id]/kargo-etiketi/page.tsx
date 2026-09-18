@@ -36,7 +36,17 @@ export default async function KargoEtiketiPage({ params }: Props) {
     notFound()
   }
 
-  const urunler: any[] = Array.isArray(order.urunler) ? order.urunler : []
+  let urunler: any[] = Array.isArray(order.urunler) ? order.urunler : []
+  if (urunler.length === 0) {
+    const { data: kalemler } = await db.from('siparis_kalemleri').select('*').eq('siparis_id', order.id)
+    if (kalemler && kalemler.length > 0) {
+      urunler = kalemler.map((k: any) => ({
+        ad: k.urun_adi,
+        adet: Number(k.adet || 1),
+        fiyat: Number(k.birim_fiyat || 0)
+      }))
+    }
+  }
   const kargoFirmasi = order.kargo_firmasi || SHIPPING_CONFIG.DEFAULT_CARRIER
   const takipNo = order.kargo_takip_no || order.siparis_no
 

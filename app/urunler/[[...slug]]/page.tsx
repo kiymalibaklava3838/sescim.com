@@ -21,10 +21,8 @@ import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
-const PER_PAGE = 16
+export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
+const PER_PAGE = 20 // 5'li ızgara (xl:grid-cols-5) ve 4'lü ızgaralar için tam oturan 20 ürün (artık tek ürün kalmaz)
 
 function getCategoryPathBreadcrumbs(slugArray: string[], marka?: string) {
   const baseUrl = getSiteUrl()

@@ -81,7 +81,7 @@ export default async function DailyDealsSection() {
   const urunIds = products.map((p: any) => p.id)
   const pricingMap = await getSescimPricingMap(urunIds)
 
-  const dealsProducts = products.map((p: any) => {
+  const rawDeals = products.map((p: any) => {
     const pricing = pricingMap.get(p.id)
     return {
       ...p,
@@ -90,7 +90,11 @@ export default async function DailyDealsSection() {
       sescim_aktif: pricing?.sescim_aktif ?? true,
       fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
     }
-  }).filter(p => p.sescim_aktif !== false && !p.fiyat_sorunuz).slice(0, 10)
+  }).filter(p => p.sescim_aktif !== false && !p.fiyat_sorunuz)
+
+  // 5'li ızgara (lg:grid-cols-5) için son satırda tek/eksik ürün kalmasını önle
+  const dealsCount = Math.floor(rawDeals.length / 5) * 5
+  const dealsProducts = dealsCount >= 5 ? rawDeals.slice(0, Math.min(dealsCount, 10)) : rawDeals
 
   if (dealsProducts.length === 0) return null
 

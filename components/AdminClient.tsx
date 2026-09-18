@@ -91,7 +91,12 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
   }, [onSuccess])
 
   const loadBekleyenSiparis = async () => {
-    const { count } = await supabase.from('siparisler').select('*', { count: 'exact', head: true }).eq('durum', 'beklemede')
+    // Sadece admin aksiyonu gerektiren gerçek siparişleri say (onaylanan, hazırlanan veya havale bekleyenler)
+    // Ödeme bekleyen kart denemeleri asılsız bildirim üretmez
+    const { count } = await supabase
+      .from('siparisler')
+      .select('*', { count: 'exact', head: true })
+      .or('durum.eq.onaylandi,durum.eq.hazirlaniyor,and(odeme_tipi.eq.havale,durum.eq.beklemede)')
     setBekleyenSiparis(count || 0)
   }
 

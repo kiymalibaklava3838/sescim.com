@@ -6,8 +6,7 @@ import { getSiteUrl } from '@/lib/site-url'
 import { dovizToTL, KurData } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 3600 // 1 saat önbellek
+export const revalidate = 7200 // 2 saat Edge CDN önbellek
 
 function stripHtml(html: string): string {
   if (!html) return ''
@@ -151,7 +150,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600',
+        'Cache-Control': 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400',
       },
     })
   } catch (e: any) {

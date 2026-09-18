@@ -23,7 +23,14 @@ export async function POST(req: NextRequest) {
     const raw = await req.json()
     const parsed = paytrTokenSchema.safeParse(raw)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Geçersiz veri' }, { status: 400 })
+      console.error('[paytr] Zod validation error:', parsed.error.format())
+      const firstIssue = parsed.error.issues[0]
+      const field = firstIssue?.path?.join('.') || 'veri'
+      const msg = firstIssue?.message || 'Geçersiz veri'
+      return NextResponse.json({ 
+        error: `Ödeme verisi geçersiz (${field}: ${msg})`, 
+        details: parsed.error.flatten() 
+      }, { status: 400 })
     }
 
     const { siparis_no, tutar, ad_soyad, email, telefon, urunler } = parsed.data
@@ -39,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const { data: dbSiparis, error: siparisErr } = await supabaseAdmin
       .from('siparisler')
-      .select('toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu, teslimat_adresi, urunler')
+      .select('id, toplam_tutar, email, ad_soyad, telefon, durum, odeme_durumu, teslimat_adresi')
       .eq('siparis_no', siparis_no)
       .single()
 
@@ -61,10 +68,14 @@ export async function POST(req: NextRequest) {
 
     const siteUrl = getSiteUrl()
 
-    // PayTR, sepet öğeleri için TL cinsinden string bekler (örn: "150.00")
-    // PayTR Kuralı: user_basket toplamı ile payment_amount kuruşu kuruşuna eşit olmak zorundadır.
-    const finalUrunler = (dbSiparis.urunler && Array.isArray(dbSiparis.urunler) && dbSiparis.urunler.length > 0)
-      ? dbSiparis.urunler
+    // Sipariş kalemlerini veritabanından al veya istek gövdesindeki doğrulanmış ürünleri kullan
+    const { data: dbKalemler } = await supabaseAdmin
+      .from('siparis_kalemleri')
+      .select('urun_adi, adet, birim_fiyat')
+      .eq('siparis_id', dbSiparis.id)
+
+    const finalUrunler = (dbKalemler && dbKalemler.length > 0)
+      ? dbKalemler.map((k: any) => ({ ad: k.urun_adi, adet: k.adet, fiyat: k.birim_fiyat }))
       : urunler
 
     const itemsSum = finalUrunler.reduce((sum: number, u: any) => sum + (Number(u.fiyat || 0) * Number(u.adet || 1)), 0)
@@ -89,10 +100,13 @@ export async function POST(req: NextRequest) {
 
     const test_mode = process.env.PAYTR_TEST_MODE === '1' ? '1' : '0'
 
+    // PayTR kuralı: merchant_oid sadece alfanümerik olmalıdır, özel karakter (örn: tire '-') içeremez
+    const merchant_oid = siparis_no.replace(/[^a-zA-Z0-9]/g, '')
+
     const hashStr = [
       PAYTR_MERCHANT_ID,
       user_ip,
-      siparis_no,
+      merchant_oid,
       musteriEmail,
       tutarKurus,
       sepetBase64,
@@ -108,7 +122,7 @@ export async function POST(req: NextRequest) {
     const params = new URLSearchParams({
       merchant_id: PAYTR_MERCHANT_ID,
       user_ip,
-      merchant_oid: siparis_no,
+      merchant_oid,
       email: musteriEmail,
       payment_amount: tutarKurus,
       paytr_token: paytrToken,

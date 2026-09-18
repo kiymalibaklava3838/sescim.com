@@ -1,8 +1,15 @@
 'use client'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { XCircle, RefreshCw } from 'lucide-react'
 
 export default function OdemeHata() {
+  useEffect(() => {
+    // PayTR iframe içinden çıkıp tam ekran hata sayfasına yönlendir (Iframe Breakout)
+    if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
+      window.top.location.href = window.location.href
+    }
+  }, [])
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-16 bg-slate-50">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-8 sm:p-10 text-center max-w-lg w-full">

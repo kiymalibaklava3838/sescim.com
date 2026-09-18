@@ -59,10 +59,27 @@ export default function AdminDashboard() {
     try {
       const { data: sData } = await supabase
         .from('siparisler')
-        .select('id, siparis_no, ad_soyad, telefon, odeme_tipi, toplam_tutar, durum, odeme_durumu, dekont_url, created_at, urunler')
+        .select('id, siparis_no, ad_soyad, telefon, odeme_tipi, toplam_tutar, durum, odeme_durumu, notlar, created_at')
         .order('created_at', { ascending: false })
         .limit(200)
-      setSiparisler(sData || [])
+
+      if (sData && sData.length > 0) {
+        const orderIds = sData.map((s: any) => s.id)
+        const { data: kalemler } = await supabase
+          .from('siparis_kalemleri')
+          .select('siparis_id, urun_adi, adet, birim_fiyat')
+          .in('siparis_id', orderIds)
+
+        const ordersWithItems = sData.map((s: any) => ({
+          ...s,
+          urunler: (kalemler || [])
+            .filter((k: any) => k.siparis_id === s.id)
+            .map((k: any) => ({ ad: k.urun_adi, adet: k.adet, fiyat: k.birim_fiyat }))
+        }))
+        setSiparisler(ordersWithItems as any)
+      } else {
+        setSiparisler([])
+      }
     } catch (e) {
       console.error(e)
     } finally {

@@ -16,8 +16,7 @@ import ProductFaq from '@/components/ProductFaq'
 import ProductBadges from '@/components/ProductBadges'
 import InstallmentTrigger from '@/components/InstallmentTrigger'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'

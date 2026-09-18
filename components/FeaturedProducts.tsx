@@ -80,7 +80,11 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     }
   }).filter(p => p.sescim_aktif !== false)
 
-  if (featuredProducts.length === 0) return null
+  // 5'li ızgara (lg:grid-cols-5) için son satırda tek/eksik ürün kalmasını önle, tam 5 veya 10 adet göster
+  const displayCount = Math.floor(featuredProducts.length / 5) * 5
+  const finalFeatured = displayCount >= 5 ? featuredProducts.slice(0, displayCount) : featuredProducts
+
+  if (finalFeatured.length === 0) return null
 
   return (
     <div className="py-16 bg-slate-50">
@@ -101,7 +105,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
         </div>
 
         <StaggerContainer className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {featuredProducts.map((product) => {
+          {finalFeatured.map((product) => {
             const pb = product.para_birimi || 'TRY'
             const aktifFiyat = product.sescim_fiyat ?? product.fiyat
             const indirimli = product.sescim_indirimli_fiyat ?? null

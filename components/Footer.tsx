@@ -94,7 +94,7 @@ export default function Footer() {
             Türkiye'nin yeni nesil müzik, ses, ışık ve stüdyo marketi. Profesyonel ve amatör müzisyenler için binlerce orijinal distribütör garantili ürün.
           </p>
           <div className="flex items-center gap-4">
-            <a href="https://www.instagram.com/sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors">
+            <a href="https://www.instagram.com/sescimofficial" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors" aria-label="Instagram">
               <Instagram size={20} />
             </a>
             <a href="https://youtube.com/@sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors">

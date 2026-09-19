@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { 
   Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, 
   Check, AlertTriangle, Eye, EyeOff, ZoomIn, Crop, ArrowRight, 
-  ArrowUpDown, ExternalLink 
+  ArrowUpDown, ExternalLink, Sparkles 
 } from 'lucide-react'
 import Cropper from 'react-easy-crop'
 import { getCroppedImg } from '@/lib/cropImage'
@@ -12,7 +12,8 @@ import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { 
   StoreBanner, 
   parseBannerContent, 
-  packBannerSubtitle 
+  packBannerSubtitle,
+  DEFAULT_HERO_SLIDES 
 } from '@/lib/banner-service'
 
 interface Product {
@@ -66,8 +67,38 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: '/' })
       })
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/urunler' })
+      })
     } catch (e) {
       console.warn('Revalidation warning:', e)
+    }
+  }
+
+  async function seedDefaultBanners() {
+    if (!confirm('Varsayılan 3 adet profesyonel vitrin bannerı veritabanına eklensin mi?')) return
+    setUploading(true)
+    try {
+      for (const slide of DEFAULT_HERO_SLIDES) {
+        const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText)
+        await supabase.from('store_banners').insert({
+          title: slide.title,
+          subtitle: packed,
+          image_url: slide.image,
+          link_url: slide.ctaLink,
+          sort_order: slide.sortOrder,
+          is_active: true
+        })
+      }
+      await triggerRevalidate()
+      await loadData()
+      alert('Varsayılan bannerlar başarıyla veritabanına yüklendi ve vitrinde anında yayına alındı!')
+    } catch (e: any) {
+      alert('Yükleme hatası: ' + (e.message || e))
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -343,13 +374,25 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         </div>
         
         {!showForm && (
-          <button 
-            onClick={() => { resetForm(); setSortOrder(banners.length + 1); setShowForm(true); }}
-            className="flex items-center gap-2 bg-brand-red text-white px-5 py-2.5 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all shadow-sm rounded-sm self-start sm:self-auto"
-          >
-            <Plus size={16} />
-            Yeni Banner Ekle
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+            {banners.length === 0 && (
+              <button 
+                onClick={seedDefaultBanners}
+                disabled={uploading}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 font-display font-bold text-xs tracking-widest uppercase transition-all shadow-sm rounded-sm"
+              >
+                <Sparkles size={15} className="text-amber-400" />
+                Varsayılan Şablonları Yükle
+              </button>
+            )}
+            <button 
+              onClick={() => { resetForm(); setSortOrder(banners.length + 1); setShowForm(true); }}
+              className="flex items-center gap-2 bg-brand-red text-white px-5 py-2.5 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all shadow-sm rounded-sm"
+            >
+              <Plus size={16} />
+              Yeni Banner Ekle
+            </button>
+          </div>
         )}
       </div>
 
@@ -652,31 +695,97 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                 )}
               </div>
               
-              {/* Form Action Buttons */}
-              <div className="pt-6 flex gap-3 border-t border-slate-100">
-                <button 
-                  onClick={handleSaveBanner}
-                  disabled={uploading}
-                  className="flex items-center gap-2 bg-brand-red text-white px-6 py-3 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all flex-1 justify-center rounded-sm shadow-sm disabled:opacity-50"
-                >
-                  {uploading ? (
-                    'Kaydediliyor...'
-                  ) : (
-                    <>
-                      <Save size={16} /> 
-                      {editingBannerId ? 'Değişiklikleri Güncelle' : 'Kaydet ve Vitrinde Yayınla'}
-                    </>
+            </div>
+          </div>
+
+          {/* 1:1 CANLI ANASAYFA HERO ÖNİZLEMESİ */}
+          <div className="mt-8 pt-6 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-800">
+                  1:1 Canlı Anasayfa Vitrin Önizlemesi
+                </h4>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                Anasayfada ziyaretçilere tam olarak bu şekilde görünecektir
+              </span>
+            </div>
+
+            <div className="relative w-full h-[260px] sm:h-[320px] md:h-[380px] overflow-hidden bg-slate-950 rounded-lg shadow-xl select-none border border-slate-800">
+              {/* Background Image */}
+              <div className="absolute inset-0">
+                <img
+                  src={imagePreview || imageUrl || 'https://images.unsplash.com/photo-1598488035114-1e7584102c7b?auto=format&fit=crop&q=80&w=2000'}
+                  alt="Canlı Önizleme"
+                  className="w-full h-full object-cover object-center"
+                />
+                {/* HeroSlider ile birebir aynı gradient katmanları */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 md:via-slate-950/50 to-slate-950/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-black/30" />
+              </div>
+
+              {/* Slide Content */}
+              <div className="relative z-20 h-full flex items-center px-6 sm:px-12">
+                <div className="max-w-2xl text-left">
+                  {/* Rozet */}
+                  {subtitle && (
+                    <div className="mb-3">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[11px] font-bold uppercase tracking-widest backdrop-blur-md">
+                        {subtitle}
+                      </span>
+                    </div>
                   )}
-                </button>
-                <button 
-                  onClick={() => { setShowForm(false); resetForm(); }}
-                  disabled={uploading}
-                  className="px-6 py-3 border border-slate-200 text-slate-600 hover:bg-slate-50 font-display text-xs uppercase tracking-wider transition-all rounded-sm"
-                >
-                  İptal
-                </button>
+
+                  {/* Ana Başlık */}
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-white mb-3 leading-[1.12] tracking-tight uppercase drop-shadow-md">
+                    {title || 'KAMPANYA BAŞLIĞI BURADA GÖRÜNECEK'}
+                  </h2>
+
+                  {/* Açıklama */}
+                  {description && (
+                    <p className="text-slate-200 text-xs sm:text-sm mb-5 max-w-xl line-clamp-3 font-normal leading-relaxed drop-shadow">
+                      {description}
+                    </p>
+                  )}
+
+                  {/* Buton */}
+                  {linkType !== 'none' && buttonText && (
+                    <div>
+                      <span className="inline-flex items-center gap-2.5 bg-brand-red text-white font-display font-bold text-xs sm:text-sm tracking-widest uppercase px-6 py-3.5 rounded-md shadow-xl shadow-brand-red/30">
+                        <span>{buttonText}</span>
+                        <ArrowRight size={16} />
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Form Action Buttons */}
+          <div className="pt-6 mt-6 flex gap-3 border-t border-slate-100">
+            <button 
+              onClick={handleSaveBanner}
+              disabled={uploading}
+              className="flex items-center gap-2 bg-brand-red text-white px-6 py-3.5 font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all flex-1 justify-center rounded-sm shadow-sm disabled:opacity-50"
+            >
+              {uploading ? (
+                'Kaydediliyor...'
+              ) : (
+                <>
+                  <Save size={16} /> 
+                  {editingBannerId ? 'Değişiklikleri Güncelle ve Canlıya Al' : 'Kaydet ve Vitrinde Yayınla'}
+                </>
+              )}
+            </button>
+            <button 
+              onClick={() => { setShowForm(false); resetForm(); }}
+              disabled={uploading}
+              className="px-6 py-3.5 border border-slate-200 text-slate-600 hover:bg-slate-50 font-display text-xs uppercase tracking-wider transition-all rounded-sm"
+            >
+              İptal
+            </button>
           </div>
         </div>
       )}
@@ -706,14 +815,24 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
               Henüz Özel Banner Eklenmemiş
             </h4>
             <p className="text-sm text-slate-500 max-w-md mb-6">
-              Şu anda anasayfada varsayılan 3 stüdyo ve DJ slaytı gösterilmektedir. Özel banner eklediğiniz anda vitrinde kendi kampanyalarınız yayınlanacaktır.
+              Şu anda anasayfada varsayılan 3 stüdyo ve DJ slaytı gösterilmektedir. Özel banner eklediğiniz veya şablonları yüklediğiniz anda vitrinde kendi kampanyalarınız yayınlanacaktır.
             </p>
-            <button 
-              onClick={() => { resetForm(); setSortOrder(1); setShowForm(true); }} 
-              className="px-5 py-2.5 bg-brand-red text-white hover:bg-red-700 text-xs font-display font-bold uppercase tracking-wider rounded-sm transition-colors"
-            >
-              İlk Bannerı Ekle
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button 
+                onClick={seedDefaultBanners}
+                disabled={uploading}
+                className="px-5 py-2.5 bg-slate-800 text-white hover:bg-slate-900 text-xs font-display font-bold uppercase tracking-wider rounded-sm transition-colors flex items-center gap-2"
+              >
+                <Sparkles size={14} className="text-amber-400" />
+                Varsayılan Şablonları Yükle
+              </button>
+              <button 
+                onClick={() => { resetForm(); setSortOrder(1); setShowForm(true); }} 
+                className="px-5 py-2.5 bg-brand-red text-white hover:bg-red-700 text-xs font-display font-bold uppercase tracking-wider rounded-sm transition-colors"
+              >
+                İlk Bannerı Ekle
+              </button>
+            </div>
           </div>
         )}
 

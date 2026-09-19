@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Speaker, Lightbulb, Monitor, Headphones, Music, Mic, Package, Plug } from 'lucide-react'
 import FeaturedProducts from '@/components/FeaturedProducts'
 import DailyDealsSection from '@/components/DailyDealsSection'
+import ProTercihSection from '@/components/ProTercihSection'
 import PersonalizedRecommendationsSection from '@/components/PersonalizedRecommendationsSection'
 import HeroSlider from '@/components/HeroSlider'
 import TrustBadges from '@/components/TrustBadges'
@@ -51,8 +52,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* GÜNÜN FIRSATLARI (Öne Çıkanlar Yerine) */}
+      {/* GÜNÜN FIRSATLARI */}
       <DailyDealsSection />
+
+      {/* PROFESYONELLERİN TERCİHİ (Stüdyo & Canlı Sahne Vitrini) */}
+      <ProTercihSection />
 
       {/* EN ÇOK SATANLAR */}
       <FeaturedProducts title="En Çok Satanlar" sortBy="fiyat" ascending={false} filterByFeatured={false} />

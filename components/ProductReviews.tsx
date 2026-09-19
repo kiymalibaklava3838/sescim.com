@@ -1,13 +1,24 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Star, MessageSquare, Loader2, Camera, X, Check, Image as ImageIcon, ZoomIn } from 'lucide-react'
+import { 
+  Star, MessageSquare, Loader2, Camera, X, Check, Image as ImageIcon, 
+  ZoomIn, Reply, Send, ShieldCheck 
+} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { compressImageToWebP } from '@/lib/image-compressor'
 
-interface Review {
+export interface ReviewReply {
+  id?: string
+  author: string
+  role?: 'store' | 'user'
+  text: string
+  date: string
+}
+
+export interface Review {
   id: string
   puan: number
   ad_soyad?: string
@@ -15,6 +26,8 @@ interface Review {
   created_at: string
   user_id: string
   fotograflar?: string[]
+  replies?: ReviewReply[]
+  rawYorum?: string
 }
 
 interface PhotoItem {
@@ -26,6 +39,59 @@ interface PhotoItem {
 
 interface Props {
   urun_id: string
+}
+
+export function packReviewContent(
+  text: string, 
+  photos: string[] = [], 
+  replies: ReviewReply[] = []
+): string {
+  let res = text.trim()
+  if (photos && photos.length > 0) {
+    res += `\n\n<!--PHOTOS:${JSON.stringify(photos)}-->`
+  }
+  if (replies && replies.length > 0) {
+    res += `\n\n<!--REPLIES:${JSON.stringify(replies)}-->`
+  }
+  return res
+}
+
+export const parseReviewContent = (
+  rawYorum: string
+): { cleanYorum: string; photos: string[]; replies: ReviewReply[] } => {
+  let photos: string[] = []
+  let replies: ReviewReply[] = []
+  let cleanYorum = rawYorum || ''
+
+  // 1. Photos
+  const photoMatch = cleanYorum.match(/<!--PHOTOS:(.*?)-->/)
+  if (photoMatch && photoMatch[1]) {
+    try {
+      photos = JSON.parse(photoMatch[1])
+    } catch (e) {}
+    cleanYorum = cleanYorum.replace(/<!--PHOTOS:(.*?)-->/g, '').trim()
+  }
+
+  // 2. Multi-replies
+  const repliesMatch = cleanYorum.match(/<!--REPLIES:(.*?)-->/)
+  if (repliesMatch && repliesMatch[1]) {
+    try {
+      replies = JSON.parse(repliesMatch[1])
+    } catch (e) {}
+    cleanYorum = cleanYorum.replace(/<!--REPLIES:(.*?)-->/g, '').trim()
+  } else {
+    // 3. Single reply fallback
+    const singleMatch = cleanYorum.match(/<!--REPLY:(.*?)-->/)
+    if (singleMatch && singleMatch[1]) {
+      try {
+        const r = JSON.parse(singleMatch[1])
+        if (r) replies.push(r)
+      } catch (e) {}
+      cleanYorum = cleanYorum.replace(/<!--REPLY:(.*?)-->/g, '').trim()
+    }
+  }
+
+  return { cleanYorum, photos, replies }
 }
 
 export default function ProductReviews({ urun_id }: Props) {
@@ -40,31 +106,28 @@ export default function ProductReviews({ urun_id }: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [activeLightbox, setActiveLightbox] = useState<string | null>(null)
+  
+  // Return URL for redirect after login
+  const [returnUrl, setReturnUrl] = useState('/urunler')
+
+  // Reply state
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [replySubmitting, setReplySubmitting] = useState(false)
+  const [replyError, setReplyError] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.getSession().then((res: any) => setSession(res.data.session))
-    loadReviews()
-  }, [urun_id])
-
-  const parseReviewContent = (rawYorum: string): { cleanYorum: string; photos: string[] } => {
-    let photos: string[] = []
-    let cleanYorum = rawYorum || ''
-
-    const photoMatch = rawYorum?.match(/<!--PHOTOS:(.*?)-->/)
-    if (photoMatch && photoMatch[1]) {
-      try {
-        photos = JSON.parse(photoMatch[1])
-        cleanYorum = rawYorum.replace(/<!--PHOTOS:(.*?)-->/g, '').trim()
-      } catch (e) {
-        // Sessizce geç
-      }
+    
+    if (typeof window !== 'undefined') {
+      setReturnUrl(`${window.location.pathname}#yorumlar`)
     }
 
-    return { cleanYorum, photos }
-  }
+    loadReviews()
+  }, [urun_id])
 
   const loadReviews = async () => {
     try {
@@ -78,11 +141,13 @@ export default function ProductReviews({ urun_id }: Props) {
       if (error) throw error
 
       const formatted = (data || []).map((rev: any) => {
-        const { cleanYorum, photos } = parseReviewContent(rev.yorum)
+        const { cleanYorum, photos, replies } = parseReviewContent(rev.yorum)
         return {
           ...rev,
+          rawYorum: rev.yorum,
           yorum: cleanYorum,
           fotograflar: rev.fotograflar && rev.fotograflar.length > 0 ? rev.fotograflar : photos,
+          replies: replies,
         }
       })
 
@@ -112,7 +177,7 @@ export default function ProductReviews({ urun_id }: Props) {
     try {
       const newPhotoItems: PhotoItem[] = []
       for (const file of filesToProcess) {
-        // İstemci tarafında sıfır sunucu yüküyle WebP sıkıştırma (max 1200px, 80% kalite)
+        // İstemci tarafında WebP sıkıştırma (max 1200px, 80% kalite)
         const webpBlob = await compressImageToWebP(file, 1200, 1200, 0.8)
         const previewUrl = URL.createObjectURL(webpBlob)
         newPhotoItems.push({
@@ -144,8 +209,8 @@ export default function ProductReviews({ urun_id }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!session?.user) {
-      setError('Yorum yapabilmek için giriş yapmalısınız.')
+    if (!session?.user?.id) {
+      setError('Yorum yapabilmek için lütfen giriş yapın.')
       return
     }
     if (yorum.trim().length < 10) {
@@ -159,10 +224,9 @@ export default function ProductReviews({ urun_id }: Props) {
     try {
       const uploadedUrls: string[] = []
 
-      // 1. Fotoğrafları Vercel'i bypass ederek doğrudan Supabase Storage'a yükle
+      // 1. Fotoğrafları doğrudan Supabase Storage'a yükle
       if (selectedPhotos.length > 0) {
         for (const item of selectedPhotos) {
-          // İmzalı upload URL'i al (yalnızca dosya adı iletilir, 0 veri yükü)
           const signRes = await fetch('/api/reviews/upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -175,7 +239,6 @@ export default function ProductReviews({ urun_id }: Props) {
 
           const { uploadUrl, publicUrl } = await signRes.json()
 
-          // Tarayıcıdan doğrudan Supabase Storage'a WebP Blob gönder
           const uploadRes = await fetch(uploadUrl, {
             method: 'PUT',
             headers: { 'Content-Type': 'image/webp' },
@@ -191,10 +254,7 @@ export default function ProductReviews({ urun_id }: Props) {
       }
 
       // 2. Yorum metnini ve görsel bağlantılarını hazırla
-      const finalYorum =
-        uploadedUrls.length > 0
-          ? `${yorum.trim()}\n\n<!--PHOTOS:${JSON.stringify(uploadedUrls)}-->`
-          : yorum.trim()
+      const finalYorum = packReviewContent(yorum.trim(), uploadedUrls, [])
 
       const userDisplayName =
         session.user.user_metadata?.full_name ||
@@ -223,6 +283,73 @@ export default function ProductReviews({ urun_id }: Props) {
       setError(e.message || 'Yorum gönderilirken bir hata oluştu.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // Yorum Yanıtlama Fonksiyonu (Kullanıcı Girişi Zorunlu)
+  const handleReplySubmit = async (reviewId: string) => {
+    if (!session?.user?.id) {
+      setReplyError('Yanıt yazabilmek için lütfen giriş yapın.')
+      return
+    }
+    if (!replyText.trim() || replyText.trim().length < 3) {
+      setReplyError('Lütfen en az 3 karakterlik bir yanıt yazın.')
+      return
+    }
+
+    setReplySubmitting(true)
+    setReplyError('')
+
+    try {
+      const targetRev = reviews.find((r) => r.id === reviewId)
+      if (!targetRev) throw new Error('Yorum bulunamadı.')
+
+      const userDisplayName =
+        session.user.user_metadata?.full_name ||
+        session.user.user_metadata?.ad_soyad ||
+        session.user.email?.split('@')[0] ||
+        'Kullanıcı'
+
+      const newReply: ReviewReply = {
+        id: `reply-${Date.now()}`,
+        author: userDisplayName,
+        role: 'user',
+        text: replyText.trim(),
+        date: new Date().toISOString(),
+      }
+
+      const existingReplies = targetRev.replies || []
+      const updatedReplies = [...existingReplies, newReply]
+
+      const packedYorum = packReviewContent(
+        targetRev.yorum,
+        targetRev.fotograflar || [],
+        updatedReplies
+      )
+
+      const { error: updErr } = await supabase
+        .from('urun_yorumlari')
+        .update({ yorum: packedYorum })
+        .eq('id', reviewId)
+
+      if (updErr) throw updErr
+
+      // Anlık lokal güncelleme
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === reviewId
+            ? { ...r, replies: updatedReplies, rawYorum: packedYorum }
+            : r
+        )
+      )
+
+      setReplyText('')
+      setReplyingReviewId(null)
+    } catch (e: any) {
+      console.error('Yanıt gönderme hatası:', e)
+      setReplyError(e.message || 'Yanıt gönderilirken bir hata oluştu.')
+    } finally {
+      setReplySubmitting(false)
     }
   }
 
@@ -271,14 +398,14 @@ export default function ProductReviews({ urun_id }: Props) {
       </div>
 
       <div className="grid md:grid-cols-3 gap-10">
-        {/* Sol Sütun - Değerlendirme Formu */}
+        {/* Sol Sütun - Değerlendirme Formu (Kullanıcı Girişi Zorunlu) */}
         <div className="md:col-span-1">
           <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-6 sticky top-24 shadow-sm">
             <h3 className="font-display font-black text-xl text-slate-900 mb-2">
               Deneyiminizi Paylaşın
             </h3>
             <p className="text-xs font-body text-slate-500 mb-6">
-              Satın aldığınız ürünle ilgili görüşleriniz diğer müşterilerimize rehberlik eder.
+              Satın aldığınız ürünle ilgili görüşleriniz diğer müzikseverlere ve profesyonellere rehberlik eder.
             </p>
 
             {submitted ? (
@@ -292,13 +419,19 @@ export default function ProductReviews({ urun_id }: Props) {
                 </p>
               </div>
             ) : !session ? (
-              <div className="bg-white border border-slate-200 p-5 rounded-xl text-center">
-                <MessageSquare size={28} className="text-slate-400 mx-auto mb-2" />
-                <p className="text-xs text-slate-600 font-medium mb-4">
-                  Değerlendirme yapabilmek ve fotoğraf ekleyebilmek için lütfen giriş yapın.
+              <div className="bg-white border border-slate-200 p-6 rounded-xl text-center shadow-xs">
+                <MessageSquare size={32} className="text-slate-400 mx-auto mb-3" />
+                <h4 className="font-bold text-sm text-slate-800 mb-1">
+                  Giriş Yapmanız Gerekiyor
+                </h4>
+                <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+                  Ürünü değerlendirebilmek, fotoğraf ekleyebilmek veya yanıtlara katılabilmek için lütfen hesabınıza giriş yapın.
                 </p>
-                <Link href="/uye" className="btn-primary py-2.5 text-xs justify-center w-full">
-                  Giriş Yap
+                <Link 
+                  href={`/uye?redirect=${encodeURIComponent(returnUrl)}`} 
+                  className="btn-primary py-2.5 px-6 text-xs justify-center w-full font-bold uppercase tracking-wider rounded-lg shadow-sm"
+                >
+                  Giriş Yap / Üye Ol
                 </Link>
               </div>
             ) : (
@@ -344,7 +477,7 @@ export default function ProductReviews({ urun_id }: Props) {
                   />
                 </div>
 
-                {/* Fotoğraf Ekleme (Sıfır Sunucu Yüklü WebP Canvas Sıkıştırma) */}
+                {/* Fotoğraf Ekleme */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -440,7 +573,7 @@ export default function ProductReviews({ urun_id }: Props) {
           </div>
         </div>
 
-        {/* Sağ Sütun - Değerlendirmeler Listesi */}
+        {/* Sağ Sütun - Değerlendirmeler Listesi ve Yanıtlar */}
         <div className="md:col-span-2">
           {loading ? (
             <div className="flex justify-center items-center h-48">
@@ -524,9 +657,9 @@ export default function ProductReviews({ urun_id }: Props) {
                     {rev.yorum}
                   </p>
 
-                  {/* Fotoğraf Galerisi & Lightbox Tetikleyici */}
+                  {/* Fotoğraf Galerisi & Lightbox */}
                   {rev.fotograflar && rev.fotograflar.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 mb-4">
                       {rev.fotograflar.map((imgUrl, i) => (
                         <button
                           key={i}
@@ -551,6 +684,159 @@ export default function ProductReviews({ urun_id }: Props) {
                       ))}
                     </div>
                   )}
+
+                  {/* Yanıtlar (Cevaplar) ve Yanıtlama Alanı */}
+                  <div className="pt-3 border-t border-slate-100">
+                    {/* Mevcut Yanıtlar */}
+                    {rev.replies && rev.replies.length > 0 && (
+                      <div className="space-y-3 mb-3">
+                        {rev.replies.map((reply, rIdx) => {
+                          const isStore = reply.role === 'store'
+                          return (
+                            <div
+                              key={reply.id || rIdx}
+                              className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
+                                isStore
+                                  ? 'bg-amber-500/[0.04] border-amber-500/20 text-slate-800'
+                                  : 'bg-slate-50 border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  {isStore ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider shadow-xs">
+                                      <ShieldCheck size={12} />
+                                      Sescim Mağaza Yanıtı
+                                    </span>
+                                  ) : (
+                                    <span className="font-semibold text-slate-900 text-[11px]">
+                                      {reply.author || 'Kullanıcı'}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(reply.date).toLocaleDateString('tr-TR')}
+                                </span>
+                              </div>
+                              <p className="whitespace-pre-line text-xs font-normal">
+                                {reply.text}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Yanıt Yaz Formu / Butonu (Giriş Zorunlu) */}
+                    {replyingReviewId === rev.id ? (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2 animate-fade-in">
+                        {!session ? (
+                          <div className="text-center py-2">
+                            <p className="text-xs text-slate-600 mb-3">
+                              Yorumlara yanıt yazabilmek için lütfen üye girişi yapın.
+                            </p>
+                            <div className="flex items-center justify-center gap-2">
+                              <Link
+                                href={`/uye?redirect=${encodeURIComponent(returnUrl)}`}
+                                className="btn-primary py-1.5 px-4 text-xs font-bold rounded-md"
+                              >
+                                Giriş Yap
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyingReviewId(null)
+                                  setReplyError('')
+                                }}
+                                className="text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5"
+                              >
+                                Vazgeç
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              handleReplySubmit(rev.id)
+                            }}
+                            className="space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                              <span>
+                                Yanıtınız ({session.user.user_metadata?.full_name || session.user.email?.split('@')[0]})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyingReviewId(null)
+                                  setReplyText('')
+                                  setReplyError('')
+                                }}
+                                className="text-slate-400 hover:text-slate-700"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Bu değerlendirmeye yanıtınızı yazın..."
+                              className="input-base w-full text-xs resize-none"
+                              required
+                            />
+                            {replyError && (
+                              <p className="text-xs text-red-500">{replyError}</p>
+                            )}
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyingReviewId(null)
+                                  setReplyText('')
+                                  setReplyError('')
+                                }}
+                                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800"
+                              >
+                                İptal
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={replySubmitting}
+                                className="btn-primary py-1.5 px-4 text-xs font-bold inline-flex items-center gap-1.5 rounded-md"
+                              >
+                                {replySubmitting ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>Gönderiliyor...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send size={12} />
+                                    <span>Yanıtla</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </form>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingReviewId(rev.id)
+                          setReplyText('')
+                          setReplyError('')
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-red transition-colors py-1"
+                      >
+                        <Reply size={13} />
+                        <span>Yanıt Yaz</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

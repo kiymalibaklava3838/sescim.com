@@ -25,11 +25,12 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
   const touchStartX = useRef<number | null>(null)
   const touchEndX = useRef<number | null>(null)
 
-  // Fetch active banners on client-side to ensure up-to-date data
+  // Fetch active banners on client-side and subscribe to Realtime updates
   useEffect(() => {
+    const supabase = createClient()
+
     async function loadLatestBanners() {
       try {
-        const supabase = createClient()
         const { data, error } = await supabase
           .from('store_banners')
           .select('id, title, subtitle, image_url, link_url, is_active, sort_order, created_at')
@@ -49,6 +50,22 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
     }
 
     loadLatestBanners()
+
+    // Realtime subscription for instant live updates without page reload
+    const channel = supabase
+      .channel('hero-slider-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_banners' },
+        () => {
+          loadLatestBanners()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [initialSlides])
 
   // Slide navigation handlers

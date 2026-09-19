@@ -115,7 +115,7 @@ const orgJsonLd = {
     availableLanguage: 'Turkish'
   },
   sameAs: [
-    'https://www.instagram.com/sescim',
+    'https://www.instagram.com/sescimofficial',
     'https://youtube.com/@sescim',
     'https://twitter.com/sescim',
   ],

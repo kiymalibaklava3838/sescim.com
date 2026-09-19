@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Star, Search, Plus, Trash2, Check, ArrowUpDown, Package, AlertCircle } from 'lucide-react'
+import { Star, Search, Plus, Trash2, Check, ArrowUpDown, Package, AlertCircle, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import { formatFiyat } from '@/lib/kur'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 
 export default function AdminProTercih({ supabase }: { supabase: any }) {
   const [selectedItems, setSelectedItems] = useState<any[]>([])
@@ -12,10 +13,30 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   useEffect(() => {
     loadSelected()
   }, [])
+
+  async function triggerRevalidate() {
+    try {
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/' })
+      })
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/urunler' })
+      })
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (e) {
+      console.warn('Revalidation warning:', e)
+    }
+  }
 
   async function loadSelected() {
     setLoading(true)
@@ -34,16 +55,22 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
         return
       }
 
-      // 2. Ürün bilgilerini çek
+      // 2. Ürün bilgilerini hem Sescim hem Akdağ kataloğundan çek
       const urunIds = ozelData.map((x: any) => x.urun_id)
-      const { data: prods, error: pErr } = await supabase
-        .from('urunler')
-        .select('id, ad, marka, kategori, fiyat, para_birimi, fotograflar, stok_durumu')
-        .in('id', urunIds)
+      const akdagDb = createAkdagBrowserClient()
+      const [sescimRes, akdagRes] = await Promise.all([
+        supabase
+          .from('urunler')
+          .select('id, ad, marka, kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, fotograflar, stok_durumu')
+          .in('id', urunIds),
+        akdagDb
+          .from('urunler')
+          .select('id, ad, marka, kategori, fiyat, para_birimi, fotograflar, stok_durumu')
+          .in('id', urunIds)
+      ])
 
-      if (pErr) throw pErr
-
-      const productMap = new Map((prods || []).map((p: any) => [p.id, p]))
+      const allCombined = [...(sescimRes.data || []), ...(akdagRes.data || [])]
+      const productMap = new Map((allCombined || []).map((p: any) => [p.id, p]))
 
       const joined = ozelData
         .map((ozel: any) => ({
@@ -70,14 +97,29 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
 
     setSearching(true)
     try {
-      const { data, error } = await supabase
-        .from('urunler')
-        .select('id, ad, marka, kategori, fiyat, para_birimi, fotograflar, stok_durumu')
-        .or(`ad.ilike.%${term}%,marka.ilike.%${term}%`)
-        .limit(10)
+      const akdagDb = createAkdagBrowserClient()
+      const [sescimRes, akdagRes] = await Promise.all([
+        supabase
+          .from('urunler')
+          .select('id, ad, marka, kategori, fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, fotograflar, stok_durumu')
+          .or(`ad.ilike.%${term}%,marka.ilike.%${term}%`)
+          .limit(20),
+        akdagDb
+          .from('urunler')
+          .select('id, ad, marka, kategori, fiyat, para_birimi, fotograflar, stok_durumu')
+          .or(`ad.ilike.%${term}%,marka.ilike.%${term}%`)
+          .limit(20)
+      ])
 
-      if (error) throw error
-      setSearchResults(data || [])
+      const combined = [...(sescimRes.data || []), ...(akdagRes.data || [])]
+      const uniqueMap = new Map<string, any>()
+      combined.forEach(p => {
+        if (!uniqueMap.has(p.id)) {
+          uniqueMap.set(p.id, p)
+        }
+      })
+
+      setSearchResults(Array.from(uniqueMap.values()).slice(0, 20))
     } catch (err) {
       console.error('Ürün arama hatası:', err)
     } finally {
@@ -115,6 +157,7 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
             product: prod
           }
         ])
+        await triggerRevalidate()
       }
     } catch (err: any) {
       alert('Eklenemedi: ' + err.message)
@@ -134,6 +177,7 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
 
       if (error) throw error
       setSelectedItems(selectedItems.filter(i => i.ozel_id !== ozelId))
+      await triggerRevalidate()
     } catch (err: any) {
       alert('Çıkarılamadı: ' + err.message)
     } finally {
@@ -143,14 +187,33 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-        <h2 className="text-xl font-display font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-          <Star className="text-amber-500 fill-amber-500" size={22} />
-          Profesyonellerin Tercihi Yönetimi
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Keşfet sayfasında &quot;⭐ Profesyonellerin Tercihi&quot; vitrininde gösterilecek teknik ve stüdyo odaklı ürünleri buradan seçip listeleyin.
-        </p>
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-display font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <Star className="text-amber-500 fill-amber-500" size={22} />
+            Profesyonellerin Tercihi Yönetimi
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Anasayfada ve Keşfet sayfasında &quot;⭐ Profesyonellerin Tercihi&quot; vitrininde gösterilecek teknik ve stüdyo odaklı ürünleri buradan seçip anında yayınlayın.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {saveSuccess && (
+            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold animate-fade-in">
+              <Check size={14} /> Web sitesinde anında yayınlandı!
+            </span>
+          )}
+          <button
+            onClick={() => triggerRevalidate()}
+            disabled={actionLoading}
+            className="px-4 py-2 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 shadow-xs"
+            title="Önbelleği temizle ve web sitesini anında güncelle"
+          >
+            <RefreshCw size={14} className={actionLoading ? 'animate-spin' : ''} />
+            <span>Web Sitesini Güncelle</span>
+          </button>
+        </div>
       </div>
 
       {/* ARAMA VE EKLEME BÖLÜMÜ */}

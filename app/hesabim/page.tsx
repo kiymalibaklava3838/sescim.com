@@ -1274,7 +1274,7 @@ export default function HesabimPage() {
                             Özel Kupon Kodu Tanımla
                           </h3>
                           <p className="text-xs text-slate-300 font-body mt-0.5">
-                            Instagram (@sescim), YouTube veya kampanya duyurularımızda paylaşılan indirim kodunuzu buraya girin.
+                            Instagram (@sescimofficial), YouTube veya kampanya duyurularımızda paylaşılan indirim kodunuzu buraya girin.
                           </p>
                         </div>
                       </div>
@@ -1547,7 +1547,7 @@ export default function HesabimPage() {
                         Instagram &amp; Sosyal Medya Fırsatlarını Kaçırmayın!
                       </h4>
                       <p className="text-xs text-slate-600 font-body mt-0.5 max-w-xl">
-                        Instagram sayfamızda (@sescim) paylaşılan anlık flaş kupon kodlarını yukarıdaki alandan tanımlayarak sepette hemen indirim kazanabilirsiniz.
+                        Instagram sayfamızda (@sescimofficial) paylaşılan anlık flaş kupon kodlarını yukarıdaki alandan tanımlayarak sepette hemen indirim kazanabilirsiniz.
                       </p>
                     </div>
                   </div>

@@ -48,7 +48,7 @@ export default function AdminNotification() {
   // Tarayıcı bildirimi
   const showBrowserNotification = (siparis: Bildirim) => {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
-    new Notification('🔔 Yeni Sipariş — Akdağ Elektronik', {
+    new Notification('🔔 Yeni Sipariş — sescim.com', {
       body: `${siparis.ad_soyad} • ${siparis.toplam_tutar.toLocaleString('tr-TR')} ₺ • ${siparis.siparis_no}`,
       icon: '/favicon.ico',
       tag: siparis.id,
@@ -67,19 +67,34 @@ export default function AdminNotification() {
       setIzinVerildi(Notification.permission === 'granted')
     }
 
-    // Realtime subscription — yeni sipariş gelince tetiklenir
+    // Realtime subscription — SADECE ödemesi tamamlanmış gerçek siparişlerde tetiklenir
     const channel = supabase
       .channel('admin-siparisler')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'siparisler' },
-        (payload: { new: Bildirim }) => { // HATA BURADA DÜZELTİLDİ: payload tipi belirtildi
+        { event: '*', schema: 'public', table: 'siparisler' },
+        (payload: any) => {
           if (ilkYukleme.current) return // İlk yükleme sonrasındakileri dinle
 
-          const yeni = payload.new as Bildirim
-          setBildirimler(prev => [yeni, ...prev].slice(0, 5))
+          const yeni = payload.new
+          if (!yeni) return
+
+          // Ödeme bekleyen (kullanıcının henüz satın almadığı) taslaklarda ASLA bildirim çalma!
+          const isOdendi = yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi'
+          if (!isOdendi) return
+
+          // PayTR onayı UPDATE ile geldiğinde veya doğrudan ödendi geldiğinde çal
+          if (payload.eventType === 'UPDATE') {
+            const eski = payload.old
+            if (eski && (eski.odeme_durumu === 'odendi' || eski.durum === 'onaylandi')) {
+              // Zaten daha önce ödendi olarak bildirilmiş, tekrar çalma
+              return
+            }
+          }
+
+          setBildirimler(prev => [yeni as Bildirim, ...prev].slice(0, 5))
           playSound()
-          showBrowserNotification(yeni)
+          showBrowserNotification(yeni as Bildirim)
         }
       )
       .subscribe()

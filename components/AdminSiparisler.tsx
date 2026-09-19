@@ -44,8 +44,6 @@ interface Siparis {
 }
 
 const DURUM_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  odeme_bekliyor: { label: 'Ödeme Bekliyor', color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock },
-  beklemede:     { label: 'Beklemede',     color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20', icon: Clock },
   onaylandi:     { label: 'Onaylandı',     color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',   icon: CheckCircle },
   hazirlaniyor:  { label: 'Hazırlanıyor',  color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', icon: Package },
   teslim_edildi: { label: 'Teslim Edildi', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: Truck },
@@ -77,7 +75,28 @@ export default function AdminSiparisler() {
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
   const supabase = useRef(createClient()).current
 
-  useEffect(() => { loadSiparisler(0) }, [])
+  useEffect(() => {
+    loadSiparisler(0)
+
+    const channel = supabase
+      .channel('admin-siparisler-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'siparisler' },
+        (payload: any) => {
+          const yeni = payload.new
+          // Sadece ödemesi tamamlanmış veya durumu onaylanmış gerçek siparişlerde listeyi otomatik tazele
+          if (yeni && (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi')) {
+            loadSiparisler(0)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const loadSiparisler = async (p: number, append = false) => {
     if (append) setLoadingMore(true)
@@ -89,6 +108,7 @@ export default function AdminSiparisler() {
     const { data } = await supabase
       .from('siparisler')
       .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti')
+      .neq('durum', 'odeme_bekliyor')
       .order('created_at', { ascending: false })
       .range(from, to)
     

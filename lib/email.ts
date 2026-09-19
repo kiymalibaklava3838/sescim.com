@@ -838,3 +838,39 @@ export function terkedilmisSepetHTML(data: {
     </div>
   `)
 }
+
+export function stokBildirimHTML(data: {
+  ad_soyad?: string
+  urun_adi: string
+  urun_url: string
+  fiyat?: number
+}): string {
+  return emailShell(`
+    ${header('Müjde! Beklediğiniz Ürün Stokta! 🔔', 'Stok bildirim talebiniz güncellendi')}
+
+    <div style="background-color:#181818;border:1px solid #262626;border-radius:8px;padding:24px;margin-bottom:18px">
+      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:8px">
+        Merhaba ${data.ad_soyad || 'Değerli Müşterimiz'},
+      </div>
+      <div style="color:#a3a3a3;font-size:14px;line-height:1.6;margin-bottom:20px">
+        Daha önce stok takibine aldığınız <strong>"${data.urun_adi}"</strong> ürünü yeniden sescim.com stoklarında satışa sunulmuştur.
+      </div>
+
+      <div style="background-color:#1f1f1f;border:1px solid #333;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center">
+        <div style="color:#ffffff;font-size:18px;font-weight:800;margin-bottom:6px">${data.urun_adi}</div>
+        ${data.fiyat ? `<div style="color:#DA291C;font-size:20px;font-weight:900">${data.fiyat.toLocaleString('tr-TR')} ₺</div>` : ''}
+      </div>
+
+      <div style="text-align:center;margin-top:20px">
+        <a href="${data.urun_url}" style="display:inline-block;padding:16px 36px;background-color:#DA291C;color:#ffffff;text-decoration:none;font-weight:800;font-size:15px;border-radius:6px;text-transform:uppercase;letter-spacing:0.05em;box-shadow:0 4px 16px rgba(218,41,28,0.4)">
+          Ürünü İncele ve Satın Al →
+        </a>
+      </div>
+
+      <div style="text-align:center;margin-top:18px;color:#666;font-size:11px">
+        Stoklar hızla tükenebilir. Kaçırmamak için siparişinizi hemen oluşturabilirsiniz.
+      </div>
+    </div>
+  `)
+}
+

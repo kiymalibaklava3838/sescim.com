@@ -85,12 +85,15 @@ function OdemeBasariliContent() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/urunler" className="btn-primary text-sm justify-center py-3.5 px-6 rounded-xl shadow-md">
+          {siparisNo && (
+            <Link href={`/siparis-takip?no=${siparisNo}`} className="btn-primary text-sm justify-center py-3.5 px-6 rounded-xl shadow-md gap-2">
+              <Truck size={15} />
+              Siparişi Takip Et
+            </Link>
+          )}
+          <Link href="/urunler" className="btn-outline text-sm justify-center py-3.5 px-6 rounded-xl gap-2">
             Alışverişe Devam
             <ArrowRight size={14} />
-          </Link>
-          <Link href="/" className="btn-outline text-sm justify-center py-3.5 px-6 rounded-xl">
-            Ana Sayfa
           </Link>
         </div>
       </div>

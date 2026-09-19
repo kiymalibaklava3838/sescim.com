@@ -178,6 +178,7 @@ export default function HesabimPage() {
       .from('siparisler')
       .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
       .or(`user_id.eq.${session.user.id},email.eq.${session.user.email}`)
+      .neq('durum', 'odeme_bekliyor')
       .order('created_at', { ascending: false })
       .limit(30)
 

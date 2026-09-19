@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
       telefon: telefon || '',
       notlar: compiledNotlar,
       odeme_tipi: odeme_tipi || 'kart',
-      odeme_durumu: 'beklemede',
+      odeme_durumu: isKart ? 'odeme_bekliyor' : 'beklemede',
       // Kart ödemelerinde PayTR onayı gelene kadar durum 'odeme_bekliyor' yapılır.
       // Bu sayede ödeme yapılmadığı sürece admine veya müşteriye sipariş düştü bildirimi gitmez.
       durum: isKart ? 'odeme_bekliyor' : 'beklemede',

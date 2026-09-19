@@ -87,16 +87,30 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
       else setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    const orderChannel = supabase
+      .channel('admin-client-order-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'siparisler' },
+        () => {
+          loadBekleyenSiparis()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+      supabase.removeChannel(orderChannel)
+    }
   }, [onSuccess])
 
   const loadBekleyenSiparis = async () => {
-    // Sadece admin aksiyonu gerektiren gerçek siparişleri say (onaylanan, hazırlanan veya havale bekleyenler)
+    // Sadece admin aksiyonu gerektiren gerçek siparişleri say (onaylanan veya hazırlananlar)
     // Ödeme bekleyen kart denemeleri asılsız bildirim üretmez
     const { count } = await supabase
       .from('siparisler')
       .select('*', { count: 'exact', head: true })
-      .or('durum.eq.onaylandi,durum.eq.hazirlaniyor,and(odeme_tipi.eq.havale,durum.eq.beklemede)')
+      .in('durum', ['onaylandi', 'hazirlaniyor'])
     setBekleyenSiparis(count || 0)
   }
 

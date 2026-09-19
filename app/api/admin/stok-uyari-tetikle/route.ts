@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, akdagAdmin } from '@/lib/supabase'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { sendEmail } from '@/lib/send-email'
+import { stokBildirimHTML } from '@/lib/email'
+import { getSiteUrl } from '@/lib/site-url'
 
 // Admin yetki kontrolü
 async function isAdmin(req: NextRequest) {
@@ -37,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     const db = supabaseAdmin!
     const akdagDb = akdagAdmin!
+    const siteUrl = getSiteUrl()
 
     // Bekleyen tüm talepleri getir
     const { data: talepler, error } = await db
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
     // Akdağ DB'den bu ürünlerin stok durumunu çek
     const { data: urunler } = await akdagDb
       .from('urunler')
-      .select('id, ad, stok_adedi, fiyat')
+      .select('id, slug, ad, stok_adedi, fiyat')
       .in('id', urunIds)
 
     if (!urunler) {
@@ -71,11 +75,24 @@ export async function POST(req: NextRequest) {
     // Sadece stokta olanların taleplerini filtrele
     const gonderilecekTalepler = talepler.filter(t => stoktaOlanUrunIdleri.includes(t.urun_id))
 
-    // Burada normalde gerçek bir e-posta / SMS entegrasyonu (Postmark, NetGSM vs) çalışır.
-    // Şimdilik sadece "bildirildi" olarak işaretleyip konsola yazdıracağız.
     for (const talep of gonderilecekTalepler) {
       const urun = stoktakiUrunler.find(u => u.id === talep.urun_id)
-      console.log(`[STOK BİLDİRİMİ] ${talep.email} adresine "${urun?.ad}" için stok uyarısı simüle edildi.`)
+      if (talep.email && urun) {
+        try {
+          const urunSlug = urun.slug || urun.id
+          await sendEmail(
+            talep.email,
+            `Müjde! "${urun.ad}" Yeniden Stoklarımızda! 🔔 | sescim.com`,
+            stokBildirimHTML({
+              urun_adi: urun.ad,
+              urun_url: `${siteUrl}/urun/${urunSlug}`,
+              fiyat: urun.fiyat,
+            })
+          )
+        } catch (mailErr) {
+          console.error('[STOK BİLDİRİMİ] E-posta gönderilemedi:', mailErr)
+        }
+      }
       
       // Talebi "bildirildi" olarak işaretle
       await db
@@ -88,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `${islenenAdet} adet stok uyarısı tetiklendi ve kullanıcılara (simülasyon olarak) gönderildi.`,
+      message: `${islenenAdet} adet stok uyarısı e-postası müşterilere başarıyla gönderildi.`,
       islenen: islenenAdet 
     })
   } catch (error: any) {

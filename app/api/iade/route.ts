@@ -137,12 +137,35 @@ export async function POST(req: NextRequest) {
   }
 }
 
+async function verifyAdmin(req: NextRequest): Promise<boolean> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) return false
+  const token = authHeader.replace('Bearer ', '')
+  const db = supabaseAdmin()
+  const { data: { user }, error } = await db.auth.getUser(token)
+  if (error || !user) return false
+  const { data } = await db
+    .from('site_admins')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  return !!data
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get('user_id')
     const siparisId = searchParams.get('siparis_id')
     const db = supabaseAdmin()
+
+    // Eğer parametre verilmemişse (tüm iadeler isteniyorsa) admin yetkisi gerekir
+    if (!userId && !siparisId) {
+      const isAuthAdmin = await verifyAdmin(req)
+      if (!isAuthAdmin) {
+        return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
+      }
+    }
 
     let query = db.from('siparis_iadeleri').select('*').order('created_at', { ascending: false })
 
@@ -169,6 +192,12 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    // Güvenlik: Sadece yetkili adminler iade/değişim durumunu güncelleyebilir
+    const isAuthAdmin = await verifyAdmin(req)
+    if (!isAuthAdmin) {
+      return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { id, durum, admin_notu } = body
 

@@ -83,19 +83,16 @@ async function handleAbandonedCarts(req: NextRequest) {
 
       // 3. Kullanıcı bilgilerini çek
       const { data: profile } = await supabase
-        .from('uye_profilleri')
-        .select('ad, soyad, email')
+        .from('uye_profiller')
+        .select('ad, soyad')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
-      let userEmail = profile?.email
-      let userName = profile ? `${profile.ad || ''} ${profile.soyad || ''}`.trim() : ''
+      const userName = profile ? `${profile.ad || ''} ${profile.soyad || ''}`.trim() : ''
 
-      if (!userEmail) {
-        // auth.users üzerinden e-posta bul
-        const { data: authUser } = await supabase.auth.admin.getUserById(userId)
-        userEmail = authUser?.user?.email
-      }
+      // auth.users üzerinden e-posta bul
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+      const userEmail = authUser?.user?.email
 
       if (!userEmail) continue
 

@@ -51,6 +51,24 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadData()
+
+    const channel = supabase
+      .channel('admin-dashboard-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'siparisler' },
+        (payload: any) => {
+          const yeni = payload.new
+          if (yeni && (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi')) {
+            loadData()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -60,6 +78,7 @@ export default function AdminDashboard() {
       const { data: sData } = await supabase
         .from('siparisler')
         .select('id, siparis_no, ad_soyad, telefon, odeme_tipi, toplam_tutar, durum, odeme_durumu, notlar, created_at')
+        .neq('durum', 'odeme_bekliyor')
         .order('created_at', { ascending: false })
         .limit(200)
 

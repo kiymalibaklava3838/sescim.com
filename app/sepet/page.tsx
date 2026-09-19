@@ -25,6 +25,7 @@ import { calculateCouponDiscount, matchesCategory } from '@/lib/coupon-helper'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import { calculateShippingFee, SHIPPING_CONFIG } from '@/lib/shipping'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import InstallmentModal from '@/components/InstallmentModal'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -58,6 +59,7 @@ export default function SepetPage() {
   const [payToken, setPayToken] = useState<string | null>(null)
   const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
   const [payTrWarning, setPayTrWarning] = useState(false)
+  const [showTaksitModal, setShowTaksitModal] = useState(false)
   
   // Kupon
   const [kuponlar, setKuponlar] = useState<any[]>([])
@@ -918,6 +920,37 @@ export default function SepetPage() {
                   </div>
                 </div>
 
+                {/* Ödeme Yöntemi Bilgisi (100% PayTR Kart & Taksit) */}
+                <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={18} className="text-brand-red" />
+                      <span className="font-display font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Kredi / Banka Kartı ile Ödeme
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTaksitModal(true)}
+                      className="text-[11px] font-display font-bold text-brand-red hover:underline tracking-tight"
+                    >
+                      Taksit Seçenekleri
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-body mb-3">
+                    Tüm kredi kartlarına <strong>12 aya varan taksit</strong> veya tek çekim seçeneğiyle 3D Secure güvencesinde ödeme yapabilirsiniz.
+                  </p>
+                  
+                  {/* Desteklenen Kart Aileleri */}
+                  <div className="flex flex-wrap gap-1.5 items-center pt-2 border-t border-slate-200/60">
+                    {['World', 'Bonus', 'Maximum', 'Axess', 'CardFinans', 'Paraf', 'Troy', 'Visa', 'Mastercard'].map((kart) => (
+                      <span key={kart} className="text-[10px] font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600 shadow-2xs">
+                        {kart}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 {error && <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm font-medium flex items-start gap-2"><Info size={18} className="flex-shrink-0 mt-0.5" /> {error}</div>}
 
                 {payTrWarning && (
@@ -947,6 +980,14 @@ export default function SepetPage() {
                     )}
                   </button>
                 </div>
+
+                {/* Taksit Modal */}
+                <InstallmentModal
+                  isOpen={showTaksitModal}
+                  onClose={() => setShowTaksitModal(false)}
+                  fiyat={total}
+                  urunAdi="Sepet Toplamı"
+                />
 
                 {/* Güven Rozetleri */}
                 <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 gap-1.5 sm:gap-2">

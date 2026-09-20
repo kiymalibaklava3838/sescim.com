@@ -33,6 +33,16 @@ const nextConfig = {
         destination: '/hesabim',
         permanent: true,
       },
+      {
+        source: '/kategoriler/:slug*',
+        destination: '/urunler/:slug*',
+        permanent: true,
+      },
+      {
+        source: '/kategori/:slug*',
+        destination: '/urunler/:slug*',
+        permanent: true,
+      },
     ]
   },
   async headers() {

@@ -24,7 +24,7 @@ import { ProductCard } from '@/components/ProductGrid'
 import RecentlyViewed from '@/components/RecentlyViewed'
 import ProductViewTracker from '@/components/ProductViewTracker'
 import StockNotifyButton from '@/components/StockNotifyButton'
-import ProductReviews from '@/components/ProductReviews'
+import ProductReviews, { parseReviewContent } from '@/components/ProductReviews'
 import SmartBundleBuilder from '@/components/SmartBundleBuilder'
 import MobileStickyAddToCart from '@/components/MobileStickyAddToCart'
 
@@ -96,14 +96,16 @@ export default async function UrunDetayPage({ params }: Props) {
   // Breadcrumb hiyerarşisi
   const breadcrumbs = getBreadcrumbs(product.kategori, product.alt_kategori, product.urun_tipi)
 
-  // Onaylı yorumları ve puan ortalamasını çek
+  // Onaylı yorumları, puan ortalamasını ve review listesini çek
   let aggregateRating: any = undefined
+  let reviewsJsonLd: any[] = []
   try {
     const { data: approvedReviews } = await supabase
       .from('urun_yorumlari')
-      .select('puan')
+      .select('id, puan, ad_soyad, yorum, created_at')
       .eq('urun_id', product.id)
       .eq('onaylandi', true)
+      .order('created_at', { ascending: false })
 
     if (approvedReviews && approvedReviews.length > 0) {
       const totalPuan = approvedReviews.reduce((acc: number, r: any) => acc + (r.puan || 5), 0)
@@ -115,6 +117,24 @@ export default async function UrunDetayPage({ params }: Props) {
         bestRating: 5,
         worstRating: 1,
       }
+      reviewsJsonLd = approvedReviews.map((r: any) => {
+        const { cleanYorum } = parseReviewContent(r.yorum || '')
+        return {
+          '@type': 'Review',
+          author: {
+            '@type': 'Person',
+            name: r.ad_soyad || 'Müşteri',
+          },
+          datePublished: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2025-01-01',
+          reviewRating: {
+            '@type': 'Rating',
+            ratingValue: r.puan || 5,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          reviewBody: cleanYorum || 'Ürün değerlendirmesi',
+        }
+      })
     }
   } catch (e) {
     // Yorum çekme hatası olursa şema aksamasın
@@ -142,6 +162,10 @@ export default async function UrunDetayPage({ params }: Props) {
     productJsonLd.aggregateRating = aggregateRating
   }
 
+  if (reviewsJsonLd.length > 0) {
+    productJsonLd.review = reviewsJsonLd
+  }
+
   const effectivePrice = (!isFiyatSorunuz && priceTL && priceTL > 0) ? priceTL : 0
   const isAvailable = !isFiyatSorunuz && effectivePrice > 0 && stok !== 'tukendi' && stok !== 'tükendi'
   const validFromDate = product.created_at
@@ -165,43 +189,65 @@ export default async function UrunDetayPage({ params }: Props) {
         name: 'Sescim',
         url: base,
       },
-    hasMerchantReturnPolicy: {
-      '@type': 'MerchantReturnPolicy',
-      applicableCountry: 'TR',
-      returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
-      merchantReturnDays: 14,
-      returnMethod: 'https://schema.org/ReturnByMail',
-      returnFees: 'https://schema.org/FreeReturn',
-    },
-    shippingDetails: {
-      '@type': 'OfferShippingDetails',
-      shippingRate: {
-        '@type': 'MonetaryAmount',
-        value: effectivePrice >= 1999 ? 0 : 149,
-        currency: 'TRY',
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'TR',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+        merchantReturnDays: 14,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/FreeReturn',
       },
-      shippingDestination: {
-        '@type': 'DefinedRegion',
-        addressCountry: 'TR',
-      },
-      deliveryTime: {
-        '@type': 'ShippingDeliveryTime',
-        handlingTime: {
-          '@type': 'QuantitativeValue',
-          minValue: 0,
-          maxValue: 1,
-          unitCode: 'DAY',
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: effectivePrice >= 1999 ? 0 : 149,
+          currency: 'TRY',
         },
-        transitTime: {
-          '@type': 'QuantitativeValue',
-          minValue: 1,
-          maxValue: 3,
-          unitCode: 'DAY',
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'TR',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 1,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 1,
+            maxValue: 3,
+            unitCode: 'DAY',
+          },
         },
       },
-    },
+    }
   }
-}
+
+  const hasOffers = !!productJsonLd.offers
+  const hasReviews = !!productJsonLd.aggregateRating || (productJsonLd.review && productJsonLd.review.length > 0)
+
+  // Google Rich Results Kuralı: Product şemasında 'offers', 'review' veya 'aggregateRating' en az biri bulunmalıdır.
+  // Fiyatı internet satışına açık olmayan (Fiyat Sorunuz) ve henüz yorumu bulunmayan ürünlerde geçersiz Product şeması yerine
+  // Google'ın hata vermeyeceği geçerli ItemPage şeması sunulur.
+  const schemaJsonLd = (hasOffers || hasReviews) ? productJsonLd : {
+    '@context': 'https://schema.org',
+    '@type': 'ItemPage',
+    name: product.ad,
+    description: product.aciklama ? product.aciklama.slice(0, 5000) : product.ad,
+    image: product.fotograflar?.length ? product.fotograflar : [`${base}/logo.png`],
+    url: `${base}/urun/${product.slug}`,
+    mainEntity: {
+      '@type': 'Thing',
+      name: product.ad,
+      description: product.aciklama ? product.aciklama.slice(0, 500) : product.ad,
+      category: product.kategori,
+      brand: brandName,
+    }
+  }
 
   // Google BreadcrumbList Schema (SERP URL Hiyerarşisi için)
   const breadcrumbJsonLd = {
@@ -241,7 +287,7 @@ export default async function UrunDetayPage({ params }: Props) {
         category: product.kategori || product.urun_tipi || product.alt_kategori || null,
         timestamp: Date.now()
       }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 w-full min-w-0">
         

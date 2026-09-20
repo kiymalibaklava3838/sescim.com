@@ -82,7 +82,7 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
           >
             <Image 
               src={images[active]} 
-              alt={alt} 
+              alt={`${alt} - Profesyonel Ekipman Görseli ${active + 1} | Sescim`} 
               fill 
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -138,7 +138,7 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
             >
               <Image 
                 src={img} 
-                alt={alt + " " + (i + 1)} 
+                alt={`${alt} - Küçük Görsel ${i + 1} | Sescim`} 
                 fill 
                 className="object-contain p-1" 
               />

@@ -10,8 +10,12 @@ import { Metadata } from 'next'
 export async function generateMetadata({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }): Promise<Metadata> {
   const q = searchParams.q as string || ''
   return {
-    title: q ? `"${q}" için Arama Sonuçları` : 'Arama',
-    description: q ? `"${q}" arama sonuçları sescim.com'da.` : 'Ürün arama',
+    title: q ? `"${q}" için Arama Sonuçları | Sescim` : 'Arama | Sescim',
+    description: q ? `"${q}" ürün arama sonuçları sescim.com'da.` : 'Ürün arama',
+    robots: {
+      index: false,
+      follow: true,
+    },
   }
 }
 
@@ -39,7 +43,12 @@ export default async function AramaPage({
       sescim_aktif: p.sescim_aktif !== false
     }))
     const aData = akdagRes.data || []
-    const combined = [...sData, ...aData]
+
+    // Deduplicate by product id
+    const productMap = new Map<string, any>()
+    sData.forEach((p: any) => productMap.set(p.id, p))
+    aData.forEach((p: any) => { if (!productMap.has(p.id)) productMap.set(p.id, p) })
+    const combined = Array.from(productMap.values())
       
     if (combined && combined.length > 0) {
       try {

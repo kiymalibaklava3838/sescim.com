@@ -7,7 +7,7 @@ import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
 import KargoTakip from '@/components/KargoTakip'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
+import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map as MapIcon, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
 import OrderTimeline from '@/components/OrderTimeline'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import type { User } from '@supabase/supabase-js'
@@ -233,13 +233,49 @@ export default function HesabimPage() {
     }
 
     // Yorumları Çek
-    const { data: reviews } = await supabase
-      .from('urun_yorumlari')
-      .select('id, urun_id, puan, yorum, durum, created_at, urun:urunler(ad, slug, fotograflar)')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      
-    setDegerlendirmeler(reviews || [])
+    try {
+      const { data: reviews } = await supabase
+        .from('urun_yorumlari')
+        .select('id, urun_id, puan, yorum, onaylandi, created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (reviews && reviews.length > 0) {
+        const urunIds = Array.from(new Set(reviews.map((r: any) => r.urun_id).filter(Boolean)))
+        const urunlerMap = new Map<string, any>()
+        try {
+          const { createAkdagBrowserClient } = await import('@/lib/supabase-akdag')
+          const akdagClient = createAkdagBrowserClient()
+          const { data: aUrunler } = await akdagClient
+            .from('urunler')
+            .select('id, ad, slug, fotograflar')
+            .in('id', urunIds)
+          ;(aUrunler || []).forEach((u: any) => urunlerMap.set(u.id, u))
+        } catch {}
+
+        const formattedReviews = reviews.map((r: any) => {
+          const u = urunlerMap.get(r.urun_id)
+          return {
+            id: r.id,
+            urun_id: r.urun_id,
+            puan: r.puan,
+            yorum: r.yorum,
+            durum: r.onaylandi ? 'onaylandi' : 'bekliyor',
+            created_at: r.created_at,
+            urun: {
+              ad: u?.ad || 'Ürün',
+              slug: u?.slug || r.urun_id,
+              fotograflar: u?.fotograflar || []
+            }
+          }
+        })
+        setDegerlendirmeler(formattedReviews as any)
+      } else {
+        setDegerlendirmeler([])
+      }
+    } catch {
+      setDegerlendirmeler([])
+    }
 
     // Kuponları ve Kullanıcıya Tanımlı Kuponları Çek
     let savedCodes: string[] = []
@@ -1121,7 +1157,7 @@ export default function HesabimPage() {
                 {adresler.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Map size={24} className="text-slate-300" />
+                      <MapIcon size={24} className="text-slate-300" />
                     </div>
                     <p className="font-display font-semibold text-base text-slate-600 mb-2">
                       Kayıtlı adresiniz bulunmuyor

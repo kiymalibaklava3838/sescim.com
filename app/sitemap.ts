@@ -23,13 +23,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getSiteUrl()
   const supabase = await createAkdagServerClient()
 
-  // 1. Static Pages
+  // 1. Static Pages (Indexable public pages)
   const staticPages = [
     '',
     '/hakkimizda',
     '/iletisim',
     '/karsilastir',
-    '/sepet',
     '/yeni-gelenler',
     '/firsatlar',
     '/kampanyalar',
@@ -71,7 +70,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
-    ...(product.fotograflar?.[0] ? { images: [product.fotograflar[0]] } : {})
+    ...(Array.isArray(product.fotograflar) && product.fotograflar.length > 0 
+      ? { images: product.fotograflar.slice(0, 5) } 
+      : {})
   }))
 
   return [...staticPages, ...categorySitemap, ...productSitemap]

@@ -1,13 +1,55 @@
+# Sescim.com Official robots.txt
+# Canonical: https://www.sescim.com
+
 User-agent: *
 Allow: /
 Allow: /api/feed/
 Disallow: /admin
+Disallow: /admin/
 Disallow: /bayi
 Disallow: /checkout
 Disallow: /sepet
 Disallow: /uye
 Disallow: /hesabim
+Disallow: /siparis-takip
+Disallow: /siparis/
 Disallow: /api/
+Disallow: /arama
+Disallow: /*?*min=
+Disallow: /*?*max=
+Disallow: /*?*sirala=
+Disallow: /*?*stok=
+Disallow: /*?*sayfa=
 
-Sitemap: https://sescim.com/sitemap.xml
+# Block aggressive and bandwidth-draining scraping bots
+User-agent: SemrushBot
+Disallow: /
 
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+Sitemap: https://www.sescim.com/sitemap.xml

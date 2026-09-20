@@ -14,6 +14,7 @@ import ProductFilters from '@/components/ProductFilters'
 import { getActiveInspirationSets } from '@/lib/ilham-setleri'
 import { getProTercihProducts } from '@/lib/pro-tercih'
 import DiscoverCuratedSections from '@/components/DiscoverCuratedSections'
+import CategorySeoText from '@/components/CategorySeoText'
 
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { unstable_cache } from 'next/cache'
@@ -86,16 +87,21 @@ interface Props {
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const baseUrl = getSiteUrl()
+  const hasFilterParams = !!(searchParams?.min || searchParams?.max || searchParams?.stok || searchParams?.sirala || searchParams?.kullanim)
+  const robots = hasFilterParams 
+    ? { index: false, follow: true }
+    : { index: true, follow: true }
 
   if (searchParams?.marka) {
     const marka = searchParams.marka
-    const rawTitle = `${marka} Ürünleri, Modelleri ve Fiyatları`
-    const description = `Tüm orijinal ${marka} profesyonel ses, sahne ve stüdyo ekipmanları en uygun fiyat ve distribütör garantisiyle Sescim'de.`
+    const rawTitle = `${marka} Fiyatları ve Modelleri | Yetkili Satıcı - Sescim`
+    const description = `Tüm orijinal ${marka} profesyonel ses, sahne ve stüdyo ekipmanları en uygun fiyat, aynı gün kargo ve resmi distribütör garantisiyle Sescim'de.`
     const url = `${baseUrl}/urunler?marka=${encodeURIComponent(marka)}`
     return { 
       title: rawTitle,
       description,
       alternates: { canonical: url },
+      robots,
       openGraph: {
         title: `${rawTitle} | Sescim`,
         description,
@@ -115,13 +121,14 @@ export async function generateMetadata({ params, searchParams }: Props) {
   }
 
   if (!params.slug || params.slug.length === 0) {
-    const rawTitle = 'Tüm Profesyonel Ses, Işık ve Görüntü Ürünleri'
-    const description = 'Tüm profesyonel ses sistemleri, mikserler, hoparlörler, mikrofonlar ve sahne sistemleri en uygun fiyat ve taksit seçenekleriyle Sescim\'de.'
+    const rawTitle = 'Profesyonel Ses, Işık ve Görüntü Ekipmanları | Sescim'
+    const description = 'Türkiye\'nin profesyonel ses sistemleri, mikserler, hoparlörler, sahne ışıkları ve stüdyo ekipmanları online satış mağazası. Aynı gün kargo, peşin fiyatına taksit.'
     const url = `${baseUrl}/urunler`
     return { 
       title: rawTitle,
       description,
       alternates: { canonical: url },
+      robots,
       openGraph: {
         title: `${rawTitle} | Sescim`,
         description,
@@ -144,14 +151,15 @@ export async function generateMetadata({ params, searchParams }: Props) {
   if (!category) return { title: 'Ürünler' }
 
   const catName = category.name
-  const rawTitle = `${catName} Modelleri ve Fiyatları`
-  const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, orijinal ürün garantisi, aynı gün kargo ve 12 aya varan taksit seçenekleriyle Sescim'de.`
+  const rawTitle = `${catName} Fiyatları ve Modelleri | Peşin Fiyatına Taksit - Sescim`
+  const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, %100 orijinal distribütör garantisi, aynı gün kargo ve 12 aya varan taksit avantajıyla Sescim'de. Hemen inceleyin!`
   const url = `${baseUrl}/urunler/${params.slug.join('/')}`
 
   return { 
     title: rawTitle,
     description,
     alternates: { canonical: url },
+    robots,
     openGraph: {
       title: `${rawTitle} | Sescim`,
       description,
@@ -580,6 +588,12 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               />
             </div>
           )}
+
+          {/* Kategori SEO Rehber & Tanıtım Metinleri */}
+          <CategorySeoText 
+            categorySlug={slugArray[slugArray.length - 1] || activeCategory?.slug} 
+            categoryName={filters.marka ? `${filters.marka} Profesyonel Ekipmanları` : activeCategory?.name} 
+          />
           </div>
         </div>
       )}

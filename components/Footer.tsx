@@ -14,11 +14,31 @@ export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
   const [couponCopied, setCouponCopied] = useState(false)
+  const [newsletterLoading, setNewsletterLoading] = useState(false)
+  const [newsletterError, setNewsletterError] = useState('')
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newsletterEmail.trim() || !newsletterEmail.includes('@')) return
-    setNewsletterSubscribed(true)
+    setNewsletterLoading(true)
+    setNewsletterError('')
+    try {
+      const res = await fetch('/api/bulten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsletterEmail }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setNewsletterSubscribed(true)
+      } else {
+        setNewsletterError(data.error || 'Abonelik oluşturulamadı.')
+      }
+    } catch {
+      setNewsletterError('Bağlantı hatası oluştu.')
+    } finally {
+      setNewsletterLoading(false)
+    }
   }
 
   const copyCoupon = () => {
@@ -65,19 +85,29 @@ export default function Footer() {
               </div>
             </div>
           ) : (
-            <form className="flex w-full max-w-md" onSubmit={handleNewsletterSubmit}>
-              <input
-                type="email"
-                placeholder="E-posta adresinizi giriniz"
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                required
-                className="flex-1 border border-slate-300 rounded-l-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white"
-              />
-              <button type="submit" className="bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-r-xl transition-colors shrink-0">
-                ABONE OL
-              </button>
-            </form>
+            <div className="w-full max-w-md flex flex-col items-start">
+              <form className="flex w-full" onSubmit={handleNewsletterSubmit}>
+                <input
+                  type="email"
+                  placeholder="E-posta adresinizi giriniz"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  required
+                  disabled={newsletterLoading}
+                  className="flex-1 border border-slate-300 rounded-l-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white disabled:opacity-60"
+                />
+                <button
+                  type="submit"
+                  disabled={newsletterLoading}
+                  className="bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-r-xl transition-colors shrink-0 disabled:opacity-60 cursor-pointer"
+                >
+                  {newsletterLoading ? 'KAYDEDİLİYOR...' : 'ABONE OL'}
+                </button>
+              </form>
+              {newsletterError && (
+                <p className="text-xs text-red-600 mt-1.5 font-medium">{newsletterError}</p>
+              )}
+            </div>
           )}
         </div>
       </div>

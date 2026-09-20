@@ -228,7 +228,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           {product.fotograflar?.[0] ? (
             <Image 
               src={product.fotograflar[0]} 
-              alt={product.ad} 
+              alt={`${product.ad} - Profesyonel ${product.kategori || 'Ses Ekipmanı'} | Sescim`} 
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               loading="lazy"

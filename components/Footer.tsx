@@ -118,7 +118,7 @@ export default function Footer() {
         {/* Brand & Socials */}
         <div className="md:col-span-1">
           <Link href="/" className="inline-block mb-6">
-            <Image src="/logo.png" alt="sescim.com" width={140} height={48} className="object-contain h-10 w-auto" />
+            <Image src="/logo.png" alt="sescim.com" width={140} height={40} className="object-contain h-10 w-auto" />
           </Link>
           <p className="text-slate-500 text-sm leading-relaxed mb-6">
             Türkiye'nin yeni nesil müzik, ses, ışık ve stüdyo marketi. Profesyonel ve amatör müzisyenler için binlerce orijinal distribütör garantili ürün.
@@ -127,10 +127,10 @@ export default function Footer() {
             <a href="https://www.instagram.com/sescimofficial" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors" aria-label="Instagram">
               <Instagram size={20} />
             </a>
-            <a href="https://youtube.com/@sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors">
+            <a href="https://youtube.com/@sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors" aria-label="YouTube">
               <Youtube size={20} />
             </a>
-            <a href="https://twitter.com/sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors">
+            <a href="https://twitter.com/sescim" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-red transition-colors" aria-label="Twitter">
               <Twitter size={20} />
             </a>
           </div>

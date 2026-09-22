@@ -153,7 +153,11 @@ export default function Navbar() {
               )}
             </Link>
           </div>
-          <a href="tel:+903522316915" className="flex items-center gap-1.5 font-semibold text-slate-300 hover:text-white transition-colors shrink-0 ml-4">
+          <a 
+            href="tel:+903522316915" 
+            aria-label="Müşteri Hizmetleri Telefon: +90 352 231 69 15"
+            className="flex items-center gap-1.5 font-semibold text-slate-300 hover:text-white transition-colors shrink-0 ml-4"
+          >
             <Phone size={12} className="text-brand-red" />
             <span className="hidden sm:inline">+90 352 231 69 15</span>
           </a>

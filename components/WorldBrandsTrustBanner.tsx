@@ -80,7 +80,7 @@ export default function WorldBrandsTrustBanner() {
         <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-white via-white/80 to-transparent z-20 pointer-events-none" />
 
         <div className="relative flex overflow-hidden w-full">
-          <div className="flex animate-marquee whitespace-nowrap group-hover:[animation-play-state:paused] py-1 items-center">
+          <div className="flex animate-marquee whitespace-nowrap group-hover:[animation-play-state:paused] py-1 items-center will-change-transform gpu-accelerate">
             {MARQUEE_BRANDS.map((brand, index) => (
               <Link
                 key={index}

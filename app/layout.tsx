@@ -6,29 +6,30 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import MobileBottomNav from '@/components/MobileBottomNav'
-import CartDrawer from '@/components/CartDrawer'
-import GlobalLoader from '@/components/GlobalLoader'
 import RouteProgressBar from '@/components/RouteProgressBar'
-import CartToast from '@/components/CartToast'
-import QuickViewModal from '@/components/QuickViewModal'
 import dynamic from 'next/dynamic'
 import { getSiteUrl } from '@/lib/site-url'
 
+const CartDrawer = dynamic(() => import('@/components/CartDrawer'), { ssr: false })
+const CartToast = dynamic(() => import('@/components/CartToast'), { ssr: false })
+const QuickViewModal = dynamic(() => import('@/components/QuickViewModal'), { ssr: false })
+const KvkkBanner = dynamic(() => import('@/components/KvkkBanner'), { ssr: false })
+
 const barlow = Barlow({ 
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  weight: ['400', '600', '700'],
   variable: '--font-body',
   display: 'swap',
+  preload: true,
 })
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['600', '700'],
   variable: '--font-display',
   display: 'swap',
+  preload: true,
 })
-
-const KvkkBanner = dynamic(() => import('@/components/KvkkBanner'), { ssr: false })
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -163,6 +164,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="tr" className={`${barlow.variable} ${barlowCondensed.variable}`} suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+      </head>
       <body className="bg-slate-50 text-slate-900 antialiased font-body">
         {/* Meta Pixel Code - Yalnızca geçerli bir Pixel ID tanımlıysa yüklenir */}
         {hasValidPixel && (
@@ -182,7 +188,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Script>
         )}
         <RouteProgressBar />
-        <GlobalLoader />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}

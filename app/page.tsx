@@ -3,11 +3,16 @@ import { Speaker, Lightbulb, Monitor, Headphones, Music, Mic, Package, Plug } fr
 import FeaturedProducts from '@/components/FeaturedProducts'
 import DailyDealsSection from '@/components/DailyDealsSection'
 import ProTercihSection from '@/components/ProTercihSection'
-import PersonalizedRecommendationsSection from '@/components/PersonalizedRecommendationsSection'
 import HeroSlider from '@/components/HeroSlider'
 import TrustBadges from '@/components/TrustBadges'
 import WorldBrandsTrustBanner from '@/components/WorldBrandsTrustBanner'
 import { getActiveParsedBanners } from '@/lib/banner-service'
+import dynamic from 'next/dynamic'
+
+const PersonalizedRecommendationsSection = dynamic(
+  () => import('@/components/PersonalizedRecommendationsSection'),
+  { ssr: false }
+)
 
 const categories = [
   { icon: Speaker, label: 'Ses Sistemleri', slug: 'ses-sistemleri' },

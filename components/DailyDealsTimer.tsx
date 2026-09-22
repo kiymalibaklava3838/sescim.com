@@ -48,7 +48,7 @@ export default function DailyDealsTimer({ targetDate }: Props) {
   return (
     <div className="inline-flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-medium shadow-sm">
       <div className="flex items-center gap-1.5 text-amber-400 font-bold uppercase tracking-wider text-[11px]">
-        <Flame size={14} className="animate-bounce text-amber-400" />
+        <Flame size={14} className="text-amber-400 shrink-0" />
         <span className="hidden sm:inline">Kalan Süre:</span>
       </div>
       <div className="flex items-center gap-1 font-mono font-bold text-xs tracking-wider">

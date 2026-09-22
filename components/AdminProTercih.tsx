@@ -137,30 +137,37 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
     setActionLoading(true)
     try {
       const nextSira = selectedItems.length + 1
-      const { data, error } = await supabase
-        .from('ozel_urunler')
-        .insert([{
-          urun_id: prod.id,
-          tip: 'profesyonellerin_tercihi',
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      const res = await fetch('/api/admin/pro-tercih', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          product: prod,
           sira: nextSira
-        }])
-        .select()
+        })
+      })
 
-      if (error) throw error
-
-      if (data && data[0]) {
-        setSelectedItems([
-          ...selectedItems,
-          {
-            ozel_id: data[0].id,
-            sira: nextSira,
-            product: prod
-          }
-        ])
-        await triggerRevalidate()
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Ürün eklenemedi')
       }
+
+      setSelectedItems([
+        ...selectedItems,
+        {
+          ozel_id: json.data?.id || `temp-${Date.now()}`,
+          sira: nextSira,
+          product: prod
+        }
+      ])
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 4000)
     } catch (err: any) {
-      alert('Eklenemedi: ' + err.message)
+      alert(err.message)
     } finally {
       setActionLoading(false)
     }
@@ -170,16 +177,24 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
     if (!confirm('Bu ürünü listeden çıkarmak istiyor musunuz?')) return
     setActionLoading(true)
     try {
-      const { error } = await supabase
-        .from('ozel_urunler')
-        .delete()
-        .eq('id', ozelId)
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/admin/pro-tercih?id=${ozelId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        }
+      })
 
-      if (error) throw error
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Ürün silinemedi')
+      }
+
       setSelectedItems(selectedItems.filter(i => i.ozel_id !== ozelId))
-      await triggerRevalidate()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 4000)
     } catch (err: any) {
-      alert('Çıkarılamadı: ' + err.message)
+      alert(err.message)
     } finally {
       setActionLoading(false)
     }

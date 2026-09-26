@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Check, ShoppingBag } from 'lucide-react'
 import { addToCart, getCartCount } from '@/lib/cart'
-import { dovizToTL, type KurData } from '@/lib/kur'
+import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { useCartStore } from '@/store/useCartStore'
 
@@ -27,7 +27,7 @@ interface Props {
 export default function MobileStickyAddToCart({ product }: Props) {
   const [added, setAdded] = useState(false)
   const [cartCount, setCartCount] = useState(0)
-  const [kur, setKur] = useState<KurData>({ USD: 38.0, EUR: 41.0, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const { toggleDrawer } = useCartStore()
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
   }
 
   const shareText = encodeURIComponent(
-    `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://sescim.com/urun/${product.slug || product.id}`
+    `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://www.sescim.com/urun/${product.slug || product.id}`
   )
 
   return (

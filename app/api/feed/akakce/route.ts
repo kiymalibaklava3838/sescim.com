@@ -3,40 +3,22 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
-import { dovizToTL, KurData } from '@/lib/kur'
+import { dovizToTL, getKur } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export const revalidate = 7200 // 2 saat Edge CDN önbellek
-
-async function getLiveKur(): Promise<KurData> {
-  try {
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
-      next: { revalidate: 3600 },
-    })
-    const data = await res.json()
-    const usdTry = data.rates?.TRY || 38.0
-    const eurTry = usdTry / (data.rates?.EUR || 1.05)
-    return {
-      USD: parseFloat(usdTry.toFixed(2)),
-      EUR: parseFloat(eurTry.toFixed(2)),
-      guncelleme: new Date().toISOString(),
-    }
-  } catch {
-    return { USD: 38.0, EUR: 41.0, guncelleme: null, fallback: true }
-  }
-}
 
 export async function GET() {
   try {
     const baseUrl = getSiteUrl()
     const supabase = await createAkdagServerClient()
     const sescimDb = await createServerSupabaseClient()
-    const kur = await getLiveKur()
+    const kur = await getKur()
 
     // 1. Akdağ ve Sescim ürünlerini çek
     const [akdagRes, sescimRes] = await Promise.all([
-      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, barkod').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, barkod, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').limit(5000) : Promise.resolve({ data: [] })
+      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu').limit(10000),
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').limit(5000) : Promise.resolve({ data: [] })
     ])
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({

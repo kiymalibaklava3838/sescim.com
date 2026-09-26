@@ -126,9 +126,9 @@ export default function IptalVeIade() {
               {[
                 { step: '1', title: 'Bildirim', desc: 'Cayma iradenizi telefon veya e-posta ile tarafımıza bildirin.' },
                 { step: '2', title: 'Onay', desc: 'İade talebiniz incelendikten sonra onay ve kargo bilgileri iletilir.' },
-                { step: '3', title: 'Kargolama', desc: 'Ürünü orijinal ambalajında, eksiksiz olarak belirtilen adrese gönderin.' },
-                { step: '4', title: 'Kontrol', desc: 'Ürün tarafımıza ulaştığında kontrol edilir.' },
-                { step: '5', title: 'Para İadesi', desc: 'Onay sonrası 14 gün içinde ödeme yönteminize iade yapılır.' },
+                { step: '3', title: 'Kargolama', desc: 'Ürünü orijinal ambalajında, tüm aksesuarlarıyla birlikte iade adresimize gönderin.' },
+                { step: '4', title: 'Kontrol', desc: 'Ürün teknik ekibimizce incelenir ve onaylanır.' },
+                { step: '5', title: 'Para İadesi', desc: 'Onay sonrası 14 gün içinde ödeme yönteminize eksiksiz iade yapılır.' },
               ].map((item) => (
                 <div key={item.step} className="relative">
                   <div className="absolute -left-[33px] w-4 h-4 bg-brand-red border-2 border-white rounded-full" />
@@ -136,6 +136,20 @@ export default function IptalVeIade() {
                   <p className="text-slate-500 mt-1 font-body text-sm">{item.desc}</p>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-display font-bold text-slate-800 mb-6">İade Gönderim Adresi ve Satıcı Bilgileri</h2>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-2 font-body text-slate-700 text-sm">
+              <p><strong>Alıcı / Firma:</strong> Mustafa Akdağ - Akdağ Elektronik (Sescim.com İade Birimi)</p>
+              <p><strong>Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</p>
+              <p><strong>Telefon:</strong> +90 352 231 69 15 (Pzt - Cmt: 09:00 - 19:00)</p>
+              <p><strong>E-posta:</strong> info@sescim.com</p>
+              <p><strong>Vergi Dairesi &amp; No:</strong> Erciyes Vergi Dairesi / 0200327808</p>
+              <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">
+                * Kargonuzu gönderirken koli üzerine mutlaka <strong>Sipariş Numaranızı</strong> ve adınızı soyadınızı yazınız.
+              </p>
             </div>
           </section>
 

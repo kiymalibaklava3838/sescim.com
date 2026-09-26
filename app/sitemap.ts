@@ -26,8 +26,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 1. Static Pages (Indexable public pages)
   const staticPages = [
     '',
+    '/urunler',
     '/hakkimizda',
     '/iletisim',
+    '/teslimat-ve-kargo',
+    '/iptal-ve-iade',
+    '/mesafeli-satis-sozlesmesi',
+    '/on-bilgilendirme-formu',
+    '/gizlilik-politikasi',
     '/karsilastir',
     '/yeni-gelenler',
     '/firsatlar',

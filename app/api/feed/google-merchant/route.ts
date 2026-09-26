@@ -3,7 +3,7 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
-import { dovizToTL, KurData } from '@/lib/kur'
+import { dovizToTL, getKur } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export const revalidate = 7200 // 2 saat Edge CDN önbellek
@@ -13,29 +13,20 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()
 }
 
-async function getLiveKur(): Promise<KurData> {
-  try {
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
-      next: { revalidate: 3600 },
-    })
-    const data = await res.json()
-    const usdTry = data.rates?.TRY || 38.0
-    const eurTry = usdTry / (data.rates?.EUR || 1.05)
-    return {
-      USD: parseFloat(usdTry.toFixed(2)),
-      EUR: parseFloat(eurTry.toFixed(2)),
-      guncelleme: new Date().toISOString(),
-    }
-  } catch {
-    return { USD: 38.0, EUR: 41.0, guncelleme: null, fallback: true }
-  }
+function getGoogleProductCategory(kategori?: string): string {
+  if (!kategori) return '500044'
+  const k = kategori.toLowerCase()
+  if (k.includes('ışık') || k.includes('isik') || k.includes('lighting') || k.includes('sahne')) return '505353'
+  if (k.includes('görüntü') || k.includes('goruntu') || k.includes('projeksiyon') || k.includes('led')) return '211'
+  if (k.includes('kablo') || k.includes('konnektör') || k.includes('adaptör')) return '4054'
+  return '500044'
 }
 
 export async function GET() {
   try {
     const baseUrl = getSiteUrl()
     const supabase = await createAkdagServerClient()
-    const kur = await getLiveKur()
+    const kur = await getKur()
 
     // 1. Hem Akdağ hem Sescim veritabanındaki ürünleri çek (Hibrit)
     const sescimDb = await createServerSupabaseClient()
@@ -103,14 +94,16 @@ export async function GET() {
       const stok = p.stok_durumu || 'stokta'
       const availability = (stok === 'tukendi' || stok === 'tükendi') ? 'out_of_stock' : 'in_stock'
       const link = `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`
-      const brand = p.marka || 'Akdağ Elektronik'
-      const mpn = p.model_kodu || p.id
-      const desc = stripHtml(p.aciklama || p.ad).slice(0, 5000)
+      const brand = (p.marka || 'Akdağ Elektronik').trim()
+      const realMpn = p.model_kodu && typeof p.model_kodu === 'string' && p.model_kodu.trim() ? p.model_kodu.trim() : null
+      const title = (p.ad || '').slice(0, 150).trim()
+      const rawDesc = stripHtml(p.aciklama || '').trim()
+      const desc = (rawDesc || p.ad || 'Profesyonel Ses ve Sahne Ekipmanı').slice(0, 5000)
       const categoryPath = [p.kategori, p.alt_kategori, p.urun_tipi].filter(Boolean).join(' > ')
 
       xml += '    <item>\n'
       xml += `      <g:id>${p.id}</g:id>\n`
-      xml += `      <g:title><![CDATA[${p.ad || ''}]]></g:title>\n`
+      xml += `      <g:title><![CDATA[${title}]]></g:title>\n`
       xml += `      <g:description><![CDATA[${desc}]]></g:description>\n`
       xml += `      <g:link>${link}</g:link>\n`
       xml += `      <g:image_link>${mainImage}</g:image_link>\n`
@@ -129,12 +122,19 @@ export async function GET() {
       } else {
         xml += `      <g:price>${finalPriceTL.toFixed(2)} TRY</g:price>\n`
       }
-      xml += `      <g:brand><![CDATA[${brand}]]></g:brand>\n`
-      xml += `      <g:mpn><![CDATA[${mpn}]]></g:mpn>\n`
-      xml += '      <g:identifier_exists>no</g:identifier_exists>\n'
+      if (brand) {
+        xml += `      <g:brand><![CDATA[${brand}]]></g:brand>\n`
+      }
+      if (realMpn) {
+        xml += `      <g:mpn><![CDATA[${realMpn}]]></g:mpn>\n`
+      } else {
+        xml += '      <g:identifier_exists>no</g:identifier_exists>\n'
+      }
       if (categoryPath) {
         xml += `      <g:product_type><![CDATA[${categoryPath}]]></g:product_type>\n`
       }
+      const gpc = getGoogleProductCategory(p.kategori || p.alt_kategori)
+      xml += `      <g:google_product_category>${gpc}</g:google_product_category>\n`
       xml += '      <g:shipping>\n'
       xml += '        <g:country>TR</g:country>\n'
       xml += '        <g:service>Standart Sigortalı Kargo</g:service>\n'

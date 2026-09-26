@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit, Save, X, Eye, EyeOff, Sparkles, Layers, ArrowRight, Check } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, X, Eye, EyeOff, Sparkles, Layers, ArrowRight, Check, Upload, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import { DEFAULT_INSPIRATION_SETS, InspirationSet } from '@/lib/ilham-setleri'
 
@@ -11,6 +11,8 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const [formData, setFormData] = useState({
     baslik: '',
@@ -24,6 +26,43 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
   useEffect(() => {
     loadSets()
   }, [])
+
+  async function triggerRevalidate() {
+    try {
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/urunler' })
+      })
+      await fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/' })
+      })
+    } catch (e) {
+      console.warn('Revalidation warning:', e)
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImage(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const filePath = `ilham-setleri/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('urun-fotograflari').upload(filePath, file)
+      if (uploadErr) throw uploadErr
+      const { data } = supabase.storage.from('urun-fotograflari').getPublicUrl(filePath)
+      if (data?.publicUrl) {
+        setFormData(prev => ({ ...prev, resim_url: data.publicUrl }))
+      }
+    } catch (err: any) {
+      alert('Görsel yüklenemedi: ' + err.message)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
 
   async function loadSets() {
     setLoading(true)
@@ -51,6 +90,7 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
       const itemsToInsert = DEFAULT_INSPIRATION_SETS.map(({ id, ...rest }) => rest)
       const { error } = await supabase.from('bannerlar').insert(itemsToInsert)
       if (error) throw error
+      await triggerRevalidate()
       alert('Varsayılan setler başarıyla eklendi!')
       loadSets()
     } catch (err: any) {
@@ -98,6 +138,7 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
         if (error) throw error
       }
 
+      await triggerRevalidate()
       resetForm()
       loadSets()
     } catch (err: any) {
@@ -125,6 +166,7 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
     try {
       const { error } = await supabase.from('bannerlar').delete().eq('id', id)
       if (error) throw error
+      await triggerRevalidate()
       setSets(sets.filter(s => s.id !== id))
     } catch (err: any) {
       alert('Silinemedi: ' + err.message)
@@ -139,6 +181,7 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
         .eq('id', item.id)
 
       if (error) throw error
+      await triggerRevalidate()
       setSets(sets.map(s => s.id === item.id ? { ...s, aktif: !s.aktif } : s))
     } catch (err: any) {
       alert('Güncellenemedi: ' + err.message)
@@ -234,12 +277,32 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Görsel URL *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Görsel URL veya Yükleme *
+                </label>
+                <label className="cursor-pointer text-[11px] font-bold text-brand-red hover:underline flex items-center gap-1">
+                  {uploadingImage ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" /> Yükleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={12} /> Cihazdan Yükle
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                </label>
+              </div>
               <input
                 type="url"
-                placeholder="https://images.unsplash.com/... veya /gorseller/set1.jpg"
+                placeholder="https://images.unsplash.com/... veya Cihazdan Yükle"
                 value={formData.resim_url}
                 onChange={(e) => setFormData({ ...formData, resim_url: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-brand-red"

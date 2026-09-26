@@ -143,6 +143,10 @@ export default async function UrunDetayPage({ params }: Props) {
   const brandName = product.marka || 'Akdağ Elektronik'
 
   // Google Merchant ve SERP Uyumlu Product Schema
+  const realMpn = (product as any).model_kodu && typeof (product as any).model_kodu === 'string' && (product as any).model_kodu.trim()
+    ? (product as any).model_kodu.trim()
+    : undefined
+
   const productJsonLd: any = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -150,7 +154,7 @@ export default async function UrunDetayPage({ params }: Props) {
     description: product.aciklama ? product.aciklama.slice(0, 5000) : product.ad,
     image: product.fotograflar?.length ? product.fotograflar : [`${base}/logo.png`],
     sku: product.id,
-    mpn: (product as any).model_kodu || product.id,
+    ...(realMpn ? { mpn: realMpn } : {}),
     category: product.kategori,
     brand: {
       '@type': 'Brand',
@@ -187,6 +191,7 @@ export default async function UrunDetayPage({ params }: Props) {
       seller: {
         '@type': 'Organization',
         name: 'Sescim',
+        legalName: 'Mustafa Akdağ - Akdağ Elektronik',
         url: base,
       },
       hasMerchantReturnPolicy: {
@@ -196,6 +201,7 @@ export default async function UrunDetayPage({ params }: Props) {
         merchantReturnDays: 14,
         returnMethod: 'https://schema.org/ReturnByMail',
         returnFees: 'https://schema.org/FreeReturn',
+        merchantReturnLink: `${base}/iptal-ve-iade`,
       },
       shippingDetails: {
         '@type': 'OfferShippingDetails',
@@ -208,6 +214,7 @@ export default async function UrunDetayPage({ params }: Props) {
           '@type': 'DefinedRegion',
           addressCountry: 'TR',
         },
+        shippingSettingsLink: `${base}/teslimat-ve-kargo`,
         deliveryTime: {
           '@type': 'ShippingDeliveryTime',
           handlingTime: {

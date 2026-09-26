@@ -6,6 +6,22 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        userAgent: ['Googlebot', 'Google-StoreBot', 'Googlebot-Image'],
+        allow: ['/', '/api/feed/'],
+        disallow: [
+          '/admin',
+          '/admin/',
+          '/bayi',
+          '/checkout',
+          '/sepet',
+          '/uye',
+          '/hesabim',
+          '/siparis-takip',
+          '/siparis/',
+          '/api/admin/',
+        ],
+      },
+      {
         userAgent: '*',
         allow: ['/', '/api/feed/'],
         disallow: [

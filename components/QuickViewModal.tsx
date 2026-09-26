@@ -241,7 +241,7 @@ export default function QuickViewModal() {
               {product.fiyat_sorunuz ? (
                 <a
                   href={`https://wa.me/905323934370?text=${encodeURIComponent(
-                    `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://sescim.com/urun/${product.slug || product.id}`
+                    `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://www.sescim.com/urun/${product.slug || product.id}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

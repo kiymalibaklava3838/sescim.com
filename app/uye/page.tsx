@@ -36,7 +36,7 @@ export default function UyePage() {
   const handleGoogleLogin = async () => {
     const origin = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
       ? window.location.origin
-      : 'https://sescim.com'
+      : 'https://www.sescim.com'
 
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -82,7 +82,7 @@ export default function UyePage() {
     setRegSubmitting(true)
     const origin = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
       ? window.location.origin
-      : 'https://sescim.com'
+      : 'https://www.sescim.com'
 
     const { error: err } = await supabase.auth.signUp({
       email: regEmail,

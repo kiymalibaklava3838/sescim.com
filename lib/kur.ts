@@ -1,4 +1,4 @@
-// Kur yardımcıları — tüm uygulamada kullanılır
+// Kur yardımcıları — tüm uygulamada tek merkezden kullanılır
 import { getSiteUrl } from './site-url'
 
 export interface KurData {
@@ -10,34 +10,43 @@ export interface KurData {
 
 // Güvenli ve güncel varsayılan kurlar
 export const DEFAULT_KUR: KurData = {
-  USD: 38.00,
-  EUR: 41.00,
+  USD: 48.89,
+  EUR: 55.60,
   guncelleme: null,
   fallback: true,
 }
 
 let cachedKur: { data: KurData; timestamp: number } | null = null
 
+/**
+ * Döviz kurlarını harici kaynaktan çeker ve 5 dakika boyunca bellek önbelleğinde tutar.
+ * Sunucu bileşenleri, API rotaları ve feed oluşturucular bu ortak fonksiyonu kullanır.
+ */
 export async function getKur(): Promise<KurData> {
-  // 5 dakikalık sunucu içi bellek önbelleği
   const now = Date.now()
   if (cachedKur && (now - cachedKur.timestamp < 300_000)) {
     return cachedKur.data
   }
 
   try {
-    const baseUrl = typeof window === 'undefined' ? getSiteUrl() : ''
-    const res = await fetch(`${baseUrl}/api/kur`, { 
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
       next: { revalidate: 300 },
-      headers: { 'Accept': 'application/json' }
     })
     if (res.ok) {
-      const data: KurData = await res.json()
-      cachedKur = { data, timestamp: now }
-      return data
+      const data = await res.json()
+      const usdTry = Number(data.rates?.TRY) || DEFAULT_KUR.USD
+      const eurRate = Number(data.rates?.EUR) || 0.88
+      const eurTry = usdTry / eurRate
+
+      const result: KurData = {
+        USD: parseFloat(usdTry.toFixed(2)),
+        EUR: parseFloat(eurTry.toFixed(2)),
+        guncelleme: new Date().toISOString(),
+      }
+      cachedKur = { data: result, timestamp: now }
+      return result
     }
   } catch (e) {
-    // Hata durumunda cache veya varsayılan dön
     if (cachedKur) return cachedKur.data
   }
 

@@ -53,13 +53,13 @@ export const SHIPPING_CONFIG = {
 
   // Gönderici Kurumsal Bilgileri (Kargo Fişi / Etiket İçin)
   SENDER: {
-    title: 'Akdağ Elektronik ve Ses Sistemleri San. Tic. Ltd. Şti.',
+    title: 'Mustafa Akdağ - Akdağ Elektronik',
     brand: 'SESCİM.COM',
     address: 'Cumhuriyet Mah. Sur Cad. No:17/A Melikgazi',
     city: 'KAYSERİ',
     phone: '+90 (352) 231 69 15',
-    taxOffice: 'Mimarsinan V.D.',
-    taxNo: '023 000 0000',
+    taxOffice: 'Erciyes Vergi Dairesi',
+    taxNo: '0200327808',
   }
 }
 

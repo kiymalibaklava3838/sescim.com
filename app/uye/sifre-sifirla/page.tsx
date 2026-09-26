@@ -18,7 +18,7 @@ export default function SifreSifirlaPage() {
     setLoading(true)
     const siteUrl = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
       ? window.location.origin
-      : 'https://sescim.com'
+      : 'https://www.sescim.com'
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${siteUrl}/uye/sifre-guncelle`,
     })

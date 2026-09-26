@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { dovizToTL, formatFiyat, type KurData } from '@/lib/kur'
+import { dovizToTL, formatFiyat, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { Clock } from 'lucide-react'
 
@@ -16,7 +16,7 @@ interface Props {
 export default function UrunFiyatGosterge({
   fiyat, indirimliFiyat, paraBirimi, fiyatGuncelleme, urunAdi = ''
 }: Props) {
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
 
   useEffect(() => {
     getKurClient().then(setKur).catch(() => {})

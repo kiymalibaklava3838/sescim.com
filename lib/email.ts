@@ -71,7 +71,7 @@ function emailShell(content: string): string {
               </div>
 
               <div style="color:#444;font-size:10px;line-height:1.5">
-                © ${new Date().getFullYear()} sescim.com — Akdağ Elektronik San. ve Tic. Ltd. Şti.<br>
+                © ${new Date().getFullYear()} sescim.com — Mustafa Akdağ - Akdağ Elektronik<br>
                 Bu otomatik bir bilgilendirme e-postasıdır.
               </div>
             </td>

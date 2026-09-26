@@ -11,7 +11,7 @@ import {
   clearCart,
   type CartItem,
 } from '@/lib/cart'
-import { dovizToTL, type KurData } from '@/lib/kur'
+import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { 
   ArrowLeft, Trash2, Minus, Plus, CreditCard, Loader2, MapPin, Truck, Store, 
@@ -57,7 +57,7 @@ export default function SepetPage() {
   const [error, setError] = useState('')
   const [doneNo, setDoneNo] = useState('')
   const [payToken, setPayToken] = useState<string | null>(null)
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [payTrWarning, setPayTrWarning] = useState(false)
   const [showTaksitModal, setShowTaksitModal] = useState(false)
   
@@ -914,7 +914,7 @@ export default function SepetPage() {
                         <Check size={14} className="text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
                       </div>
                       <span className="text-xs text-slate-600 font-medium leading-relaxed group-hover:text-slate-800 transition-colors">
-                        <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="text-brand-red hover:underline font-bold">Mesafeli Satış Sözleşmesi</Link>ni ve <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="text-brand-red hover:underline font-bold">Ön Bilgilendirme Formu</Link>nu okudum ve kabul ediyorum. *
+                        <Link href="/on-bilgilendirme-formu" target="_blank" className="text-brand-red hover:underline font-bold">Ön Bilgilendirme Formu</Link>'nu ve <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="text-brand-red hover:underline font-bold">Mesafeli Satış Sözleşmesi</Link>'ni okudum, onaylıyorum. Ayrıca <Link href="/teslimat-ve-kargo" target="_blank" className="text-brand-red hover:underline font-bold">Teslimat &amp; Kargo</Link> ile <Link href="/iptal-ve-iade" target="_blank" className="text-brand-red hover:underline font-bold">İptal &amp; İade Koşulları</Link>'nı kabul ediyorum. *
                       </span>
                     </label>
                   </div>

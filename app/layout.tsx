@@ -14,6 +14,7 @@ const CartDrawer = dynamic(() => import('@/components/CartDrawer'), { ssr: false
 const CartToast = dynamic(() => import('@/components/CartToast'), { ssr: false })
 const QuickViewModal = dynamic(() => import('@/components/QuickViewModal'), { ssr: false })
 const KvkkBanner = dynamic(() => import('@/components/KvkkBanner'), { ssr: false })
+const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false })
 
 const barlow = Barlow({ 
   subsets: ['latin'],
@@ -95,7 +96,8 @@ const orgJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'Sescim',
-  legalName: 'Akdağ Elektronik ve Ses Sistemleri',
+  legalName: 'Mustafa Akdağ - Akdağ Elektronik',
+  taxID: '0200327808',
   url: siteUrl,
   logo: `${siteUrl}/logo.png`,
   email: 'info@sescim.com',
@@ -206,6 +208,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QuickViewModal />
         <main className="flex-1 pb-16 lg:pb-0 w-full min-w-0 overflow-x-clip">{children}</main>
         <Footer />
+        <WhatsAppButton />
         <MobileBottomNav />
         <KvkkBanner />
         {/* Google Analytics - Yalnızca geçerli bir GA ID tanımlıysa yüklenir */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { KurData } from './kur'
+import { DEFAULT_KUR, KurData } from './kur'
 
 let cachedKur: KurData | null = null
 let lastFetch = 0
@@ -20,6 +20,6 @@ export async function getKurClient(): Promise<KurData> {
     return data
   } catch (err) {
     console.error('Kur çekilemedi:', err)
-    return cachedKur || { USD: 32.5, EUR: 35.2, guncelleme: null }
+    return cachedKur || DEFAULT_KUR
   }
 }

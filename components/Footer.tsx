@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck, Check, Copy, Sparkles } from 'lucide-react'
+import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck, Check, Copy, Sparkles, Lock, CreditCard } from 'lucide-react'
 import { KATEGORILER } from '@/lib/categories'
 import { usePathname } from 'next/navigation'
 
@@ -137,19 +137,21 @@ export default function Footer() {
         </div>
 
         {/* Pages */}
+        {/* Pages */}
         <div>
-          <h4 className="font-bold text-slate-800 text-sm mb-6">Sayfalar</h4>
+          <h4 className="font-bold text-slate-800 text-sm mb-6">Kurumsal &amp; Bilgi</h4>
           <ul className="space-y-3">
             {[
               { label: 'Ana Sayfa', href: '/' },
               { label: 'Tüm Ürünler', href: '/urunler' },
               { label: 'Sipariş Takibi', href: '/siparis-takip' },
-              { label: 'Fırsatlar & Kampanyalar', href: '/kampanyalar' },
               { label: 'Hakkımızda', href: '/hakkimizda' },
               { label: 'İletişim & Destek', href: '/iletisim' },
-              { label: 'Mesafeli Satış Sözleşmesi', href: '/mesafeli-satis-sozlesmesi' },
+              { label: 'Teslimat ve Kargo Politikası', href: '/teslimat-ve-kargo' },
               { label: 'İptal ve İade Koşulları', href: '/iptal-ve-iade' },
-              { label: 'Gizlilik Politikası', href: '/gizlilik-politikasi' },
+              { label: 'Ön Bilgilendirme Formu', href: '/on-bilgilendirme-formu' },
+              { label: 'Mesafeli Satış Sözleşmesi', href: '/mesafeli-satis-sozlesmesi' },
+              { label: 'Gizlilik ve KVKK Politikası', href: '/gizlilik-politikasi' },
             ].map((item) => (
               <li key={item.label}>
                 <Link href={item.href} className="text-slate-500 hover:text-brand-red text-sm transition-colors">
@@ -176,7 +178,7 @@ export default function Footer() {
 
         {/* Contact */}
         <div>
-          <h4 className="font-bold text-slate-800 text-sm mb-6">İletişim</h4>
+          <h4 className="font-bold text-slate-800 text-sm mb-6">İletişim &amp; Mağaza</h4>
           <ul className="space-y-4">
             <li className="flex items-start gap-3 text-slate-500 text-sm">
               <MapPin size={18} className="text-slate-400 shrink-0 mt-0.5" />
@@ -185,7 +187,7 @@ export default function Footer() {
             <li>
               <a href="tel:+903522316915" className="flex items-center gap-3 text-slate-500 hover:text-brand-red text-sm transition-colors">
                 <Phone size={18} className="text-slate-400 shrink-0" />
-                +90 352 231 69 15
+                <span>+90 352 231 69 15 <span className="block text-xs text-slate-400">Pzt - Cmt: 09:00 - 19:00</span></span>
               </a>
             </li>
             <li>
@@ -194,7 +196,56 @@ export default function Footer() {
                 info@sescim.com
               </a>
             </li>
+            <li className="text-xs text-slate-400 pt-2 border-t border-slate-100">
+              Mustafa Akdağ - Akdağ Elektronik<br />
+              Erciyes Vergi Dairesi • V.No: 0200327808
+            </li>
           </ul>
+        </div>
+      </div>
+
+      {/* Kurumsal Bilgiler ve Güvenlik Rozetleri */}
+      <div className="bg-slate-50 border-t border-slate-200 py-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+            {/* Şirket Yasal Bilgileri */}
+            <div className="text-center lg:text-left text-xs text-slate-500 space-y-1">
+              <p className="font-bold text-slate-800">
+                Mustafa Akdağ - Akdağ Elektronik (sescim.com)
+              </p>
+              <p>
+                Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / KAYSERİ • Erciyes Vergi Dairesi / V.No: 0200327808
+              </p>
+              <p className="text-[11px] text-slate-400">
+                sescim.com üzerinden yapılan tüm alışverişler 256-Bit SSL şifreleme ve 3D Secure güvencesindedir.
+              </p>
+            </div>
+
+            {/* Ödeme Logoları ve Güvenlik */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 shadow-2xs">
+                <Lock size={13} className="text-emerald-600 shrink-0" />
+                <span className="font-medium text-[11px]">256-Bit SSL Güvenli Alışveriş</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 shadow-2xs">
+                <ShieldCheck size={13} className="text-blue-600 shrink-0" />
+                <span className="font-medium text-[11px]">3D Secure</span>
+              </div>
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-bold shadow-2xs">
+                <CreditCard size={13} className="text-slate-800 shrink-0" />
+                <span className="font-display font-extrabold text-[11px] tracking-wider text-slate-800">Pay<span className="text-brand-red">TR</span></span>
+              </div>
+              <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-600 shadow-2xs font-semibold">
+                <span className="text-[11px] text-blue-700 font-extrabold tracking-wider">VISA</span>
+              </div>
+              <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-600 shadow-2xs font-semibold">
+                <span className="text-[11px] text-orange-600 font-extrabold tracking-wider">Mastercard</span>
+              </div>
+              <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-600 shadow-2xs font-semibold">
+                <span className="text-[11px] text-teal-700 font-extrabold tracking-wider">TROY</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -208,8 +259,10 @@ export default function Footer() {
               <ShieldCheck size={12} /> AKDAĞ ELEKTRONİK güvencesiyle.
             </a>
           </p>
-          <div className="flex gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-500">
+            <Link href="/on-bilgilendirme-formu" className="hover:text-brand-red transition-colors">Ön Bilgilendirme Formu</Link>
             <Link href="/mesafeli-satis-sozlesmesi" className="hover:text-brand-red transition-colors">Mesafeli Satış Sözleşmesi</Link>
+            <Link href="/teslimat-ve-kargo" className="hover:text-brand-red transition-colors">Teslimat ve Kargo</Link>
             <Link href="/iptal-ve-iade" className="hover:text-brand-red transition-colors">İptal ve İade</Link>
             <Link href="/gizlilik-politikasi" className="hover:text-brand-red transition-colors">Gizlilik Politikası</Link>
           </div>

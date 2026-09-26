@@ -71,6 +71,14 @@ export default function IletisimPage() {
                     <h3 className="font-medium text-lg mb-1">Adres</h3>
                     <p className="text-slate-300">Cumhuriyet Mah. Sur Cad. No:17/A</p>
                     <p className="text-slate-400 text-sm">Melikgazi / Kayseri</p>
+                    <a
+                      href="https://maps.google.com/?q=Akda%C4%9F+Elektronik+Cumhuriyet+Mah.+Sur+Cad.+No:17/A+Melikgazi+Kayseri"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-brand-red hover:underline mt-2 font-medium transition-colors"
+                    >
+                      Haritada Gör & Yol Tarifi Al →
+                    </a>
                   </div>
                 </div>
 
@@ -93,6 +101,12 @@ export default function IletisimPage() {
                     <h3 className="font-medium text-lg mb-1">E-posta</h3>
                     <p className="text-slate-300">info@sescim.com</p>
                   </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 text-xs text-slate-400 space-y-1">
+                  <p className="font-semibold text-slate-200">Mustafa Akdağ - Akdağ Elektronik</p>
+                  <p>Erciyes Vergi Dairesi • V.No: 0200327808</p>
+                  <p className="text-[11px] text-slate-400">Yetkili Satış Platformu: sescim.com</p>
                 </div>
               </div>
             </div>

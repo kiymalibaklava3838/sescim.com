@@ -84,14 +84,14 @@ export default async function SiparisFaturaPage({ params }: Props) {
                 SESCİM<span className="text-brand-red">.COM</span>
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Akdağ Elektronik ve Ses Sistemleri San. Tic. Ltd. Şti.
+            <p className="text-xs text-slate-700 font-bold mt-1">
+              Mustafa Akdağ - Akdağ Elektronik
             </p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500">
               Cumhuriyet Mah. Sur Cad. No:17/A Melikgazi / KAYSERİ
             </p>
-            <p className="text-[11px] text-slate-400">
-              Tel: +90 (352) 231 69 15 • Vergi Dairesi: Mimarsinan • V.No: 023 000 0000
+            <p className="text-[11px] text-slate-500">
+              Tel: +90 (352) 231 69 15 • Vergi Dairesi: Erciyes Vergi Dairesi • V.No: 0200327808
             </p>
           </div>
 

@@ -6,6 +6,7 @@ import { addToCart, getCartCount } from '@/lib/cart'
 import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { useCartStore } from '@/store/useCartStore'
+import InstallmentModal from './InstallmentModal'
 
 interface Props {
   product: {
@@ -28,6 +29,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
   const [added, setAdded] = useState(false)
   const [cartCount, setCartCount] = useState(0)
   const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
+  const [showTaksit, setShowTaksit] = useState(false)
   const { toggleDrawer } = useCartStore()
 
   useEffect(() => {
@@ -85,15 +87,20 @@ export default function MobileStickyAddToCart({ product }: Props) {
             </span>
           </div>
         ) : (
-          <div className="flex flex-col min-w-0 pr-1">
+          <div 
+            onClick={() => setShowTaksit(true)}
+            className="flex flex-col min-w-0 pr-1 cursor-pointer group/taksit active:opacity-80 transition-opacity"
+            role="button"
+            aria-label="Taksit seçeneklerini görüntüle"
+          >
             <span className="text-[10px] font-display uppercase tracking-widest text-slate-400 font-bold leading-tight">
               Peşin Fiyat
             </span>
             <div className="font-display font-black text-lg text-brand-red tracking-tight truncate">
               {priceTL.toLocaleString('tr-TR')} ₺
             </div>
-            <span className="text-[9px] text-slate-500 font-medium leading-none">
-              12x taksit imkanı
+            <span className="text-[9px] text-slate-500 font-medium leading-none flex items-center gap-0.5 underline decoration-dotted text-slate-600 group-hover/taksit:text-brand-red">
+              12x taksit seçenekleri &rsaquo;
             </span>
           </div>
         )}
@@ -174,6 +181,14 @@ export default function MobileStickyAddToCart({ product }: Props) {
         </div>
 
       </div>
+
+      {/* Taksit Modal (React Portal ile doğrudan ekrana açılır) */}
+      <InstallmentModal
+        isOpen={showTaksit}
+        onClose={() => setShowTaksit(false)}
+        fiyat={priceTL}
+        urunAdi={product.ad}
+      />
     </div>
   )
 }

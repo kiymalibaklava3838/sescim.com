@@ -119,7 +119,7 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
 
   return (
     <section 
-      className="relative w-full h-[520px] sm:h-[560px] md:h-[620px] lg:h-[660px] overflow-hidden bg-slate-950 select-none group"
+      className="relative w-full h-[420px] sm:h-[500px] md:h-[580px] lg:h-[640px] overflow-hidden bg-slate-950 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
@@ -152,7 +152,7 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
             </div>
 
             {/* Slide Content */}
-            <div className="relative z-20 h-full flex items-center max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+            <div className="relative z-20 h-full flex items-center max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
               <div 
                 className="max-w-2xl text-left transform transition-all duration-700 delay-100"
                 style={{ 
@@ -162,8 +162,8 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
               >
                 {/* Subtitle / Badge */}
                 {slide.subtitle && (
-                  <div className="mb-3.5">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[11px] sm:text-xs font-bold uppercase tracking-widest backdrop-blur-md">
+                  <div className="mb-2 sm:mb-3.5">
+                    <span className="inline-flex items-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[10px] sm:text-xs font-bold uppercase tracking-widest backdrop-blur-md">
                       {slide.subtitle}
                     </span>
                   </div>
@@ -171,14 +171,14 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
 
                 {/* Main Title */}
                 {slide.title && (
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black text-white mb-4 sm:mb-5 leading-[1.12] tracking-tight uppercase drop-shadow-md">
+                  <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black text-white mb-2.5 sm:mb-5 leading-[1.15] tracking-tight uppercase drop-shadow-md">
                     {slide.title}
                   </h2>
                 )}
 
                 {/* Description Text */}
                 {slide.description && (
-                  <p className="text-slate-200 text-sm sm:text-base md:text-lg mb-6 sm:mb-8 max-w-xl line-clamp-3 sm:line-clamp-4 font-normal leading-relaxed drop-shadow">
+                  <p className="text-slate-200 text-xs sm:text-base md:text-lg mb-4 sm:mb-8 max-w-xl line-clamp-2 sm:line-clamp-4 font-normal leading-relaxed drop-shadow">
                     {slide.description}
                   </p>
                 )}

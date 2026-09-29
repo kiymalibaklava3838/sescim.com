@@ -112,14 +112,14 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-                className="fixed top-0 left-0 h-full w-[300px] sm:w-[350px] bg-white z-[10000] shadow-2xl flex flex-col"
+                className="fixed top-0 left-0 h-[100dvh] max-h-[100dvh] w-[300px] sm:w-[350px] bg-white z-[10000] shadow-2xl flex flex-col"
               >
                 <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-slate-50 shrink-0">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal size={18} className="text-brand-red" />
                     <span className="font-display font-black text-base tracking-[0.1em] uppercase text-slate-800">FİLTRELER</span>
                   </div>
-                  <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-brand-red transition-colors">
+                  <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-brand-red transition-colors cursor-pointer" aria-label="Kapat">
                     <X size={24} />
                   </button>
                 </div>
@@ -142,12 +142,12 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                         Markalar
                       </label>
                       <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                        <label className="flex items-center gap-3 cursor-pointer group py-0.5">
                           <input type="radio" name="marka" value="tum" defaultChecked={!searchParams.marka || searchParams.marka === 'tum'} className="w-4 h-4 text-brand-red focus:ring-brand-red border-slate-300" />
                           <span className="text-sm font-body font-medium text-slate-600 group-hover:text-brand-red transition-colors">Tümü</span>
                         </label>
                         {markalar.map((m) => (
-                          <label key={m} className="flex items-center gap-3 cursor-pointer group">
+                          <label key={m} className="flex items-center gap-3 cursor-pointer group py-0.5">
                             <input type="radio" name="marka" value={m} defaultChecked={searchParams.marka === m} className="w-4 h-4 text-brand-red focus:ring-brand-red border-slate-300" />
                             <span className="text-sm font-body font-medium text-slate-600 group-hover:text-brand-red transition-colors">{m.toUpperCase()}</span>
                           </label>
@@ -162,11 +162,11 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                       <div className="grid grid-cols-2 gap-3">
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₺</span>
-                          <input name="min" type="number" min="0" defaultValue={searchParams.min || ''} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm py-3 pl-8 pr-2 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all" placeholder="Min" />
+                          <input name="min" type="number" min="0" defaultValue={searchParams.min || ''} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-base sm:text-sm py-2.5 sm:py-3 pl-8 pr-2 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all" placeholder="Min" />
                         </div>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₺</span>
-                          <input name="max" type="number" min="0" defaultValue={searchParams.max || ''} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm py-3 pl-8 pr-2 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all" placeholder="Max" />
+                          <input name="max" type="number" min="0" defaultValue={searchParams.max || ''} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-base sm:text-sm py-2.5 sm:py-3 pl-8 pr-2 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all" placeholder="Max" />
                         </div>
                       </div>
                     </div>
@@ -201,7 +201,7 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                   </form>
                 </div>
 
-                <div className="p-6 bg-white border-t border-slate-200 flex gap-3 shrink-0">
+                <div className="p-4 sm:p-6 bg-white border-t border-slate-200 flex gap-2.5 sm:gap-3 shrink-0 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
                   {hasFilters && (
                     <button 
                       type="button"
@@ -209,7 +209,7 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                         setIsOpen(false)
                         router.push(clearFiltersUrl)
                       }}
-                      className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-display font-black tracking-widest uppercase transition-colors"
+                      className="px-5 sm:px-6 py-3.5 sm:py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-display font-black tracking-widest uppercase transition-colors rounded-xl cursor-pointer"
                     >
                       Temizle
                     </button>
@@ -218,9 +218,9 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                     type="submit" 
                     form="filter-form"
                     onClick={() => setIsOpen(false)}
-                    className="flex-1 bg-brand-red hover:bg-red-700 text-white flex items-center justify-center gap-2 text-xs py-4 font-display font-black tracking-widest uppercase transition-colors"
+                    className="flex-1 bg-brand-red hover:bg-red-700 text-white flex items-center justify-center gap-2 text-xs py-3.5 sm:py-4 font-display font-black tracking-widest uppercase transition-colors rounded-xl shadow-md cursor-pointer"
                   >
-                    <Filter size={14} /> 
+                    <Filter size={15} /> 
                     Uygula
                   </button>
                 </div>

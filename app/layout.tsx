@@ -206,7 +206,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartDrawer />
         <CartToast />
         <QuickViewModal />
-        <main className="flex-1 pb-16 lg:pb-0 w-full min-w-0 overflow-x-clip">{children}</main>
+        <main className="flex-1 pb-16 lg:pb-0 w-full min-w-0">{children}</main>
         <Footer />
         <WhatsAppButton />
         <MobileBottomNav />

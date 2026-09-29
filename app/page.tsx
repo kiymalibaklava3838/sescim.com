@@ -38,17 +38,17 @@ export default async function HomePage() {
       <WorldBrandsTrustBanner />
 
       {/* CATEGORIES CIRCLES */}
-      <section className="max-w-7xl mx-auto px-6 py-12">
-        <h2 className="text-2xl font-bold text-slate-800 mb-10 text-center">Popüler Kategoriler</h2>
-        <div className="flex flex-wrap justify-center gap-6 md:gap-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6 sm:mb-10 text-center font-display uppercase tracking-wide">Popüler Kategoriler</h2>
+        <div className="grid grid-cols-4 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-6 md:gap-10">
           {categories.map((cat) => {
             const Icon = cat.icon
             return (
               <Link href={`/urunler/${cat.slug}`} key={cat.label} className="flex flex-col items-center group">
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 mb-4 group-hover:shadow-md group-hover:border-brand-red/40 transition-all duration-300">
-                  <Icon size={32} className="text-slate-600 group-hover:text-brand-red transition-colors duration-300" />
+                <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-xs border border-slate-200 mb-2 sm:mb-4 group-hover:shadow-md group-hover:border-brand-red/40 active:scale-95 transition-all duration-300">
+                  <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600 group-hover:text-brand-red transition-colors duration-300" />
                 </div>
-                <span className="text-slate-700 text-sm font-medium group-hover:text-brand-red transition-colors text-center max-w-[100px]">
+                <span className="text-slate-700 text-[11px] sm:text-sm font-medium group-hover:text-brand-red transition-colors text-center line-clamp-2 max-w-[85px] sm:max-w-[100px] leading-tight">
                   {cat.label}
                 </span>
               </Link>

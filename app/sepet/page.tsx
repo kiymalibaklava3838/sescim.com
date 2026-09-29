@@ -26,6 +26,7 @@ import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import { calculateShippingFee, SHIPPING_CONFIG } from '@/lib/shipping'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import InstallmentModal from '@/components/InstallmentModal'
+import { createPortal } from 'react-dom'
 
 export default function SepetPage() {
   const [items, setItems] = useState<CartItem[]>([])
@@ -60,6 +61,22 @@ export default function SepetPage() {
   const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [payTrWarning, setPayTrWarning] = useState(false)
   const [showTaksitModal, setShowTaksitModal] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Ödeme modalı açıkken arka plan kaydırmasını kilitle
+  useEffect(() => {
+    if (payToken || (busy && !payToken)) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [payToken, busy])
   
   // Kupon
   const [kuponlar, setKuponlar] = useState<any[]>([])
@@ -488,12 +505,12 @@ export default function SepetPage() {
                     <div className="sm:hidden font-display font-bold text-brand-red text-sm">
                       {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
                     </div>
-                    <div className="flex items-center gap-1.5 sm:gap-3 bg-slate-50 p-1 rounded-lg border border-slate-200">
-                      <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red transition-colors shadow-xs" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }} aria-label="Azalt"><Minus size={12} /></button>
-                      <span className="w-5 text-center font-display font-bold text-xs sm:text-sm text-slate-800">{i.adet}</span>
-                      <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white border border-slate-200 rounded text-slate-600 hover:text-brand-red transition-colors shadow-xs" onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }} aria-label="Artır"><Plus size={12} /></button>
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                      <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }} aria-label="Azalt"><Minus size={13} /></button>
+                      <span className="w-6 text-center font-display font-bold text-xs sm:text-sm text-slate-800">{i.adet}</span>
+                      <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }} aria-label="Artır"><Plus size={13} /></button>
                       <div className="w-px h-5 bg-slate-200 mx-0.5" />
-                      <button type="button" className="text-slate-400 hover:text-red-500 p-1.5 transition-colors" title="Ürünü Sil" onClick={() => { removeFromCart(i.id); refreshCart() }} aria-label="Sil"><Trash2 size={14} /></button>
+                      <button type="button" className="text-slate-400 hover:text-red-500 p-1.5 transition-colors cursor-pointer" title="Ürünü Sil" onClick={() => { removeFromCart(i.id); refreshCart() }} aria-label="Sil"><Trash2 size={15} /></button>
                     </div>
                   </div>
                 </div>
@@ -509,7 +526,7 @@ export default function SepetPage() {
                 
                 {/* Kargo Bedava Barı */}
                 <div className="mb-6">
-                  <FreeShippingBar total={total} />
+                  <FreeShippingBar total={netUrunlerToplam} />
                 </div>
 
                 {/* KUPON ALANI */}
@@ -521,7 +538,7 @@ export default function SepetPage() {
                   {/* Manuel Giriş */}
                   <div className="flex gap-2 mb-4">
                     <input 
-                      className="input-base text-sm flex-1 bg-white font-display font-semibold tracking-wider uppercase" 
+                      className="input-base text-base sm:text-sm flex-1 bg-white font-display font-semibold tracking-wider uppercase" 
                       placeholder="Kupon Kodunuz" 
                       value={manuelKuponKodu}
                       onChange={e => setManuelKuponKodu(e.target.value.toUpperCase())}
@@ -975,7 +992,7 @@ export default function SepetPage() {
                     ) : (
                       <>
                         <CreditCard size={18} />
-                        Güvenli Ödeme Yap (PayTR)
+                        Siparişi Onayla
                       </>
                     )}
                   </button>
@@ -1015,7 +1032,7 @@ export default function SepetPage() {
       </div>
 
         {/* Ödeme Hazırlanıyor Yükleme Ekranı */}
-        {busy && !payToken && (
+        {mounted && busy && !payToken && createPortal(
           <div className="fixed inset-0 z-[100000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
               <div className="w-12 h-12 border-3 border-slate-200 border-t-brand-red rounded-full animate-spin mb-4" />
@@ -1026,10 +1043,11 @@ export default function SepetPage() {
                 3D Secure korumalı ödeme penceresi açılıyor, lütfen bekleyiniz...
               </p>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-        {payToken && (
+        {mounted && payToken && createPortal(
           <div className="fixed inset-0 z-[100000] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
               <div className="shrink-0 flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50">
@@ -1053,7 +1071,8 @@ export default function SepetPage() {
                 <iframe title="PayTR" src={`https://www.paytr.com/odeme/guvenli/${payToken}`} className="w-full h-full bg-white border-0 relative z-10" />
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
   )

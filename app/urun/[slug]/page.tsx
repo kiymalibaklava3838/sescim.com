@@ -370,7 +370,7 @@ export default async function UrunDetayPage({ params }: Props) {
                 {/* Fiyat — client component ile kur dönüşümü */}
                 <UrunFiyatGosterge
                   fiyat={(product as any).sescim_fiyat ?? product.fiyat}
-                  indirimliFiyat={(product as any).sescim_indirimli_fiyat ?? null}
+                  indirimliFiyat={(product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? undefined : product.indirimli_fiyat) ?? undefined}
                   paraBirimi={product.para_birimi || 'TRY'}
                   fiyatGuncelleme={product.fiyat_guncelleme}
                   urunAdi={product.ad}
@@ -441,7 +441,7 @@ export default async function UrunDetayPage({ params }: Props) {
                         fiyat: (product as any).sescim_fiyat ?? product.fiyat,
                         para_birimi: product.para_birimi,
                         fotograflar: product.fotograflar || [],
-                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? null,
+                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
                         stok_durumu: product.stok_durumu,
                         stok_adedi: product.stok_adedi,
                         marka: product.marka,
@@ -449,7 +449,7 @@ export default async function UrunDetayPage({ params }: Props) {
                     />
                   </div>
                 </div>
-              ) : product.fiyat && stok !== 'tukendi' ? (
+              ) : ((product as any).sescim_fiyat ?? product.fiyat) && stok !== 'tukendi' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div className="sm:col-span-3">
                     <AddToCartButton urun={{
@@ -458,7 +458,7 @@ export default async function UrunDetayPage({ params }: Props) {
                       kategori: product.kategori,
                       fotograflar: product.fotograflar || [],
                       fiyat: (product as any).sescim_fiyat ?? product.fiyat,
-                      indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? null,
+                      indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
                       indirimli_fiyat_doviz: null,
                       para_birimi: product.para_birimi || 'TRY',
                     }} />
@@ -473,7 +473,7 @@ export default async function UrunDetayPage({ params }: Props) {
                         fiyat: (product as any).sescim_fiyat ?? product.fiyat,
                         para_birimi: product.para_birimi,
                         fotograflar: product.fotograflar || [],
-                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? null,
+                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
                         stok_durumu: product.stok_durumu,
                         stok_adedi: product.stok_adedi,
                         marka: product.marka,

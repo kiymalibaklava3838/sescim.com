@@ -150,21 +150,21 @@ export default function CartDrawer() {
                             <button
                               type="button"
                               onClick={() => updateQty(item.id, item.adet - 1)}
-                              className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand-red transition-colors shadow-xs"
+                              className="w-7 h-7 sm:w-6 sm:h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer"
                               aria-label="Adet Azalt"
                             >
-                              <Minus size={11} />
+                              <Minus size={13} />
                             </button>
-                            <span className="w-5 text-center font-display font-bold text-xs text-slate-800">
+                            <span className="w-6 text-center font-display font-bold text-xs text-slate-800">
                               {item.adet}
                             </span>
                             <button
                               type="button"
                               onClick={() => updateQty(item.id, item.adet + 1)}
-                              className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand-red transition-colors shadow-xs"
+                              className="w-7 h-7 sm:w-6 sm:h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer"
                               aria-label="Adet Artır"
                             >
-                              <Plus size={11} />
+                              <Plus size={13} />
                             </button>
                           </div>
 

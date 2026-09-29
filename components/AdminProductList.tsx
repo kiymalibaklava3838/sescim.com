@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff, MessageSquareText } from 'lucide-react'
-import { PARA_BIRIMLERI } from '@/lib/kur'
+import { PARA_BIRIMLERI, DEFAULT_KUR, type KurData } from '@/lib/kur'
+import { getKurClient } from '@/lib/kur-client'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { createClient } from '@/lib/supabase'
 import { KATEGORILER, KATEGORI_HIYERARSI } from '@/lib/categories'
@@ -50,7 +51,12 @@ const ITEMS_PER_PAGE = 20
 
 export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const [products, setProducts] = useState<Product[]>([])
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [totalCount, setTotalCount] = useState(0)
+
+  useEffect(() => {
+    getKurClient().then(setKur).catch(() => {})
+  }, [])
   const [currentPage, setCurrentPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -606,17 +612,40 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex flex-col">
-                    <label className="text-[9px] text-brand-red/60 uppercase tracking-widest font-bold mb-0.5">Sescim Fiyatı</label>
-                    <input 
-                      type="number"
-                      step="0.01"
-                      placeholder="Fiyat Yok"
-                      value={product.sescim_fiyat === null || product.sescim_fiyat === undefined ? '' : product.sescim_fiyat}
-                      onChange={(e) => handleSescimFiyatChange(product.id, e.target.value)}
-                      onBlur={() => saveSescimFiyat(product)}
-                      className="input-dark w-24 text-xs py-1 px-2 border-brand-red/30 focus:border-brand-red"
-                    />
+                  <div className="flex flex-col min-w-[115px]">
+                    <div className="flex items-center justify-between text-[9px] mb-0.5">
+                      <label className="text-brand-red font-bold uppercase tracking-wider">Sescim Fiyatı</label>
+                      <span className="font-mono text-[9px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded">
+                        {product.para_birimi || 'TRY'}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        step="0.01"
+                        placeholder="Fiyat Yok"
+                        value={product.sescim_fiyat === null || product.sescim_fiyat === undefined ? '' : product.sescim_fiyat}
+                        onChange={(e) => handleSescimFiyatChange(product.id, e.target.value)}
+                        onBlur={() => saveSescimFiyat(product)}
+                        className={`input-dark w-28 text-xs py-1 px-2 pr-8 border-brand-red/30 focus:border-brand-red ${
+                          product.sescim_fiyat && product.fiyat && product.sescim_fiyat > product.fiyat * 3
+                            ? 'border-amber-500 bg-amber-50 text-amber-900'
+                            : ''
+                        }`}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
+                        {product.para_birimi || 'TL'}
+                      </span>
+                    </div>
+                    {product.sescim_fiyat ? (
+                      <div className="text-[9px] mt-0.5 font-mono">
+                        {product.para_birimi && product.para_birimi !== 'TRY' ? (
+                          <span className="text-emerald-600 font-bold">
+                            ≈ {Math.round(product.sescim_fiyat * (product.para_birimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <button onClick={() => toggleSescimAktif(product)} className={`w-9 h-9 border flex items-center justify-center transition-all mt-3 ${product.sescim_aktif === false ? 'border-red-500/50 text-red-500 bg-red-500/10' : 'border-green-500/50 text-green-500 bg-green-500/10'}`} title={product.sescim_aktif === false ? "Sescim'de Gizli" : "Sescim'de Göster"}>
                     {product.sescim_aktif === false ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -722,6 +751,57 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                         {PARA_BIRIMLERI.map(p => <option key={p.value} value={p.value}>{p.value}</option>)}
                       </select>
                     </div>
+                  </div>
+
+                  {/* Sescim Özel Satış ve İndirim Fiyatı */}
+                  <div className="p-3 bg-red-50/50 border border-brand-red/20 rounded-lg space-y-2">
+                    <div className="font-display font-bold text-[11px] uppercase tracking-wider text-brand-red flex items-center justify-between">
+                      <span>Sescim.com Özel Fiyatlandırması</span>
+                      <span className="text-[10px] font-mono bg-brand-red/10 text-brand-red px-1.5 py-0.5 rounded">
+                        Para Birimi: {editParaBirimi}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-700 block mb-1">
+                          Sescim Satış Fiyatı ({editParaBirimi})
+                        </label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={editSescimFiyat} 
+                          onChange={e => setEditSescimFiyat(e.target.value)} 
+                          placeholder={editFiyat ? `Varsayılan: ${editFiyat}` : '0.00'}
+                          className="input-dark text-xs border-brand-red/30 focus:border-brand-red" 
+                        />
+                        {editSescimFiyat && editParaBirimi !== 'TRY' && (
+                          <span className="text-[9px] text-emerald-600 font-mono font-bold block mt-0.5">
+                            ≈ {Math.round(Number(editSescimFiyat) * (editParaBirimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-700 block mb-1">
+                          Sescim İndirimli Fiyatı ({editParaBirimi})
+                        </label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={editSescimIndirimli} 
+                          onChange={e => setEditSescimIndirimli(e.target.value)} 
+                          placeholder="İndirim Yoksa Boş"
+                          className="input-dark text-xs" 
+                        />
+                        {editSescimIndirimli && editParaBirimi !== 'TRY' && (
+                          <span className="text-[9px] text-emerald-600 font-mono font-bold block mt-0.5">
+                            ≈ {Math.round(Number(editSescimIndirimli) * (editParaBirimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 italic">
+                      * Sescim fiyatı boş bırakılırsa Akdağ liste fiyatı ({editFiyat || '0'} {editParaBirimi}) geçerli olur.
+                    </p>
                   </div>
 
                   {/* Distribütör Fiyat Koruması */}

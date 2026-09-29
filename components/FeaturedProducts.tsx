@@ -73,10 +73,10 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     const pricing = pricingMap.get(p.id)
     return {
       ...p,
-      sescim_fiyat: pricing?.sescim_fiyat ?? null,
-      sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? null,
-      sescim_aktif: pricing?.sescim_aktif ?? true,
-      fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing?.fiyat_sorunuz })
+      sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+      sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
+      sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
+      fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing ? pricing.fiyat_sorunuz : p.fiyat_sorunuz })
     }
   }).filter(p => p.sescim_aktif !== false)
 

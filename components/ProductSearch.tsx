@@ -251,7 +251,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           placeholder="Ürün, kategori veya marka ara (örn: JBL, Rode, Mikrofon)..."
-          className="flex-1 px-3.5 py-2.5 md:py-3 text-sm font-body font-medium text-slate-800 focus:outline-none placeholder:text-slate-400 bg-transparent"
+          className="flex-1 px-3.5 py-2.5 md:py-3 text-base sm:text-sm font-body font-medium text-slate-800 focus:outline-none placeholder:text-slate-400 bg-transparent"
         />
         
         {query && !loading && (
@@ -281,7 +281,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
 
       {/* AÇILIR PANEL */}
       {open && (
-        <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-2xl animate-in slide-in-from-top-2 duration-200 overflow-hidden max-h-[80vh] flex flex-col">
+        <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-2xl animate-in slide-in-from-top-2 duration-200 overflow-hidden max-h-[calc(100dvh-140px)] sm:max-h-[80vh] flex flex-col">
           
           {/* BOŞ ARAMA (ODAKLANDIĞINDA) - POPÜLER MARKA & KATEGORİ ÖNERİLERİ */}
           {!query.trim() && (
@@ -395,7 +395,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   </div>
                   {results.map((product) => {
                     const pb = product.para_birimi || 'TRY'
-                    const aktifFiyat = product.sescim_fiyat ?? product.fiyat ?? 0
+                    const aktifFiyat = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat ?? 0
                     const fiyatTL = dovizToTL(aktifFiyat, pb, kur)
                     const formatliFiyat = formatFiyat(fiyatTL, 'TRY')
 

@@ -79,12 +79,12 @@ body {
   
   .input-base {
     @apply w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400
-           px-4 py-3 rounded-md focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
+           px-4 py-3 rounded-md text-base sm:text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
   }
   
   .input-dark {
     @apply w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400
-           px-4 py-2 text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
+           px-4 py-2 text-base sm:text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all duration-200;
   }
 }
 
@@ -125,17 +125,15 @@ body {
 
 @keyframes pageEnter {
   from {
-    opacity: 0.9;
-    transform: translate3d(0, 4px, 0);
+    opacity: 0.96;
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
   }
 }
 
 .animate-page-enter {
-  animation: pageEnter 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageEnter 0.15s ease-out;
 }
 
 /* Mobile Safe Areas & Touch Optimization */

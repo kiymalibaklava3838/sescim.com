@@ -96,10 +96,10 @@ export async function POST(req: NextRequest) {
         ? akdagDb.from('urunler').select('id, slug, ad, kategori, alt_kategori, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('slug', slugIds)
         : Promise.resolve({ data: [] as any[], error: null }),
       uuidIds.length > 0
-        ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('id', uuidIds)
+        ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('id', uuidIds)
         : Promise.resolve({ data: [] as any[], error: null }),
       slugIds.length > 0
-        ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('slug', slugIds)
+        ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('slug', slugIds)
         : Promise.resolve({ data: [] as any[], error: null }),
       db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').in('urun_id', urunIds)
     ])
@@ -151,12 +151,14 @@ export async function POST(req: NextRequest) {
         }, { status: 400 })
       }
 
-      const sescimFiyat = (sescimPricing?.sescim_fiyat !== null && sescimPricing?.sescim_fiyat !== undefined && Number(sescimPricing.sescim_fiyat) > 0)
-        ? Number(sescimPricing.sescim_fiyat)
+      const rawSescimFiyat = sescimPricing?.sescim_fiyat ?? dbProd.sescim_fiyat
+      const sescimFiyat = (rawSescimFiyat !== null && rawSescimFiyat !== undefined && Number(rawSescimFiyat) > 0)
+        ? Number(rawSescimFiyat)
         : null
 
-      const sescimIndirimli = (sescimPricing?.sescim_indirimli_fiyat !== null && sescimPricing?.sescim_indirimli_fiyat !== undefined && Number(sescimPricing.sescim_indirimli_fiyat) > 0)
-        ? Number(sescimPricing.sescim_indirimli_fiyat)
+      const rawSescimIndirimli = sescimPricing?.sescim_indirimli_fiyat ?? dbProd.sescim_indirimli_fiyat
+      const sescimIndirimli = (rawSescimIndirimli !== null && rawSescimIndirimli !== undefined && Number(rawSescimIndirimli) > 0)
+        ? Number(rawSescimIndirimli)
         : null
 
       const listeFiyat = Number(dbProd.fiyat || 0)

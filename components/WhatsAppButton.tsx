@@ -1,22 +1,31 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
+
 export default function WhatsAppButton() {
+  const pathname = usePathname()
+  const isProductPage = pathname?.startsWith('/urun/')
+
   return (
     <a
       href="https://wa.me/905323934370?text=Merhaba%2C%20bilgi%20almak%20istiyorum."
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp ile iletişim"
-      className="fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-40 lg:z-50 group flex items-center gap-3 mb-safe"
+      className={`fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-40 lg:z-50 group flex items-center gap-3 mb-safe ${
+        isProductPage ? 'hidden lg:flex' : 'flex'
+      }`}
     >
       {/* Tooltip */}
-      <span className="opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 bg-[#1A1A1A] border border-white/10 text-white text-xs font-body px-3 py-2 whitespace-nowrap pointer-events-none hidden sm:inline-block">
+      <span className="opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 bg-[#1A1A1A] border border-white/10 text-white text-xs font-body px-3 py-2 whitespace-nowrap pointer-events-none hidden sm:inline-block shadow-lg">
         WhatsApp ile yazın
       </span>
 
       {/* Button */}
-      <div className="relative w-12 h-12 lg:w-14 lg:h-14 bg-[#25D366] flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 transition-transform duration-300 rounded-full"
-        style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+      <div 
+        className="relative w-12 h-12 lg:w-14 lg:h-14 bg-[#25D366] flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 active:scale-95 transition-transform duration-300 rounded-full cursor-pointer"
+        style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
+      >
         {/* Pulse ring */}
         <span className="absolute inset-0 bg-[#25D366] animate-ping opacity-20" style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }} />
         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">

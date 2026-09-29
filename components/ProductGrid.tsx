@@ -279,10 +279,10 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               e.stopPropagation()
               setFav(toggleFavorite(asSaved()))
             }}
-            className="md:hidden absolute top-2 right-2 z-20 w-8 h-8 rounded-full bg-white/95 backdrop-blur-xs border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+            className="md:hidden absolute top-2 right-2 z-20 w-9 h-9 rounded-full bg-white/95 backdrop-blur-xs border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-400 active:scale-90 transition-all touch-manipulation"
             aria-label="Favoriye Ekle"
           >
-            <Heart size={14} fill={fav ? '#DA291C' : 'none'} className={fav ? 'text-brand-red' : ''} />
+            <Heart size={16} fill={fav ? '#DA291C' : 'none'} className={fav ? 'text-brand-red' : ''} />
           </button>
 
           {isRecentUpdate && !indirimliFiyatTL && !product.fiyat_sorunuz && (
@@ -303,13 +303,13 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
         </div>
 
         {/* İçerik */}
-        <div className="p-4 flex flex-col flex-1">
-          <div className="font-display font-semibold text-xs tracking-widest uppercase text-brand-red/60 mb-1">{product.kategori}</div>
-          <h3 className="font-display font-bold text-sm uppercase tracking-wide text-slate-800 group-hover:text-brand-red transition-colors leading-tight mb-3 flex-1">
+        <div className="p-3 sm:p-4 flex flex-col flex-1">
+          <div className="font-display font-semibold text-[11px] sm:text-xs tracking-widest uppercase text-brand-red/60 mb-1">{product.kategori}</div>
+          <h3 className="font-display font-bold text-xs sm:text-sm uppercase tracking-wide text-slate-800 group-hover:text-brand-red transition-colors leading-tight mb-2 sm:mb-3 flex-1 line-clamp-2 min-h-[2.4rem] sm:min-h-[2.6rem]">
             {product.ad}
           </h3>
           {(product.marka || product.kullanim_alani) && (
-            <p className="font-body text-slate-500 text-xs mb-3">
+            <p className="font-body text-slate-500 text-[11px] sm:text-xs mb-2 sm:mb-3 truncate">
               {product.marka ? `Marka: ${product.marka}` : ''}
               {product.marka && product.kullanim_alani ? ' • ' : ''}
               {product.kullanim_alani || ''}
@@ -331,12 +331,12 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                 <span className="text-xs text-slate-400 line-through">
                   {formatFiyat(normalFiyatTL || 0, 'TRY')}
                 </span>
-                <span className="font-display font-black text-lg text-brand-red">
+                <span className="font-display font-black text-base sm:text-lg text-brand-red">
                   {formatFiyat(indirimliFiyatTL, 'TRY')}
                 </span>
               </div>
             ) : aktifFiyat ? (
-              <div className="font-display font-black text-lg text-slate-800">
+              <div className="font-display font-black text-base sm:text-lg text-slate-800">
                 {formatFiyat(normalFiyatTL || 0, 'TRY')}
               </div>
             ) : (
@@ -377,7 +377,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
           {isFiyatSorunuz ? (
             <Link
               href={`/urun/${product.slug || product.id}`}
-              className="w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider bg-slate-900 hover:bg-brand-red text-white transition-all shadow-xs"
+              className="w-full h-10 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider bg-slate-900 hover:bg-brand-red text-white transition-all shadow-xs"
             >
               <MessageSquareText size={14} />
               <span>Fiyat Teklifi Al</span>
@@ -388,7 +388,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               type="button"
               onClick={handleAddToCart}
               disabled={stok === 'tukendi'}
-              className={`w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
+              className={`w-full h-10 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
                 stok === 'tukendi'
                   ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                   : cartAdded

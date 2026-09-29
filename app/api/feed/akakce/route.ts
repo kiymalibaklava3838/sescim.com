@@ -18,7 +18,7 @@ export async function GET() {
     // 1. Akdağ ve Sescim ürünlerini çek
     const [akdagRes, sescimRes] = await Promise.all([
       supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').limit(5000) : Promise.resolve({ data: [] })
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
     ])
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({
@@ -54,8 +54,8 @@ export async function GET() {
       const pb = p.para_birimi || 'TRY'
       const pricing = pricingMap.get(p.id)
 
-      const normalRaw = pricing?.sescim_fiyat ?? p.fiyat ?? 0
-      const discountedRaw = pricing?.sescim_indirimli_fiyat ?? (p.indirimli_fiyat && p.indirimli_fiyat < (p.fiyat || 0) ? p.indirimli_fiyat : null)
+      const normalRaw = pricing?.sescim_fiyat ?? p.sescim_fiyat ?? p.fiyat ?? 0
+      const discountedRaw = pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? (p.indirimli_fiyat && p.indirimli_fiyat < (p.fiyat || 0) ? p.indirimli_fiyat : null)
 
       const normalPriceTL = normalRaw > 0 ? dovizToTL(normalRaw, pb, kur) : 0
       const discountedPriceTL = discountedRaw && discountedRaw > 0 ? dovizToTL(discountedRaw, pb, kur) : null

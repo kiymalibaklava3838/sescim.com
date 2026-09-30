@@ -23,6 +23,7 @@ export default async function FirsatlarPage() {
   // 1. Sescim'deki aktif flaş indirimleri çek
   let flasUrunIds: string[] = []
   let enYakinBitis: string | undefined = undefined
+  const flasDataMap = new Map<string, any>()
 
   if (sescimSupabase) {
     try {
@@ -36,6 +37,7 @@ export default async function FirsatlarPage() {
       if (flasData && flasData.length > 0) {
         flasUrunIds = flasData.map((f: any) => f.urun_id)
         enYakinBitis = flasData[0].bitis_tarihi
+        flasData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -89,11 +91,16 @@ export default async function FirsatlarPage() {
     const pricingMap = await getSescimPricingMap(urunIds)
     products = products.map((p: any) => {
       const pricing = pricingMap.get(p.id)
+      const flasItem = flasDataMap.get(p.id)
+      const indirimliFiyat = flasItem ? Number(flasItem.indirimli_fiyat) : (pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null)
       return {
         ...p,
         sescim_fiyat: pricing?.sescim_fiyat ?? null,
-        sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null,
+        sescim_indirimli_fiyat: indirimliFiyat,
         sescim_aktif: pricing?.sescim_aktif ?? true,
+        sescim_stok: pricing?.sescim_stok ?? null,
+        sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
+        fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
       }
     }).filter(p => p.sescim_aktif !== false)
   }

@@ -8,6 +8,7 @@ import {
   siparisIptalHTML,
 } from '@/lib/email'
 import { sendEmail } from '@/lib/send-email'
+import { restoreSescimStock, deductSescimStock } from '@/lib/product-stock'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -70,28 +71,14 @@ export async function POST(req: NextRequest) {
     if (eskiDurum !== 'iptal' && yeniDurum === 'iptal') {
       // Sipariş iptal: Sescim stoklarını geri yükle
       for (const item of items) {
-        if (!item.urun_id) continue
-        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).maybeSingle()
-        if (urun && typeof urun.stok_adedi === 'number') {
-          const yeniStok = urun.stok_adedi + item.adet
-          await db.from('urunler').update({
-            stok_adedi: yeniStok,
-            stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
-          }).eq('id', item.urun_id)
-        }
+        if (!item.urun_id || !item.adet) continue
+        await restoreSescimStock(db, item.urun_id, item.adet)
       }
     } else if (eskiDurum === 'iptal' && yeniDurum !== 'iptal') {
       // İptal edilmiş sipariş tekrar aktif: Sescim stoklarını düş
       for (const item of items) {
-        if (!item.urun_id) continue
-        const { data: urun } = await db.from('urunler').select('stok_adedi').eq('id', item.urun_id).maybeSingle()
-        if (urun && typeof urun.stok_adedi === 'number') {
-          const yeniStok = Math.max(0, urun.stok_adedi - item.adet)
-          await db.from('urunler').update({
-            stok_adedi: yeniStok,
-            stok_durumu: yeniStok > 0 ? 'stokta' : 'tukendi',
-          }).eq('id', item.urun_id)
-        }
+        if (!item.urun_id || !item.adet) continue
+        await deductSescimStock(db, { id: item.urun_id }, item.adet)
       }
     }
 

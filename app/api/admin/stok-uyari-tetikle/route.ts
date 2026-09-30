@@ -59,17 +59,29 @@ export async function POST(req: NextRequest) {
     // Talepleri ürün ID'lerine göre grupla, akdagDb'den tek sorguda çekmek için
     const urunIds = Array.from(new Set(talepler.map(t => t.urun_id)))
     
-    // Akdağ DB'den bu ürünlerin stok durumunu çek
-    const { data: urunler } = await akdagDb
-      .from('urunler')
-      .select('id, slug, ad, stok_adedi, fiyat')
-      .in('id', urunIds)
+    // Akdağ DB'den bu ürünlerin stok durumunu ve Sescim fiyatlar tablosundan kotalarını çek
+    const [{ data: urunler }, { data: pricingData }] = await Promise.all([
+      akdagDb.from('urunler').select('id, slug, ad, stok_durumu, stok_adedi, kritik_stok, fiyat').in('id', urunIds),
+      db.from('sescim_fiyatlar').select('urun_id, sescim_stok, sescim_stok_durumu, sescim_aktif').in('urun_id', urunIds)
+    ])
 
     if (!urunler) {
       return NextResponse.json({ message: 'Ürün verisi okunamadı', islenen: 0 })
     }
 
-    const stoktakiUrunler = urunler.filter(u => (u.stok_adedi || 0) > 0)
+    const { resolveStock } = await import('@/lib/product-stock')
+    const pricingMap = new Map((pricingData || []).map((p: any) => [p.urun_id, p]))
+
+    const stoktakiUrunler = urunler.filter(u => {
+      const pricing = pricingMap.get(u.id)
+      if (pricing && pricing.sescim_aktif === false) return false
+      const stock = resolveStock({
+        ...u,
+        sescim_stok: pricing?.sescim_stok,
+        sescim_stok_durumu: pricing?.sescim_stok_durumu,
+      })
+      return stock.isOrderable
+    })
     const stoktaOlanUrunIdleri = stoktakiUrunler.map(u => u.id)
 
     // Sadece stokta olanların taleplerini filtrele

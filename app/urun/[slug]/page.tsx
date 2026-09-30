@@ -20,6 +20,7 @@ export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 import { ProductCard } from '@/components/ProductGrid'
 import RecentlyViewed from '@/components/RecentlyViewed'
 import ProductViewTracker from '@/components/ProductViewTracker'
@@ -80,7 +81,14 @@ export default async function UrunDetayPage({ params }: Props) {
   const related = await getRelatedProducts(product.kategori, product.id)
   const crossSellData = await getCrossSellProducts(product.kategori)
 
-  const stok = product.stok_durumu || 'stokta'
+  const stockInfo = resolveStock({
+    stok_durumu: product.stok_durumu,
+    stok_adedi: product.stok_adedi,
+    kritik_stok: product.kritik_stok,
+    sescim_stok: (product as any).sescim_stok,
+    sescim_stok_durumu: (product as any).sescim_stok_durumu,
+  })
+  const stok = stockInfo.durum
   const base = getSiteUrl()
   const kur = await getKur()
   const pb = product.para_birimi || 'TRY'
@@ -171,7 +179,7 @@ export default async function UrunDetayPage({ params }: Props) {
   }
 
   const effectivePrice = (!isFiyatSorunuz && priceTL && priceTL > 0) ? priceTL : 0
-  const isAvailable = !isFiyatSorunuz && effectivePrice > 0 && stok !== 'tukendi' && stok !== 'tükendi'
+  const isAvailable = !isFiyatSorunuz && effectivePrice > 0 && stockInfo.canOrder
   const validFromDate = product.created_at
     ? new Date(product.created_at).toISOString().split('T')[0]
     : '2024-01-01'
@@ -388,16 +396,22 @@ export default async function UrunDetayPage({ params }: Props) {
               </>
             )}
 
-            {/* Stok */}
+            {/* Stok Durumu */}
             <div className="flex items-center gap-2 mb-6">
-              <div className={`w-2 h-2 rounded-full ${stok === 'stokta' ? 'bg-green-400' : stok === 'tukendi' ? 'bg-red-500' : 'bg-yellow-400'}`} />
-              <span className="font-body text-sm text-slate-600">
-                {stok === 'siparise_gore' ? (
-                  'Siparişe Göre'
-                ) : product.stok_adedi !== null && product.stok_adedi !== undefined ? (
-                  product.stok_adedi > 20 ? 'Stokta: 20+ Adet' : `Stokta: ${product.stok_adedi} Adet`
+              <div className={`w-2.5 h-2.5 rounded-full ${stockInfo.isStokta ? 'bg-emerald-500' : stockInfo.isTukendi ? 'bg-red-500' : 'bg-amber-500'}`} />
+              <span className="font-body text-sm text-slate-700 font-medium">
+                {stockInfo.isSipariseGore ? (
+                  'Siparişe Göre Temin Edilir'
+                ) : stockInfo.isTukendi ? (
+                  'Tükendi'
+                ) : stockInfo.isKritik ? (
+                  <span className="text-amber-700 font-bold">Son {stockInfo.adet} Adet!</span>
+                ) : stockInfo.adet !== null && stockInfo.adet > 20 ? (
+                  'Stokta: 20+ Adet'
+                ) : stockInfo.adet !== null ? (
+                  `Stokta: ${stockInfo.adet} Adet`
                 ) : (
-                  stok === 'stokta' ? 'Stokta Mevcut' : stok === 'tukendi' ? 'Tükendi' : 'Siparişe Göre'
+                  'Stokta Mevcut'
                 )}
               </span>
             </div>
@@ -449,7 +463,7 @@ export default async function UrunDetayPage({ params }: Props) {
                     />
                   </div>
                 </div>
-              ) : ((product as any).sescim_fiyat ?? product.fiyat) && stok !== 'tukendi' ? (
+              ) : ((product as any).sescim_fiyat ?? product.fiyat) && stockInfo.canOrder ? (
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div className="sm:col-span-3">
                     <AddToCartButton urun={{
@@ -474,14 +488,14 @@ export default async function UrunDetayPage({ params }: Props) {
                         para_birimi: product.para_birimi,
                         fotograflar: product.fotograflar || [],
                         indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
-                        stok_durumu: product.stok_durumu,
-                        stok_adedi: product.stok_adedi,
+                        stok_durumu: stockInfo.durum,
+                        stok_adedi: stockInfo.adet,
                         marka: product.marka,
                       }}
                     />
                   </div>
                 </div>
-              ) : stok === 'tukendi' ? (
+              ) : stockInfo.isTukendi ? (
                 <div className="space-y-3">
                   <div className="font-display font-bold text-sm uppercase text-center text-slate-500 tracking-widest py-3 border border-slate-200 bg-white rounded-xl">
                     TÜKENDİ

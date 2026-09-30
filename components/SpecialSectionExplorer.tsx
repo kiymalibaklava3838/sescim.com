@@ -24,6 +24,8 @@ interface Product {
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
   sescim_aktif?: boolean
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
   fiyat_sorunuz?: boolean
   created_at?: string | null
 }

@@ -5,9 +5,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { X, ShoppingCart, Check, Heart, GitCompare, Package, ShieldCheck, Truck, ArrowRight, Minus, Plus, Star } from 'lucide-react'
 import { addToCart } from '@/lib/cart'
-import { formatFiyat, dovizToTL, type KurData } from '@/lib/kur'
+import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { isFavorite, toggleFavorite, isCompared, toggleCompare } from '@/lib/product-lists'
+import { resolveStock } from '@/lib/product-stock'
 
 export interface QuickViewProduct {
   id: string
@@ -24,6 +25,8 @@ export interface QuickViewProduct {
   stok_durumu?: string
   stok_adedi?: number | null
   kritik_stok?: number | null
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
   marka?: string | null
   kullanim_alani?: string | null
   fiyat_sorunuz?: boolean
@@ -36,7 +39,7 @@ export default function QuickViewModal() {
   const [cartAdded, setCartAdded] = useState(false)
   const [fav, setFav] = useState(false)
   const [cmp, setCmp] = useState(false)
-  const [kur, setKur] = useState<KurData>({ USD: 38.0, EUR: 41.0, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
 
   useEffect(() => {
     getKurClient().then(setKur).catch(() => {})
@@ -71,15 +74,22 @@ export default function QuickViewModal() {
   const rawIndirimli = product.sescim_indirimli_fiyat ?? product.indirimli_fiyat
   const priceTL = dovizToTL(rawPrice, pb, kur)
   const indirimliPriceTL = rawIndirimli ? dovizToTL(rawIndirimli, pb, kur) : null
-  const aktifFiyatTL = indirimliPriceTL || priceTL
-  const isOutOfStock = product.stok_durumu === 'tukendi' || product.stok_durumu === 'tükendi'
+  const stockInfo = resolveStock({
+    stok_durumu: product.stok_durumu,
+    stok_adedi: product.stok_adedi,
+    kritik_stok: product.kritik_stok,
+    sescim_stok: product.sescim_stok,
+    sescim_stok_durumu: product.sescim_stok_durumu,
+  })
+  const isOutOfStock = !stockInfo.canOrder
 
   const photos = Array.isArray(product.fotograflar) && product.fotograflar.length > 0
     ? product.fotograflar
     : []
 
   const handleAddToCart = () => {
-    if (isOutOfStock || !aktifFiyatTL) return
+    const effectivePriceTL = indirimliPriceTL || priceTL
+    if (isOutOfStock || !effectivePriceTL) return
 
     addToCart({
       id: product.id,
@@ -227,12 +237,10 @@ export default function QuickViewModal() {
               <ShieldCheck size={15} className="text-emerald-600" />
               <span>Akdağ Elektronik <strong>2 Yıl Resmi Garanti</strong></span>
             </div>
-            {product.stok_adedi !== null && product.stok_adedi !== undefined && product.stok_adedi > 0 && (
-              <div className="flex items-center gap-2 text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Stok Durumu: <strong>{product.stok_adedi > 20 ? '20+ Adet Stokta' : `${product.stok_adedi} Adet Stokta`}</strong></span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-slate-700">
+              <span className={`w-2 h-2 rounded-full ${stockInfo.isStokta ? 'bg-emerald-500' : stockInfo.isTukendi ? 'bg-red-500' : 'bg-amber-500'} animate-pulse`} />
+              <span>Stok Durumu: <strong>{stockInfo.badgeLabel}</strong></span>
+            </div>
           </div>
 
           {/* Adet ve Sepete Ekle */}

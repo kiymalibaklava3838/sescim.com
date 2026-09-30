@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { odemeOnaylandiHTML, odemeAdminBildirimHTML, siparisIptalHTML } from '@/lib/email'
 import { sendEmail } from '@/lib/send-email'
+import { deductSescimStock } from '@/lib/product-stock'
 
 const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY || 'tBPqZRRP7mkd4i8H'
 const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT || 'ZiQ3B3TsknEt39dA'
@@ -238,23 +239,9 @@ export async function POST(req: NextRequest) {
           for (const item of orderUrunler) {
             const urunId = item.urun_id
             const adet = item.adet
-            if (!urunId) continue
+            if (!urunId || !adet) continue
 
-            // Yalnızca Sescim veritabanındaki ürünler güncellenir
-            const { data: sescimUrun } = await supabase
-              .from('urunler')
-              .select('stok_durumu, stok_adedi')
-              .eq('id', urunId)
-              .maybeSingle()
-
-            if (sescimUrun && typeof sescimUrun.stok_adedi === 'number') {
-              const kalan = Math.max(0, sescimUrun.stok_adedi - adet)
-              const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-              await supabase
-                .from('urunler')
-                .update({ stok_adedi: kalan, stok_durumu: nextDurum })
-                .eq('id', urunId)
-            }
+            await deductSescimStock(supabase, { id: urunId }, adet)
           }
         } catch (stokErr) {
           console.error('[paytr-callback] Stok düşürme hatası:', stokErr)

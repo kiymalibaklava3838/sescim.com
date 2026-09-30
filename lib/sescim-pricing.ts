@@ -9,6 +9,8 @@ export interface SescimPricing {
   outlet_durum?: string | null
   is_firsat?: boolean
   fiyat_sorunuz?: boolean
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
   updated_at?: string
 }
 
@@ -45,6 +47,8 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
             outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
             is_firsat: !!item.is_firsat,
             fiyat_sorunuz: !!item.fiyat_sorunuz,
+            sescim_stok: item.sescim_stok !== null && item.sescim_stok !== undefined ? Number(item.sescim_stok) : null,
+            sescim_stok_durumu: item.sescim_stok_durumu || null,
           })
         })
       }
@@ -84,6 +88,8 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         outlet_durum: data.outlet_durum || 'Teşhir / B-Stock',
         is_firsat: !!data.is_firsat,
         fiyat_sorunuz: !!data.fiyat_sorunuz,
+        sescim_stok: data.sescim_stok !== null && data.sescim_stok !== undefined ? Number(data.sescim_stok) : null,
+        sescim_stok_durumu: data.sescim_stok_durumu || null,
       }
     }
   } catch (error) {
@@ -102,6 +108,8 @@ export async function upsertSescimPricing(
     outlet_durum?: string | null
     is_firsat?: boolean
     fiyat_sorunuz?: boolean
+    sescim_stok?: number | null
+    sescim_stok_durumu?: string | null
   }
 ): Promise<boolean> {
   const supabase = await createServerSupabaseClient()
@@ -123,16 +131,27 @@ export async function upsertSescimPricing(
       payload.fiyat_sorunuz = data.fiyat_sorunuz
     }
 
+    if (data.sescim_stok !== undefined) {
+      payload.sescim_stok = data.sescim_stok
+    }
+
+    if (data.sescim_stok_durumu !== undefined) {
+      payload.sescim_stok_durumu = data.sescim_stok_durumu
+    }
+
     const { error } = await supabase
       .from('sescim_fiyatlar')
       .upsert(payload, { onConflict: 'urun_id' })
 
     if (error) {
-      // Eğer fiyat_sorunuz kolonu henüz DB'de yoksa, fallback olarak onsuz kaydetmeyi dene
-      if (error.code === 'PGRST204' && payload.fiyat_sorunuz !== undefined) {
-        console.warn('fiyat_sorunuz column not found in sescim_fiyatlar yet. Run migration.')
-        delete payload.fiyat_sorunuz
-        const retry = await supabase.from('sescim_fiyatlar').upsert(payload, { onConflict: 'urun_id' })
+      // Eğer yeni eklenen kolonlar henüz DB'de yoksa, fallback olarak onları çıkarıp tekrar dene
+      if (error.code === 'PGRST204') {
+        console.warn('Bazı kolonlar henüz sescim_fiyatlar tablosunda yok. Migration çalıştırın. Fallback uygulanıyor...')
+        const fallbackPayload = { ...payload }
+        delete fallbackPayload.sescim_stok
+        delete fallbackPayload.sescim_stok_durumu
+        delete fallbackPayload.fiyat_sorunuz
+        const retry = await supabase.from('sescim_fiyatlar').upsert(fallbackPayload, { onConflict: 'urun_id' })
         return !retry.error
       }
       console.error('Error upserting Sescim pricing:', error)

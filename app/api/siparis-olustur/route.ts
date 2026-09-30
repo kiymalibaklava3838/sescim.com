@@ -10,6 +10,8 @@ import { calculateCouponDiscount } from '@/lib/coupon-helper'
 import { calculateShippingFee } from '@/lib/shipping'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { getSiteUrl } from '@/lib/site-url'
+import { resolveStock, deductSescimStock } from '@/lib/product-stock'
+import { DEFAULT_KUR } from '@/lib/kur'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -64,14 +66,14 @@ export async function POST(req: NextRequest) {
     const akdagDb = akdagAdmin()
 
     // 1. Döviz kurlarını al
-    let dolarKuru = 38.0
-    let euroKuru = 41.0
+    let dolarKuru = DEFAULT_KUR.USD
+    let euroKuru = DEFAULT_KUR.EUR
     try {
       const kurRes = await fetch(`${req.nextUrl.origin}/api/kur`)
       if (kurRes.ok) {
         const kurData = await kurRes.json()
-        dolarKuru = kurData.USD || 38.0
-        euroKuru = kurData.EUR || 41.0
+        dolarKuru = kurData.USD || DEFAULT_KUR.USD
+        euroKuru = kurData.EUR || DEFAULT_KUR.EUR
       }
     } catch {}
 
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
       slugIds.length > 0
         ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('slug', slugIds)
         : Promise.resolve({ data: [] as any[], error: null }),
-      db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz').in('urun_id', urunIds)
+      db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu').in('urun_id', urunIds)
     ])
 
     const dbProducts = [
@@ -148,6 +150,27 @@ export async function POST(req: NextRequest) {
       if (quoteOnly) {
         return NextResponse.json({
           error: `"${dbProd.ad}" distribütör kuralları gereği doğrudan internet üzerinden satılamaz. Lütfen fiyat teklifi alınız.`
+        }, { status: 400 })
+      }
+
+      // Stok Doğrulama: Sescim'e özel ayrılan stok varsa onu, yoksa Akdağ stoğunu kontrol et
+      const stockInfo = resolveStock({
+        stok_durumu: dbProd.stok_durumu,
+        stok_adedi: dbProd.stok_adedi,
+        kritik_stok: dbProd.kritik_stok,
+        sescim_stok: sescimPricing?.sescim_stok,
+        sescim_stok_durumu: sescimPricing?.sescim_stok_durumu,
+      })
+
+      if (stockInfo.isTukendi) {
+        return NextResponse.json({
+          error: `"${dbProd.ad}" tükendiği için sipariş verilemez.`
+        }, { status: 400 })
+      }
+
+      if (!stockInfo.isSipariseGore && stockInfo.adet !== null && item.adet > stockInfo.adet) {
+        return NextResponse.json({
+          error: `"${dbProd.ad}" için sipariş adedi mevcut stoku (${stockInfo.adet} adet) aşıyor.`
         }, { status: 400 })
       }
 
@@ -433,27 +456,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Havale siparişlerinde stok hemen rezerve edilir
+    // Havale siparişlerinde stok hemen rezerve edilir (Yalnızca Sescim DB güncellenir, Akdağ DB salt-okunurdur)
     // Kart siparişlerinde ise stok PayTR ödeme onayı geldiğinde (paytr-callback) düşülür.
     if (!isKart) {
       for (const item of urunler) {
         if (!item.urun_id) continue
+        const dbProd = dbProducts.find((p) => p.id === item.urun_id || p.slug === item.urun_id)
+        if (!dbProd) continue
 
-        const dbProd = dbProducts.find((p) => p.id === item.urun_id)
-        const targetDb = dbProd?.kaynak === 'sescim' ? db : akdagDb
-
-        // Önce mevcut durumu al
-        const { data: urun } = await targetDb
-          .from('urunler')
-          .select('stok_durumu, stok_adedi')
-          .eq('id', item.urun_id)
-          .single()
-
-        if (typeof urun?.stok_adedi === 'number') {
-          const kalan = Math.max(0, urun.stok_adedi - item.adet)
-          const nextDurum = kalan <= 0 ? 'tukendi' : 'stokta'
-          await targetDb.from('urunler').update({ stok_adedi: kalan, stok_durumu: nextDurum }).eq('id', item.urun_id)
-        }
+        await deductSescimStock(db, dbProd, item.adet)
       }
     }
 

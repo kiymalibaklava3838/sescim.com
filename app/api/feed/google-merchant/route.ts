@@ -5,6 +5,7 @@ import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { dovizToTL, getKur } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 export const revalidate = 7200 // 2 saat Edge CDN önbellek
 
@@ -31,8 +32,8 @@ export async function GET() {
     // 1. Hem Akdağ hem Sescim veritabanındaki ürünleri çek (Hibrit)
     const sescimDb = await createServerSupabaseClient()
     const [akdagRes, sescimRes] = await Promise.all([
-      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, marka, model_kodu').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
+      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu').limit(10000),
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
     ])
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({
@@ -91,8 +92,14 @@ export async function GET() {
       if (!mainImage || !mainImage.startsWith('http')) continue
 
       const isOutlet = !!pricing?.is_outlet
-      const stok = p.stok_durumu || 'stokta'
-      const availability = (stok === 'tukendi' || stok === 'tükendi') ? 'out_of_stock' : 'in_stock'
+      const stockInfo = resolveStock({
+        stok_durumu: p.stok_durumu,
+        stok_adedi: p.stok_adedi,
+        kritik_stok: p.kritik_stok,
+        sescim_stok: pricing?.sescim_stok,
+        sescim_stok_durumu: pricing?.sescim_stok_durumu,
+      })
+      const availability = stockInfo.isTukendi ? 'out_of_stock' : 'in_stock'
       const link = `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`
       const brand = (p.marka || 'Akdağ Elektronik').trim()
       const realMpn = p.model_kodu && typeof p.model_kodu === 'string' && p.model_kodu.trim() ? p.model_kodu.trim() : null

@@ -150,6 +150,8 @@ export const getRelatedProducts = unstable_cache(
               sescim_fiyat: pricing.sescim_fiyat, 
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
               sescim_aktif: pricing.sescim_aktif,
+              sescim_stok: pricing.sescim_stok,
+              sescim_stok_durumu: pricing.sescim_stok_durumu,
               fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }
@@ -189,6 +191,8 @@ export const getCrossSellProducts = unstable_cache(
               sescim_fiyat: pricing.sescim_fiyat, 
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
               sescim_aktif: pricing.sescim_aktif,
+              sescim_stok: pricing.sescim_stok,
+              sescim_stok_durumu: pricing.sescim_stok_durumu,
               fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }

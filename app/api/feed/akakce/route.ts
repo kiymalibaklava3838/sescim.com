@@ -5,6 +5,7 @@ import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { dovizToTL, getKur } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 export const revalidate = 7200 // 2 saat Edge CDN önbellek
 
@@ -17,8 +18,8 @@ export async function GET() {
 
     // 1. Akdağ ve Sescim ürünlerini çek
     const [akdagRes, sescimRes] = await Promise.all([
-      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
+      supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu').limit(10000),
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
     ])
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({
@@ -65,10 +66,16 @@ export async function GET() {
 
       if (finalPriceTL <= 0) continue
 
-      const stok = p.stok_durumu || 'stokta'
-      const isOutOfStock = stok === 'tukendi' || stok === 'tükendi'
+      const stockInfo = resolveStock({
+        stok_durumu: p.stok_durumu,
+        stok_adedi: p.stok_adedi,
+        kritik_stok: p.kritik_stok,
+        sescim_stok: pricing?.sescim_stok,
+        sescim_stok_durumu: pricing?.sescim_stok_durumu,
+      })
+      const isOutOfStock = stockInfo.isTukendi
       const stockStatus = isOutOfStock ? 0 : 1
-      const stockQty = isOutOfStock ? 0 : (p.stok_adedi || 10)
+      const stockQty = isOutOfStock ? 0 : (stockInfo.adet !== null ? stockInfo.adet : 10)
       const link = `${baseUrl}/urun/${encodeURIComponent(p.slug || p.id)}`
       const image = Array.isArray(p.fotograflar) && p.fotograflar[0] ? p.fotograflar[0] : `${baseUrl}/logo.png`
       const brand = p.marka || 'Akdağ Elektronik'

@@ -9,6 +9,7 @@ import { StaggerContainer, StaggerItem, AnimatedButton } from './MotionComponent
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 interface Props {
   title?: string
@@ -77,6 +78,8 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
       sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
+      sescim_stok: pricing?.sescim_stok ?? p.sescim_stok ?? null,
+      sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
       fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing ? pricing.fiyat_sorunuz : p.fiyat_sorunuz })
     }
   }).filter(p => p.sescim_aktif !== false)
@@ -111,6 +114,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
             const aktifFiyat = product.sescim_fiyat ?? product.fiyat
             const indirimli = product.sescim_indirimli_fiyat ?? null
             
+            const stockInfo = resolveStock(product)
             const aktifFiyatTL = aktifFiyat ? dovizToTL(aktifFiyat, pb, kur) : null
             const normalFiyatTL = dovizToTL(product.fiyat ?? 0, pb, kur)
 
@@ -143,7 +147,13 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                   
                   <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
                     <span className="font-medium truncate max-w-[110px]">{product.kategori}</span>
-                    <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
+                    {stockInfo.status === 'stokta' ? (
+                      <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
+                    ) : stockInfo.status === 'siparise_gore' ? (
+                      <span className="text-amber-600 font-semibold text-[11px] bg-amber-50 px-1.5 py-0.5 rounded">Siparişe Göre</span>
+                    ) : (
+                      <span className="text-slate-400 font-semibold text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">Tükendi</span>
+                    )}
                   </div>
                   
                   <div className="mt-4 flex flex-col justify-end">
@@ -172,7 +182,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                     
                     <Link href={`/urun/${product.slug}`} className="block mt-3">
                       <AnimatedButton className="bg-brand-red text-white w-full py-2 rounded-md font-semibold text-sm hover:bg-red-700 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:translate-y-2 lg:group-hover:translate-y-0 duration-300">
-                        {product.fiyat_sorunuz ? 'Teklif Al' : 'İncele'}
+                        {product.fiyat_sorunuz ? 'Teklif Al' : !stockInfo.isOrderable ? 'Tükendi' : 'İncele'}
                       </AnimatedButton>
                     </Link>
                   </div>

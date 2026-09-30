@@ -314,6 +314,8 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               sescim_fiyat: pricing.sescim_fiyat,
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
               sescim_aktif: pricing.sescim_aktif,
+              sescim_stok: pricing.sescim_stok,
+              sescim_stok_durumu: pricing.sescim_stok_durumu,
               fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
             }
           }
@@ -372,6 +374,8 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
               sescim_fiyat: pr.sescim_fiyat,
               sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
               sescim_aktif: pr.sescim_aktif,
+              sescim_stok: pr.sescim_stok,
+              sescim_stok_durumu: pr.sescim_stok_durumu,
               fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pr.fiyat_sorunuz })
             }
           }

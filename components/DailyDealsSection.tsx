@@ -2,6 +2,7 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
+import { resolveStock } from '@/lib/product-stock'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
 import Image from 'next/image'
 import SafeProductImage from './SafeProductImage'
@@ -18,6 +19,7 @@ export default async function DailyDealsSection() {
   // 1. Sescim aktif flaş indirimlerini çek
   let flasUrunIds: string[] = []
   let enYakinBitis: string | undefined = undefined
+  const flasDataMap = new Map<string, any>()
 
   if (sescimSupabase) {
     try {
@@ -31,6 +33,7 @@ export default async function DailyDealsSection() {
       if (flasData && flasData.length > 0) {
         flasUrunIds = flasData.map((f: any) => f.urun_id)
         enYakinBitis = flasData[0].bitis_tarihi
+        flasData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -84,14 +87,23 @@ export default async function DailyDealsSection() {
 
   const rawDeals = products.map((p: any) => {
     const pricing = pricingMap.get(p.id)
+    const flasItem = flasDataMap.get(p.id)
+    const indirimliFiyat = flasItem ? Number(flasItem.indirimli_fiyat) : (pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null)
+
     return {
       ...p,
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
-      sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null,
+      sescim_indirimli_fiyat: indirimliFiyat,
       sescim_aktif: pricing?.sescim_aktif ?? true,
+      sescim_stok: pricing?.sescim_stok ?? null,
+      sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
       fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
     }
-  }).filter(p => p.sescim_aktif !== false && !p.fiyat_sorunuz)
+  }).filter(p => {
+    if (p.sescim_aktif === false || p.fiyat_sorunuz) return false
+    const stock = resolveStock(p)
+    return stock.isOrderable
+  })
 
   // 5'li ızgara (lg:grid-cols-5) için son satırda tek/eksik ürün kalmasını önle
   const dealsCount = Math.floor(rawDeals.length / 5) * 5

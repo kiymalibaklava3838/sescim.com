@@ -6,6 +6,7 @@ import { addToCart, getCartCount } from '@/lib/cart'
 import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { useCartStore } from '@/store/useCartStore'
+import { resolveStock } from '@/lib/product-stock'
 import InstallmentModal from './InstallmentModal'
 
 interface Props {
@@ -19,6 +20,10 @@ interface Props {
     indirimli_fiyat?: number | null
     para_birimi?: string
     stok_durumu?: string
+    stok_adedi?: number | null
+    kritik_stok?: number | null
+    sescim_stok?: number | null
+    sescim_stok_durumu?: string | null
     sescim_fiyat?: number
     sescim_indirimli_fiyat?: number | null
     fiyat_sorunuz?: boolean
@@ -44,7 +49,14 @@ export default function MobileStickyAddToCart({ product }: Props) {
   const rawPrice = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
   const priceTL = dovizToTL(rawPrice, pb, kur)
 
-  const isTukendi = product.stok_durumu === 'tukendi'
+  const stockInfo = resolveStock({
+    stok_durumu: product.stok_durumu,
+    stok_adedi: product.stok_adedi,
+    kritik_stok: product.kritik_stok,
+    sescim_stok: product.sescim_stok,
+    sescim_stok_durumu: product.sescim_stok_durumu,
+  })
+  const isTukendi = !stockInfo.canOrder
 
   const handleAdd = () => {
     if (isTukendi || product.fiyat_sorunuz) return

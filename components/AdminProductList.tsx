@@ -40,6 +40,8 @@ interface Product {
   sescim_indirimli_fiyat?: number | null
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
   kaynak?: 'sescim' | 'akdag'
 }
 
@@ -75,6 +77,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const [editBayiF, setEditBayiF] = useState('')
   const [editSescimFiyat, setEditSescimFiyat] = useState('')
   const [editSescimIndirimli, setEditSescimIndirimli] = useState('')
+  const [editSescimStok, setEditSescimStok] = useState('')
+  const [editSescimStokDurumu, setEditSescimStokDurumu] = useState('')
   const [editIsFeatured, setEditIsFeatured] = useState(false)
   const [editFiyatSorunuz, setEditFiyatSorunuz] = useState(false)
   const [editStok, setEditStok] = useState('stokta')
@@ -156,7 +160,9 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
           sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
           sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
           sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
-          fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false
+          fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
+          sescim_stok: pricing?.sescim_stok ?? null,
+          sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
         }
       })
 
@@ -198,6 +204,28 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setProducts(products.map(p => p.id === productId ? { ...p, sescim_fiyat: val } : p))
   }
 
+  const handleSescimStokChange = (productId: string, newStok: string) => {
+    const val = newStok.trim() === '' ? null : Math.max(0, parseInt(newStok))
+    setProducts(products.map(p => p.id === productId ? { ...p, sescim_stok: val } : p))
+  }
+
+  const saveSescimStok = async (product: Product) => {
+    try {
+      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      await upsertSescimPricing(product.id, {
+        sescim_fiyat: product.sescim_fiyat,
+        sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
+        sescim_aktif: product.sescim_aktif,
+        fiyat_sorunuz: product.fiyat_sorunuz,
+        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
+        sescim_stok_durumu: product.sescim_stok_durumu || null,
+      })
+      await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
+    } catch (e) {
+      console.error('Failed to save Sescim stock:', e)
+    }
+  }
+
   const saveSescimFiyat = async (product: Product) => {
     try {
       if (product.kaynak === 'sescim') {
@@ -210,8 +238,11 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
+        sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
         sescim_aktif: product.sescim_aktif,
-        fiyat_sorunuz: product.fiyat_sorunuz
+        fiyat_sorunuz: product.fiyat_sorunuz,
+        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
+        sescim_stok_durumu: product.sescim_stok_durumu || null,
       })
       await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
     } catch (e) {
@@ -232,8 +263,11 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
+        sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
         sescim_aktif: newValue,
-        fiyat_sorunuz: product.fiyat_sorunuz
+        fiyat_sorunuz: product.fiyat_sorunuz,
+        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
+        sescim_stok_durumu: product.sescim_stok_durumu || null,
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, sescim_aktif: newValue } : p))
       await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
@@ -248,8 +282,11 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
+        sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
         sescim_aktif: product.sescim_aktif,
-        fiyat_sorunuz: newValue
+        fiyat_sorunuz: newValue,
+        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
+        sescim_stok_durumu: product.sescim_stok_durumu || null,
       })
       setProducts(products.map(p => p.id === product.id ? { ...p, fiyat_sorunuz: newValue } : p))
       await fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }) }).catch(() => {})
@@ -325,6 +362,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     setEditBayiF(prod.bayi_fiyati?.toString() || '')
     setEditSescimFiyat(((prod as any).sescim_fiyat ?? p.sescim_fiyat)?.toString() || '')
     setEditSescimIndirimli(((prod as any).sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat)?.toString() || '')
+    setEditSescimStok(p.sescim_stok !== null && p.sescim_stok !== undefined ? p.sescim_stok.toString() : '')
+    setEditSescimStokDurumu(p.sescim_stok_durumu || '')
     setEditIsFeatured(prod.is_featured || false)
     setEditFiyatSorunuz(!!(prod as any).fiyat_sorunuz || !!p.fiyat_sorunuz)
     setEditStok(prod.stok_durumu || 'stokta')
@@ -350,6 +389,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     const stokAdedi = Math.max(0, parseInt(editStokAdedi || '0'))
     const kritikStok = Math.max(0, parseInt(editKritikStok || '0'))
     const stokDurumu = editStok !== 'stokta' ? editStok : (stokAdedi <= 0 ? 'tukendi' : 'stokta')
+    const sescimStokAdedi = editSescimStok.trim() !== '' && !isNaN(parseInt(editSescimStok)) ? Math.max(0, parseInt(editSescimStok)) : null
     
     // Fotoğrafları Sescim storage bucket'ına yükle
     const yeniUrls: string[] = []
@@ -387,14 +427,16 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       }).eq('id', editProduct.id)
     }
 
-    // Sescim fiyat ve distribütör teklif kuralını sescim_fiyatlar tablosuna kaydet
+    // Sescim fiyat, stok ve distribütör teklif kuralını sescim_fiyatlar tablosuna kaydet (Akdağ DB'ye dokunulmaz!)
     try {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
       await upsertSescimPricing(editProduct.id, {
         sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
         sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
         sescim_aktif: editProduct.sescim_aktif ?? true,
-        fiyat_sorunuz: editFiyatSorunuz
+        fiyat_sorunuz: editFiyatSorunuz,
+        sescim_stok: sescimStokAdedi,
+        sescim_stok_durumu: editSescimStokDurumu || null
       })
     } catch (e) {
       console.error('Failed to update sescim_fiyatlar:', e)
@@ -672,11 +714,42 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                       <div className="text-[9px] mt-0.5 font-mono">
                         {product.para_birimi && product.para_birimi !== 'TRY' ? (
                           <span className="text-emerald-600 font-bold">
-                            ≈ {Math.round(product.sescim_fiyat * (product.para_birimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                            ≈ {Math.round(product.sescim_fiyat * (product.para_birimi === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR))).toLocaleString('tr-TR')} TL
                           </span>
                         ) : null}
                       </div>
                     ) : null}
+                  </div>
+                  <div className="flex flex-col min-w-[95px]">
+                    <div className="flex items-center justify-between text-[9px] mb-0.5">
+                      <label className="text-blue-600 font-bold uppercase tracking-wider">Sescim Stok</label>
+                      <span className="font-mono text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded" title="Akdağ Stok Adedi">
+                        Akdağ: {product.stok_adedi ?? 0}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        min="0"
+                        placeholder={product.stok_adedi !== undefined && product.stok_adedi !== null ? String(product.stok_adedi) : 'Oto'}
+                        value={product.sescim_stok === null || product.sescim_stok === undefined ? '' : product.sescim_stok}
+                        onChange={(e) => handleSescimStokChange(product.id, e.target.value)}
+                        onBlur={() => saveSescimStok(product)}
+                        className={`input-dark w-24 text-xs py-1 px-2 border-blue-500/30 focus:border-blue-600 ${
+                          product.sescim_stok !== null && product.sescim_stok !== undefined
+                            ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-semibold'
+                            : ''
+                        }`}
+                        title={product.sescim_stok !== null && product.sescim_stok !== undefined ? `Sescim için ayrılan özel kota: ${product.sescim_stok}` : `Varsayılan: Akdağ stoğu geçerli (${product.stok_adedi ?? 0})`}
+                      />
+                    </div>
+                    <div className="text-[9px] mt-0.5 font-medium text-slate-500 truncate max-w-[100px]">
+                      {product.sescim_stok !== null && product.sescim_stok !== undefined ? (
+                        <span className="text-blue-600 font-bold">Özel: {product.sescim_stok}</span>
+                      ) : (
+                        <span className="text-slate-400">Akdağ ({product.stok_adedi ?? 0})</span>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => toggleSescimAktif(product)} className={`w-9 h-9 border flex items-center justify-center transition-all mt-3 ${product.sescim_aktif === false ? 'border-red-500/50 text-red-500 bg-red-500/10' : 'border-green-500/50 text-green-500 bg-green-500/10'}`} title={product.sescim_aktif === false ? "Sescim'de Gizli" : "Sescim'de Göster"}>
                     {product.sescim_aktif === false ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -807,7 +880,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                         />
                         {editSescimFiyat && editParaBirimi !== 'TRY' && (
                           <span className="text-[9px] text-emerald-600 font-mono font-bold block mt-0.5">
-                            ≈ {Math.round(Number(editSescimFiyat) * (editParaBirimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                            ≈ {Math.round(Number(editSescimFiyat) * (editParaBirimi === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR))).toLocaleString('tr-TR')} TL
                           </span>
                         )}
                       </div>
@@ -825,7 +898,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                         />
                         {editSescimIndirimli && editParaBirimi !== 'TRY' && (
                           <span className="text-[9px] text-emerald-600 font-mono font-bold block mt-0.5">
-                            ≈ {Math.round(Number(editSescimIndirimli) * (editParaBirimi === 'USD' ? (kur?.USD || 38) : (kur?.EUR || 41))).toLocaleString('tr-TR')} TL
+                            ≈ {Math.round(Number(editSescimIndirimli) * (editParaBirimi === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR))).toLocaleString('tr-TR')} TL
                           </span>
                         )}
                       </div>
@@ -854,23 +927,95 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                     </label>
                   </div>
 
-                  {/* Stok Durumu — admin bilinçli seçim yapabilsin */}
-                  <div>
-                    <label className="font-display font-semibold text-xs tracking-widest uppercase text-slate-900/40 block mb-2">Stok Durumu</label>
-                    <select value={editStok} onChange={e => setEditStok(e.target.value)} className="input-dark appearance-none cursor-pointer">
+                  {/* Sescim.com'a Özel Stok Ayırma (Kota) */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                    <div>
+                      <strong className="font-display font-bold uppercase tracking-wider block text-blue-900 text-xs">
+                        Sescim.com Özel Stok Ayırma (Kota Yönetimi)
+                      </strong>
+                      <span className="text-[11px] text-blue-800 block mt-0.5">
+                        Ana veritabanındaki stok: <strong>{editStokAdedi} adet</strong> ({editStok}). 
+                        Sescim için özel bir stok kotası ayırmak isterseniz aşağıya girin. Boş bırakırsanız Akdağ stoğu aynen geçerli olur.
+                        <span className="text-emerald-700 font-semibold block mt-0.5">
+                          ✓ Akdağ veritabanındaki stok adedi asla değişmez ve korunur.
+                        </span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-blue-900 block mb-1">
+                          Sescim Özel Stok Kotası
+                        </label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder={`Boş ise Akdağ (${editStokAdedi})`}
+                          value={editSescimStok} 
+                          onChange={e => setEditSescimStok(e.target.value)} 
+                          className="input-dark bg-white border-blue-300 focus:border-blue-600" 
+                        />
+                      </div>
+                      <div>
+                        <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-blue-900 block mb-1">
+                          Sescim Stok Durumu
+                        </label>
+                        <select 
+                          value={editSescimStokDurumu} 
+                          onChange={e => setEditSescimStokDurumu(e.target.value)} 
+                          className="input-dark bg-white border-blue-300 focus:border-blue-600 appearance-none cursor-pointer text-xs"
+                        >
+                          <option value="">Varsayılan (Akdağ ile aynı)</option>
+                          <option value="stokta">Stokta</option>
+                          <option value="siparise_gore">Siparişe Göre</option>
+                          <option value="tukendi">Tükendi</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stok Durumu (Ana DB / Sescim Ürünü ise geçerli) */}
+                  <div className={editProduct?.kaynak !== 'sescim' ? 'opacity-70 bg-slate-50 p-2.5 rounded border border-slate-200' : ''}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-display font-semibold text-xs tracking-widest uppercase text-slate-900/60 block">
+                        {editProduct?.kaynak === 'sescim' ? 'Stok Durumu' : 'Akdağ Stok Durumu (Referans)'}
+                      </label>
+                      {editProduct?.kaynak !== 'sescim' && (
+                        <span className="text-[9px] text-slate-400 italic">Akdağ ana sisteminden okunur</span>
+                      )}
+                    </div>
+                    <select 
+                      value={editStok} 
+                      onChange={e => setEditStok(e.target.value)} 
+                      disabled={editProduct?.kaynak !== 'sescim'}
+                      className="input-dark appearance-none cursor-pointer disabled:bg-slate-100 disabled:text-slate-500"
+                    >
                       <option value="stokta">Stokta</option>
                       <option value="tukendi">Tükendi</option>
                       <option value="siparise_gore">Siparişe Göre</option>
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid grid-cols-2 gap-3 ${editProduct?.kaynak !== 'sescim' ? 'opacity-70' : ''}`}>
                     <div className="relative">
-                      <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-900/20 block mb-1">Stok Adedi</label>
-                      <input type="number" value={editStokAdedi} onChange={e => setEditStokAdedi(e.target.value)} className="input-dark" />
+                      <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-900/40 block mb-1">
+                        {editProduct?.kaynak === 'sescim' ? 'Stok Adedi' : 'Akdağ Stok Adedi (Referans)'}
+                      </label>
+                      <input 
+                        type="number" 
+                        value={editStokAdedi} 
+                        onChange={e => setEditStokAdedi(e.target.value)} 
+                        disabled={editProduct?.kaynak !== 'sescim'}
+                        className="input-dark disabled:bg-slate-100 disabled:text-slate-500" 
+                      />
                     </div>
                     <div className="relative">
-                      <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-900/20 block mb-1">Kritik Stok</label>
-                      <input type="number" value={editKritikStok} onChange={e => setEditKritikStok(e.target.value)} className="input-dark" />
+                      <label className="font-display font-semibold text-[10px] tracking-widest uppercase text-slate-900/40 block mb-1">Kritik Stok</label>
+                      <input 
+                        type="number" 
+                        value={editKritikStok} 
+                        onChange={e => setEditKritikStok(e.target.value)} 
+                        disabled={editProduct?.kaynak !== 'sescim'}
+                        className="input-dark disabled:bg-slate-100 disabled:text-slate-500" 
+                      />
                     </div>
                   </div>
                   {/* Model Kodu (Stok Kodu) */}

@@ -19,6 +19,7 @@ import {
   type SavedProduct,
 } from '@/lib/product-lists'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 interface Product {
   id: string
@@ -41,6 +42,8 @@ interface Product {
   sescim_indirimli_fiyat?: number
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
   created_at?: string | null
 }
 
@@ -139,7 +142,14 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   const kurData = kur || { USD: 32.5, EUR: 35.2, guncelleme: null }
   const pb = product.para_birimi || 'TRY'
 
-  const stok = product.stok_durumu || 'stokta'
+  const stockInfo = resolveStock({
+    stok_durumu: product.stok_durumu,
+    stok_adedi: product.stok_adedi,
+    kritik_stok: product.kritik_stok,
+    sescim_stok: product.sescim_stok,
+    sescim_stok_durumu: product.sescim_stok_durumu,
+  })
+  const stok = stockInfo.durum
   const isRecentUpdate = product.fiyat_guncelleme
     ? (Date.now() - new Date(product.fiyat_guncelleme).getTime()) < 7 * 24 * 60 * 60 * 1000
     : false
@@ -152,12 +162,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   const [cmp, setCmp] = useState(false)
   const [cartAdded, setCartAdded] = useState(false)
   const router = useRouter()
-  const stockCount = product.stok_adedi ?? null
-  const isCritical =
-    stockCount !== null &&
-    product.kritik_stok !== null &&
-    product.kritik_stok !== undefined &&
-    stockCount <= product.kritik_stok
+  const stockCount = stockInfo.adet
+  const isCritical = stockInfo.isKritik
 
   useEffect(() => {
     setFav(isFavorite(product.id))
@@ -178,8 +184,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     kategori: product.kategori,
     fiyat: normalFiyatTL ?? (product.sescim_fiyat ?? product.fiyat),
     para_birimi: 'TRY',
-    stok_durumu: product.stok_durumu,
-    stok_adedi: product.stok_adedi ?? null,
+    stok_durumu: stockInfo.durum,
+    stok_adedi: stockInfo.adet,
     kritik_stok: product.kritik_stok ?? null,
     marka: product.marka ?? null,
     kullanim_alani: product.kullanim_alani ?? null,
@@ -194,7 +200,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     e.preventDefault()
     e.stopPropagation()
     const finalFiyat = product.sescim_fiyat ?? product.fiyat
-    if (isFiyatSorunuz || !finalFiyat || stok === 'tukendi') return
+    if (isFiyatSorunuz || !finalFiyat || !stockInfo.canOrder) return
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
     const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
@@ -244,9 +250,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               </span>
             )}
             <ProductBadges
-              stokAdedi={product.stok_adedi}
+              stokAdedi={stockInfo.adet}
               kritikStok={product.kritik_stok}
-              stokDurumu={stok}
+              stokDurumu={stockInfo.durum}
               fiyat={product.fiyat_sorunuz ? undefined : (normalFiyatTL || undefined)}
               indirimliFiyat={product.fiyat_sorunuz ? undefined : (indirimliFiyatTL || undefined)}
               kategori={product.kategori}
@@ -286,12 +292,12 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               YENİ FİYAT
             </div>
           )}
-          {stok === 'tukendi' && (
+          {stockInfo.isTukendi && (
             <div className="absolute inset-0 bg-white/85 flex items-center justify-center z-10">
               <span className="font-display font-black text-sm uppercase tracking-widest text-slate-800 bg-slate-100 px-3 py-1 rounded border border-slate-200">Tükendi</span>
             </div>
           )}
-          {stok === 'siparise_gore' && (
+          {stockInfo.isSipariseGore && (
             <div className="absolute top-2.5 right-2.5 bg-yellow-500 text-black px-2 py-0.5 font-display font-black text-[9px] uppercase tracking-wider rounded-xs">
               Siparişe Göre
             </div>
@@ -344,24 +350,27 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                 {new Date(product.fiyat_guncelleme).toLocaleDateString('tr-TR')}
               </div>
             )}
-            {/* Sade Mikro Bilgi (Stokta / Son X Adet) */}
-            {stockCount !== null && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
-                {stockCount <= 0 ? (
-                  <span className="text-slate-400">Tükendi</span>
-                ) : isCritical ? (
-                  <span className="text-amber-600 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Son {stockCount} Adet
-                  </span>
-                ) : (
-                  <span className="text-emerald-600 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Stokta
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Sade Mikro Bilgi (Stokta / Siparişe Göre / Son X Adet / Tükendi) */}
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
+              {stockInfo.isTukendi ? (
+                <span className="text-slate-400">Tükendi</span>
+              ) : stockInfo.isSipariseGore ? (
+                <span className="text-amber-700 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Siparişe Göre
+                </span>
+              ) : stockInfo.isKritik ? (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Son {stockInfo.adet} Adet
+                </span>
+              ) : (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Stokta
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>
@@ -383,9 +392,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={handleAddToCart}
-              disabled={stok === 'tukendi'}
+              disabled={!stockInfo.canOrder}
               className={`w-full h-10 rounded-lg flex items-center justify-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider transition-all duration-200 shadow-xs ${
-                stok === 'tukendi'
+                !stockInfo.canOrder
                   ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                   : cartAdded
                   ? 'bg-emerald-600 text-white'
@@ -397,7 +406,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                   <Check size={14} />
                   <span>Eklendi</span>
                 </>
-              ) : stok === 'tukendi' ? (
+              ) : !stockInfo.canOrder ? (
                 <span>Tükendi</span>
               ) : (
                 <>
@@ -447,9 +456,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               whileTap={{ scale: 0.95 }}
               type="button"
               onClick={handleAddToCart}
-              disabled={stok === 'tukendi'}
+              disabled={!stockInfo.canOrder}
               className={`flex items-center justify-center gap-1 text-xs font-display font-semibold uppercase tracking-wider px-2 py-1.5 border transition-all duration-300 ${
-                stok === 'tukendi'
+                !stockInfo.canOrder
                   ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50'
                   : cartAdded
                     ? 'bg-green-600 border-green-600 text-white'
@@ -457,7 +466,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               }`}
             >
               {cartAdded ? <Check size={12} /> : <ShoppingCart size={12} />}
-              {cartAdded ? '✓' : 'Ekle'}
+              {!stockInfo.canOrder ? 'Tükendi' : cartAdded ? '✓' : 'Ekle'}
             </motion.button>
           )}
         </div>

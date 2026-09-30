@@ -21,6 +21,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import RecentlyViewed from '@/components/RecentlyViewed'
 import CartCrossSell from '@/components/CartCrossSell'
 import FreeShippingBar from '@/components/FreeShippingBar'
+import SafeProductImage from '@/components/SafeProductImage'
 import { calculateCouponDiscount, matchesCategory } from '@/lib/coupon-helper'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import { calculateShippingFee, SHIPPING_CONFIG } from '@/lib/shipping'
@@ -482,7 +483,16 @@ export default function SepetPage() {
                 <div key={i.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white border border-slate-200 p-3.5 sm:p-4 rounded-xl shadow-xs hover:border-slate-300 transition-colors">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden border border-slate-100">
-                      {i.fotograf ? <Image src={i.fotograf} alt={i.ad} fill className="object-contain p-1.5" sizes="80px" /> : <div className="w-full h-full flex items-center justify-center"><Store className="text-slate-300" size={20}/></div>}
+                      <SafeProductImage
+                        src={i.fotograf}
+                        alt={i.ad}
+                        fill
+                        sizes="80px"
+                        unoptimized={true}
+                        loading="lazy"
+                        placeholderIconSize={20}
+                        className="object-contain p-1.5"
+                      />
                     </div>
                     <div className="flex-1 min-w-0 text-left">
                       <Link href={`/urun/${i.id}`} className="font-display font-bold text-slate-800 text-xs sm:text-sm hover:text-brand-red transition-colors uppercase tracking-wide line-clamp-2 sm:truncate block">

@@ -104,6 +104,9 @@ export default async function OutletPage() {
         sescim_indirimli_fiyat: outletMeta?.outlet_fiyat ?? pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null,
         kullanim_alani: outletMeta?.durum_aciklamasi || 'Teşhir / Seri Sonu Fırsatı',
         sescim_aktif: pricing?.sescim_aktif ?? true,
+        sescim_stok: pricing?.sescim_stok ?? null,
+        sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
+        fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
       }
     }).filter(p => p.sescim_aktif !== false)
   }

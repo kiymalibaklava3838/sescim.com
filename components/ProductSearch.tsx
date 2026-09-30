@@ -329,8 +329,65 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           )}
 
           {/* SORGULU SONUÇLAR */}
-          {query.trim() && (
-            <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+          {query.trim() && (() => {
+            const qNorm = query.trim().toLowerCase()
+            const isOutletSearch = ['outlet', 'teshir', 'teşhir', 'b-stock', 'kutusu acik', 'kutusu açık'].some(k => qNorm.includes(k))
+            const isDealsSearch = ['firsat', 'fırsat', 'flas', 'flaş', 'kampanya', 'indirim'].some(k => qNorm.includes(k))
+
+            return (
+              <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+                {/* ÖZEL BÖLÜM EŞLEŞMELERİ (Outlet & Flaş İndirimler) */}
+                {isOutletSearch && (
+                  <div className="p-3 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white">
+                    <Link
+                      href="/outlet"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-between p-3 bg-white border border-emerald-200 hover:border-emerald-500 rounded-xl transition-all shadow-xs group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                          <Tag size={18} />
+                        </div>
+                        <div className="truncate">
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5 truncate">
+                            <span>Outlet & Teşhir Fırsatları</span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black shrink-0">ÖZEL SEÇKİ</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            1 Yıl garantili, test edilmiş teşhir ve seri sonu ürünleri incele
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight size={15} className="text-emerald-500 group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
+                    </Link>
+                  </div>
+                )}
+
+                {isDealsSearch && (
+                  <div className="p-3 bg-gradient-to-r from-red-50/90 via-orange-50/50 to-white">
+                    <Link
+                      href="/firsatlar"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-between p-3 bg-white border border-red-200 hover:border-brand-red rounded-xl transition-all shadow-xs group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-red-100 text-brand-red flex items-center justify-center shrink-0">
+                          <Sparkles size={18} />
+                        </div>
+                        <div className="truncate">
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-brand-red transition-colors flex items-center gap-1.5 truncate">
+                            <span>Günün Fırsatları & Flaş İndirimler</span>
+                            <span className="text-[9px] bg-red-100 text-brand-red px-1.5 py-0.5 rounded font-black shrink-0">FLAŞ İNDİRİM</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            Sınırlı süreli flaş indirimler ve avantajlı teklifler
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight size={15} className="text-brand-red group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
+                    </Link>
+                  </div>
+                )}
               
               {/* 1. MARKA KARTI (Eğer marka eşleşmesi varsa) */}
               {brandResults.length > 0 && (
@@ -477,7 +534,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                 </Link>
               </div>
             </div>
-          )}
+          )
+        })()}
 
         </div>
       )}

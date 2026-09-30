@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import ProductGrid from '@/components/ProductGrid'
+import SpecialSectionExplorer from '@/components/SpecialSectionExplorer'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
@@ -192,7 +193,11 @@ export default async function OutletPage() {
             </Link>
           </div>
 
-          <ProductGrid products={products} />
+          <SpecialSectionExplorer 
+            products={products} 
+            sectionType="outlet" 
+            sectionTitle="Outlet" 
+          />
         </div>
       </div>
     </div>

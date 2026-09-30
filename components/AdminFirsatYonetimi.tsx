@@ -2,12 +2,16 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { Zap, Tag, Plus, Trash2, Loader2, Check, Clock, AlertCircle, Search, ShieldCheck, Box } from 'lucide-react'
 
 interface Urun {
   id: string
   ad: string
   fiyat: number
+  marka?: string | null
+  model_kodu?: string | null
+  fotograflar?: string[]
 }
 
 interface Firsat {
@@ -59,23 +63,39 @@ export default function AdminFirsatYonetimi() {
 
   const loadData = async () => {
     setLoading(true)
-    const [firsatlarRes, outletRes, urunlerRes] = await Promise.all([
-      supabase.from('flas_indirimler').select('*, urun:urunler(id, ad, fiyat)').order('created_at', { ascending: false }),
-      supabase.from('outlet_urunler').select('*').order('created_at', { ascending: false }),
-      supabase.from('urunler').select('id, ad, fiyat').order('ad')
-    ])
+    try {
+      const akdag = createAkdagBrowserClient()
+      const [firsatlarRes, outletRes, akdagUrunlerRes, sescimUrunlerRes] = await Promise.all([
+        supabase.from('flas_indirimler').select('*').order('created_at', { ascending: false }),
+        supabase.from('outlet_urunler').select('*').order('created_at', { ascending: false }),
+        akdag.from('urunler').select('id, ad, fiyat, marka, model_kodu, fotograflar').order('ad'),
+        supabase.from('urunler').select('id, ad, fiyat, marka, model_kodu, fotograflar').order('ad')
+      ])
 
-    const allUrunler: Urun[] = urunlerRes.data || []
-    setUrunler(allUrunler)
-    setFirsatlar(firsatlarRes.data || [])
+      const allUrunler: Urun[] = [
+        ...(sescimUrunlerRes.data || []),
+        ...(akdagUrunlerRes.data || [])
+      ]
+      setUrunler(allUrunler)
 
-    // Outlet ürünlerini eşleştir
-    const outletsWithUrun = (outletRes.data || []).map((o: any) => ({
-      ...o,
-      urun: allUrunler.find(u => u.id === o.urun_id) || { id: o.urun_id, ad: 'Ürün Adı Bulunamadı', fiyat: o.outlet_fiyat }
-    }))
-    setOutletList(outletsWithUrun)
-    setLoading(false)
+      // Fırsat ürünlerini eşleştir
+      const firsatlarWithUrun = (firsatlarRes.data || []).map((f: any) => ({
+        ...f,
+        urun: allUrunler.find(u => u.id === f.urun_id) || { id: f.urun_id, ad: 'Ürün Adı Bulunamadı', fiyat: f.indirimli_fiyat }
+      }))
+      setFirsatlar(firsatlarWithUrun)
+
+      // Outlet ürünlerini eşleştir
+      const outletsWithUrun = (outletRes.data || []).map((o: any) => ({
+        ...o,
+        urun: allUrunler.find(u => u.id === o.urun_id) || { id: o.urun_id, ad: 'Ürün Adı Bulunamadı', fiyat: o.outlet_fiyat }
+      }))
+      setOutletList(outletsWithUrun)
+    } catch (e) {
+      console.error('Failed to load firsat / outlet data:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSaveFirsat = async (e: React.FormEvent) => {
@@ -171,9 +191,15 @@ export default function AdminFirsatYonetimi() {
     loadData()
   }
 
-  const filteredUrunler = urunler.filter(u => 
-    !searchTerm.trim() || u.ad.toLowerCase().includes(searchTerm.toLowerCase())
-  ).slice(0, 100)
+  const filteredUrunler = urunler.filter(u => {
+    if (!searchTerm.trim()) return true
+    const qLower = searchTerm.toLowerCase()
+    return (
+      u.ad?.toLowerCase().includes(qLower) ||
+      (u.marka && u.marka.toLowerCase().includes(qLower)) ||
+      (u.model_kodu && u.model_kodu.toLowerCase().includes(qLower))
+    )
+  }).slice(0, 100)
 
   return (
     <div className="space-y-6">
@@ -245,7 +271,9 @@ export default function AdminFirsatYonetimi() {
               >
                 <option value="">-- Ürün Seçiniz ({filteredUrunler.length} sonuç) --</option>
                 {filteredUrunler.map(u => (
-                  <option key={u.id} value={u.id}>{u.ad} (Orijinal: ₺{u.fiyat})</option>
+                  <option key={u.id} value={u.id}>
+                    {u.marka ? `[${u.marka}] ` : ''}{u.ad} (Orijinal: ₺{u.fiyat})
+                  </option>
                 ))}
               </select>
             </div>

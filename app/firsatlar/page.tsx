@@ -7,6 +7,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import ProductGrid from '@/components/ProductGrid'
 import DealCountdown from '@/components/DealCountdown'
+import SpecialSectionExplorer from '@/components/SpecialSectionExplorer'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
@@ -170,7 +171,11 @@ export default async function FirsatlarPage() {
             </Link>
           </div>
 
-          <ProductGrid products={products} />
+          <SpecialSectionExplorer 
+            products={products} 
+            sectionType="firsatlar" 
+            sectionTitle="Günün Fırsatları" 
+          />
         </div>
       </div>
     </div>

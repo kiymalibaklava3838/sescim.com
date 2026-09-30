@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Tag, ArrowRight } from 'lucide-react'
+import { Tag, ArrowRight, Sparkles } from 'lucide-react'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProductGrid from '@/components/ProductGrid'
@@ -114,6 +114,58 @@ export default async function AramaPage({
             className="px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-xs"
           >
             Marka Sayfasına Git
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
+      {/* Outlet Eşleşme Kartı */}
+      {['outlet', 'teshir', 'teşhir', 'b-stock', 'kutusu acik', 'kutusu açık'].some(k => q.toLowerCase().includes(k)) && (
+        <div className="mb-8 p-4 sm:p-5 bg-gradient-to-r from-emerald-50 to-teal-50/50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Tag size={22} />
+            </div>
+            <div>
+              <div className="text-base font-bold text-slate-900 font-display">
+                Sescim Outlet & Teşhir Fırsatları
+              </div>
+              <div className="text-xs sm:text-sm text-slate-500 font-body">
+                1 Yıl distribütör garantili, test edilmiş teşhir ve seri sonu ürünleri inceleyin.
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/outlet"
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-xs"
+          >
+            Outlet Sayfasına Git
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
+      {/* Fırsatlar Eşleşme Kartı */}
+      {['firsat', 'fırsat', 'flas', 'flaş', 'kampanya', 'indirim'].some(k => q.toLowerCase().includes(k)) && (
+        <div className="mb-8 p-4 sm:p-5 bg-gradient-to-r from-red-50 to-orange-50/50 border border-red-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-brand-red text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles size={22} />
+            </div>
+            <div>
+              <div className="text-base font-bold text-slate-900 font-display">
+                Günün Fırsatları & Flaş İndirimler
+              </div>
+              <div className="text-xs sm:text-sm text-slate-500 font-body">
+                Sınırlı süreli flaş indirimler ve sürpriz avantajlı fiyatları yakalayın.
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/firsatlar"
+            className="px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-xs"
+          >
+            Fırsatları İncele
             <ArrowRight size={14} />
           </Link>
         </div>

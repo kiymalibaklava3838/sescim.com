@@ -3,6 +3,7 @@
 import { useEffect, useState, memo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check, Eye, MessageSquareText } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -224,21 +225,16 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       {/* Tıklanabilir alan — Link ile sarılı (SEO + navigasyon) */}
       <Link href={`/urun/${product.slug || product.id}`} className="flex flex-col flex-1">
         {/* Görsel */}
-        <div className="aspect-square bg-slate-100 skeleton-shimmer relative overflow-hidden">
-          {product.fotograflar?.[0] ? (
-            <Image 
-              src={product.fotograflar[0]} 
-              alt={`${product.ad} - Profesyonel ${product.kategori || 'Ses Ekipmanı'} | Sescim`} 
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              loading="lazy"
-              className="object-cover transition-transform duration-500 group-hover:scale-105" 
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Package size={40} className="text-slate-300" />
-            </div>
-          )}
+        <div className="aspect-square bg-slate-50 relative overflow-hidden">
+          <SafeProductImage
+            src={product.fotograflar?.[0]}
+            alt={`${product.ad} - Profesyonel ${product.kategori || 'Ses Ekipmanı'} | Sescim`}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            loading="lazy"
+            placeholderIconSize={40}
+            className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+          />
 
           {/* Dinamik Rozetler (İndirim / YENİ / Stok) */}
           <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">

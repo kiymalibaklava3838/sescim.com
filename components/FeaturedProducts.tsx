@@ -1,6 +1,7 @@
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { Package, ArrowRight, Star } from 'lucide-react'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
@@ -116,20 +117,16 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
             return (
               <StaggerItem key={product.id} className="flex flex-col h-full">
                 <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full gpu-accelerate">
-                <Link href={`/urun/${product.slug}`} prefetch={true} className="block relative aspect-square bg-slate-50 skeleton-shimmer p-4">
-                  {product.fotograflar && product.fotograflar.length > 0 ? (
-                    <Image 
-                      src={product.fotograflar[0]} 
-                      alt={product.ad} 
-                      fill 
-                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                      className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400">
-                      <Package size={48} />
-                    </div>
-                  )}
+                <Link href={`/urun/${product.slug}`} prefetch={true} className="block relative aspect-square bg-slate-50 p-2">
+                  <SafeProductImage
+                    src={product.fotograflar?.[0]}
+                    alt={product.ad}
+                    fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                    loading="lazy"
+                    placeholderIconSize={48}
+                    className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+                  />
                   <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
                     <span className="bg-brand-red text-white px-2 py-1 text-xs font-bold rounded-sm shadow-sm">
                       YENİ

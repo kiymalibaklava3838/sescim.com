@@ -5,6 +5,7 @@ import { getCart, removeFromCart, updateQty, getCartTotal, type CartItem } from 
 import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
@@ -121,19 +122,16 @@ export default function CartDrawer() {
                   {items.map((item) => (
                     <div key={item.id} className="flex gap-3 bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-colors">
                       <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 relative border border-slate-100 overflow-hidden">
-                        {item.fotograf ? (
-                          <Image 
-                            src={item.fotograf} 
-                            alt={item.ad} 
-                            fill 
-                            sizes="80px"
-                            className="object-contain p-1.5"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-300">
-                            <ShoppingBag size={20} />
-                          </div>
-                        )}
+                        <SafeProductImage
+                          src={item.fotograf}
+                          alt={item.ad}
+                          fill
+                          sizes="80px"
+                          unoptimized={true}
+                          loading="eager"
+                          placeholderIconSize={20}
+                          className="object-contain p-1.5"
+                        />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>

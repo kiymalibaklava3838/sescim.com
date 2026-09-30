@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { Package } from 'lucide-react'
 import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
@@ -54,20 +55,16 @@ export default function RecentlyViewed() {
         {products.map((product) => (
           <div key={product.id} className="min-w-[160px] md:min-w-[200px] flex-shrink-0 snap-start h-full">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full">
-              <Link href={`/urun/${product.slug}`} className="block relative aspect-square bg-white p-4">
-                {product.image ? (
-                  <Image 
-                    src={product.image} 
-                    alt={product.name} 
-                    fill 
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400">
-                    <Package size={32} />
-                  </div>
-                )}
+              <Link href={`/urun/${product.slug}`} className="block relative aspect-square bg-white p-3">
+                <SafeProductImage 
+                  src={product.image} 
+                  alt={product.name} 
+                  fill 
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  loading="lazy"
+                  placeholderIconSize={32}
+                  className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+                />
               </Link>
               
               <div className="p-3 flex flex-col flex-1 border-t border-slate-100">

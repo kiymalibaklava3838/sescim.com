@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, X, ArrowRight, Folder, Tag, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SafeProductImage from '@/components/SafeProductImage'
 import { useRouter } from 'next/navigation'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { SEARCH_SUGGESTION_FIELDS } from '@/lib/product-queries'
@@ -408,19 +409,16 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                       >
                         {/* Ürün Görseli */}
                         <div className="w-12 h-12 bg-white border border-slate-200 rounded-lg flex-shrink-0 overflow-hidden relative p-1">
-                          {product.fotograflar?.[0] ? (
-                            <Image
-                              src={product.fotograflar[0]}
-                              alt={product.ad}
-                              fill
-                              sizes="48px"
-                              className="object-contain p-1 group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <Search size={16} />
-                            </div>
-                          )}
+                          <SafeProductImage
+                            src={product.fotograflar?.[0]}
+                            alt={product.ad}
+                            fill
+                            sizes="48px"
+                            unoptimized={true}
+                            loading="eager"
+                            placeholderIconSize={18}
+                            className="object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+                          />
                         </div>
 
                         {/* Ürün Bilgisi */}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -80,12 +81,13 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
             }}
             className="absolute inset-0"
           >
-            <Image 
+            <SafeProductImage 
               src={images[active]} 
               alt={`${alt} - Profesyonel Ekipman Görseli ${active + 1} | Sescim`} 
               fill 
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              placeholderIconSize={64}
               className="object-contain p-6 transition-transform duration-700 group-hover:scale-105" 
             />
           </motion.div>
@@ -136,10 +138,14 @@ export default function ProductImageGallery({ images, alt }: { images: string[];
               onClick={() => slideTo(i)}
               className={"relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl border-2 transition-all duration-200 overflow-hidden bg-slate-50 " + (active === i ? "border-brand-red shadow-xs" : "border-slate-200 opacity-60 hover:opacity-100")}
             >
-              <Image 
+              <SafeProductImage 
                 src={img} 
                 alt={`${alt} - Küçük Görsel ${i + 1} | Sescim`} 
                 fill 
+                sizes="80px"
+                unoptimized={true}
+                loading="eager"
+                placeholderIconSize={20}
                 className="object-contain p-1" 
               />
             </button>

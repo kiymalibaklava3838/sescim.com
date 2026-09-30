@@ -4,6 +4,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
 import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { ArrowRight, Flame, Percent, Zap } from 'lucide-react'
 import DailyDealsTimer from './DailyDealsTimer'
@@ -161,21 +162,17 @@ export default async function DailyDealsSection() {
                   <Link 
                     href={`/urun/${product.slug || product.id}`} 
                     prefetch={true} 
-                    className="block relative aspect-square bg-slate-50 p-4 overflow-hidden"
+                    className="block relative aspect-square bg-slate-50 p-3 overflow-hidden"
                   >
-                    {product.fotograflar && product.fotograflar.length > 0 ? (
-                      <Image 
-                        src={product.fotograflar[0]} 
-                        alt={product.ad} 
-                        fill 
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                        className="object-contain p-3 group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <Flame size={28} />
-                      </div>
-                    )}
+                    <SafeProductImage
+                      src={product.fotograflar?.[0]}
+                      alt={product.ad}
+                      fill
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                      loading="lazy"
+                      placeholderIconSize={32}
+                      className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                    />
                   </Link>
 
                   {/* Ürün Bilgileri */}

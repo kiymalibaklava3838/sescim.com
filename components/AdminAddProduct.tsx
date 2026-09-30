@@ -162,6 +162,11 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     if (!ad.trim() || !aciklama.trim()) { setError('Ürün adı ve açıklama zorunludur.'); return }
     if (!fiyat || isNaN(parseFloat(fiyat))) { setError('Geçerli bir fiyat girin.'); return }
     if (!anaCat) { setError('En az bir ana kategori seçmelisiniz.'); return }
+    if (entries.length === 0) {
+      if (!confirm('Ürün için herhangi bir fotoğraf yüklemediniz. Ürünü fotoğrafsız olarak kaydetmek istediğinize emin misiniz?')) {
+        return
+      }
+    }
     
     setLoading(true); setError('')
 

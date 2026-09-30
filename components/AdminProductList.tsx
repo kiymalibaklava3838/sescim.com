@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff, MessageSquareText } from 'lucide-react'
+import SafeProductImage from './SafeProductImage'
+import { Trash2, Package, Pencil, X, Check, Search, Upload, Download, Star, Eye, EyeOff, MessageSquareText, AlertTriangle, Camera } from 'lucide-react'
 import { PARA_BIRIMLERI, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
@@ -53,6 +54,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const [products, setProducts] = useState<Product[]>([])
   const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [totalCount, setTotalCount] = useState(0)
+  const [filterNoPhoto, setFilterNoPhoto] = useState(false)
+  const [noPhotoCount, setNoPhotoCount] = useState(0)
 
   useEffect(() => {
     getKurClient().then(setKur).catch(() => {})
@@ -128,13 +131,18 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
 
       // Sescim'e ait ürünler listenin başında
       const allCombined = [...mappedSescim, ...mappedAkdag]
-      const total = allCombined.length
+      
+      const missingPhotos = allCombined.filter(p => !p.fotograflar || p.fotograflar.length === 0)
+      setNoPhotoCount(missingPhotos.length)
+
+      const activeList = filterNoPhoto ? missingPhotos : allCombined
+      const total = activeList.length
       setTotalCount(total)
 
       // Sayfalama
       const pageStart = currentPage * ITEMS_PER_PAGE
       const pageEnd = pageStart + ITEMS_PER_PAGE
-      const pageItems = allCombined.slice(pageStart, pageEnd)
+      const pageItems = activeList.slice(pageStart, pageEnd)
 
       // Sescim_fiyatlar tablosundan override verilerini çek
       const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
@@ -252,7 +260,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
 
   useEffect(() => {
     loadProducts()
-  }, [currentPage, searchQuery, refreshTrigger]) // refreshTrigger değişince de yükle
+  }, [currentPage, searchQuery, refreshTrigger, filterNoPhoto]) // refreshTrigger değişince de yükle
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -549,7 +557,20 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => { setFilterNoPhoto(!filterNoPhoto); setCurrentPage(0); }}
+            className={`px-3 py-2 rounded-sm text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap border ${
+              filterNoPhoto
+                ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+            }`}
+            title="Sadece fotoğrafı bulunmayan ürünleri listele"
+          >
+            <Camera size={13} />
+            <span>Fotoğrafı Eksik ({noPhotoCount})</span>
+          </button>
           <label className={`cursor-pointer bg-blue-600/10 border border-blue-600/20 text-blue-500 px-4 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-blue-600/20 transition-all flex items-center gap-2 whitespace-nowrap ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
             <Upload size={12} /> {importing ? 'YÜKLENİYOR...' : 'EXCEL YÜKLE'}
             <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
@@ -577,16 +598,26 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
           <div className="max-h-[calc(100vh-320px)] overflow-y-auto pr-2 custom-scrollbar space-y-1">
             {products.map((product) => (
               <div key={product.id} className="bg-white border border-slate-200 p-3 flex items-center gap-4 hover:border-slate-300 transition-colors group">
-                <div className="w-12 h-12 bg-black border border-slate-200 flex-shrink-0 relative overflow-hidden">
-                  {product.fotograflar?.[0] ? (
-                    <Image src={product.fotograflar[0]} alt={product.ad} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-900/5"><Package size={20} /></div>
-                  )}
+                <div className="w-12 h-12 bg-slate-50 border border-slate-200 flex-shrink-0 relative overflow-hidden">
+                  <SafeProductImage
+                    src={product.fotograflar?.[0]}
+                    alt={product.ad}
+                    fill
+                    sizes="48px"
+                    unoptimized={true}
+                    loading="lazy"
+                    placeholderIconSize={20}
+                    className="object-contain p-1 group-hover:scale-110 transition-transform duration-500"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-display font-bold text-sm uppercase text-slate-900 truncate tracking-wide">{product.ad}</div>
+                    {(!product.fotograflar || product.fotograflar.length === 0) && (
+                      <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-rose-100 text-rose-800 border border-rose-300 rounded shadow-xs flex items-center gap-1">
+                        <AlertTriangle size={10} /> FOTOĞRAF YOK
+                      </span>
+                    )}
                     {product.kaynak === 'sescim' ? (
                       <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-display font-black tracking-wider uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 rounded shadow-xs">
                         SESCİM

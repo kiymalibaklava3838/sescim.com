@@ -20,29 +20,34 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
   if (!supabase) return map
 
   try {
-    const { data, error } = await supabase
-      .from('sescim_fiyatlar')
-      .select('*')
-      .in('urun_id', urunIds)
+    // URL uzunluğu ve header taşmasını (HeadersOverflowError) önlemek için 50'şerli parçalarla çek
+    const BATCH_SIZE = 50
+    for (let i = 0; i < urunIds.length; i += BATCH_SIZE) {
+      const batchIds = urunIds.slice(i, i + BATCH_SIZE)
+      const { data, error } = await supabase
+        .from('sescim_fiyatlar')
+        .select('*')
+        .in('urun_id', batchIds)
 
-    if (error) {
-      console.error('Error fetching Sescim pricing map:', error)
-      return map
-    }
+      if (error) {
+        console.error('Error fetching Sescim pricing map batch:', error)
+        continue
+      }
 
-    if (data) {
-      data.forEach(item => {
-        map.set(item.urun_id, {
-          urun_id: item.urun_id,
-          sescim_fiyat: item.sescim_fiyat !== null ? Number(item.sescim_fiyat) : null,
-          sescim_indirimli_fiyat: item.sescim_indirimli_fiyat !== null ? Number(item.sescim_indirimli_fiyat) : null,
-          sescim_aktif: item.sescim_aktif !== false,
-          is_outlet: !!item.is_outlet,
-          outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
-          is_firsat: !!item.is_firsat,
-          fiyat_sorunuz: !!item.fiyat_sorunuz,
+      if (data) {
+        data.forEach(item => {
+          map.set(item.urun_id, {
+            urun_id: item.urun_id,
+            sescim_fiyat: item.sescim_fiyat !== null ? Number(item.sescim_fiyat) : null,
+            sescim_indirimli_fiyat: item.sescim_indirimli_fiyat !== null ? Number(item.sescim_indirimli_fiyat) : null,
+            sescim_aktif: item.sescim_aktif !== false,
+            is_outlet: !!item.is_outlet,
+            outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
+            is_firsat: !!item.is_firsat,
+            fiyat_sorunuz: !!item.fiyat_sorunuz,
+          })
         })
-      })
+      }
     }
   } catch (error) {
     console.error('Exception fetching Sescim pricing map:', error)

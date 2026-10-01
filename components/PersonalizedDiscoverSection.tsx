@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { 
   Sparkles, Mic, Music, Headphones, 
   Speaker, Lightbulb, Zap, Package, History
@@ -123,17 +123,14 @@ export default function PersonalizedDiscoverSection({ onItemClick }: Props) {
                 className="snap-start shrink-0 w-32 p-2 rounded-xl bg-white border border-slate-200 hover:border-brand-red/40 hover:shadow-xs transition-all group flex flex-col justify-between"
               >
                 <div className="w-full h-20 relative bg-slate-50 rounded-lg mb-1.5 overflow-hidden flex items-center justify-center">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      sizes="128px"
-                      className="object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <Package size={22} className="text-slate-300" />
-                  )}
+                  <SafeProductImage
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    sizes="128px"
+                    className="object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+                    placeholderIconSize={22}
+                  />
                 </div>
                 <div className="text-[11px] font-medium text-slate-800 line-clamp-2 group-hover:text-brand-red leading-tight">
                   {item.name}

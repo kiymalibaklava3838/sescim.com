@@ -1,6 +1,6 @@
 import { getProTercihProducts } from '@/lib/pro-tercih'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { ArrowRight, Award, Headphones, Package, Sparkles } from 'lucide-react'
 import { StaggerContainer, StaggerItem } from './MotionComponents'
@@ -65,19 +65,14 @@ export default async function ProTercihSection() {
                     prefetch={true}
                     className="block relative aspect-square bg-slate-950/60 p-5 overflow-hidden"
                   >
-                    {product.fotograflar && product.fotograflar.length > 0 ? (
-                      <Image
-                        src={product.fotograflar[0]}
-                        alt={product.ad}
-                        fill
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                        className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-600">
-                        <Package size={48} />
-                      </div>
-                    )}
+                    <SafeProductImage
+                      src={product.fotograflar?.[0]}
+                      alt={product.ad}
+                      fill
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                      placeholderIconSize={48}
+                    />
 
                     {/* Pro Tercih Rozeti */}
                     <div className="absolute top-3 left-3 z-10">

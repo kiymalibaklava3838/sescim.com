@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Star, Search, Plus, Trash2, Check, ArrowUpDown, Package, AlertCircle, RefreshCw } from 'lucide-react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { formatFiyat } from '@/lib/kur'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 
@@ -259,11 +259,7 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
                 <div key={prod.id} className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 relative bg-white border border-slate-200 rounded overflow-hidden shrink-0 flex items-center justify-center">
-                      {img ? (
-                        <Image src={img} alt={prod.ad} fill sizes="48px" className="object-contain p-1" />
-                      ) : (
-                        <Package size={20} className="text-slate-300" />
-                      )}
+                      <SafeProductImage src={img} alt={prod.ad} fill sizes="48px" className="object-contain p-1" placeholderIconSize={20} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-slate-800 truncate">{prod.ad}</div>
@@ -334,11 +330,7 @@ export default function AdminProTercih({ supabase }: { supabase: any }) {
                       {idx + 1}
                     </span>
                     <div className="w-12 h-12 relative bg-slate-50 rounded overflow-hidden shrink-0 flex items-center justify-center border border-slate-100">
-                      {img ? (
-                        <Image src={img} alt={prod.ad} fill sizes="48px" className="object-contain p-1" />
-                      ) : (
-                        <Package size={20} className="text-slate-300" />
-                      )}
+                      <SafeProductImage src={img} alt={prod.ad} fill sizes="48px" className="object-contain p-1" placeholderIconSize={20} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-slate-800 truncate" title={prod.ad}>

@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import SafeProductImage from '@/components/SafeProductImage'
 import { Heart, ShoppingCart, Trash2, ArrowRight, Check, MessageSquareText } from 'lucide-react'
 import { getFavorites, toggleFavorite, type SavedProduct } from '@/lib/product-lists'
-import { formatFiyat, dovizToTL, type KurData } from '@/lib/kur'
+import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { addToCart } from '@/lib/cart'
 
 export default function FavorilerPage() {
   const [items, setItems] = useState<SavedProduct[]>([])
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [addedMap, setAddedMap] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -90,19 +90,14 @@ export default function FavorilerPage() {
                 >
                   {/* Image */}
                   <Link href={`/urun/${x.slug || x.id}`} className="block relative aspect-square bg-slate-50 rounded-xl overflow-hidden mb-4 border border-slate-100">
-                    {img ? (
-                      <Image
-                        src={img}
-                        alt={x.ad}
-                        fill
-                        className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <Heart size={36} />
-                      </div>
-                    )}
+                    <SafeProductImage
+                      src={img}
+                      alt={x.ad}
+                      fill
+                      className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      placeholderIconSize={36}
+                    />
                   </Link>
 
                   {/* Info */}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { Sparkles, ArrowRight, Music, Headphones, Volume2 } from 'lucide-react'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
@@ -175,19 +175,14 @@ export default function PersonalizedRecommendationsSection() {
                   href={`/urun/${product.slug || product.id}`}
                   className="block relative aspect-square bg-slate-50 p-4 overflow-hidden"
                 >
-                  {product.fotograflar && product.fotograflar.length > 0 ? (
-                    <Image
-                      src={product.fotograflar[0]}
-                      alt={product.ad}
-                      fill
-                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                      className="object-contain p-3 group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <Volume2 size={28} />
-                    </div>
-                  )}
+                  <SafeProductImage
+                    src={product.fotograflar?.[0]}
+                    alt={product.ad}
+                    fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                    className="object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                    placeholderIconSize={28}
+                  />
                 </Link>
 
                 {/* Bilgiler */}

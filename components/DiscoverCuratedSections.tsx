@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { 
   Sparkles, Star, Flame, History, Package, ChevronRight, 
   ArrowRight, ShieldCheck, Tag, Zap, Music, Mic, Headphones, Speaker, Lightbulb, Truck
 } from 'lucide-react'
+import SafeProductImage from './SafeProductImage'
 import InspirationSetsSection from './InspirationSetsSection'
 import { InspirationSet } from '@/lib/ilham-setleri'
 import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
@@ -92,17 +92,14 @@ export default function DiscoverCuratedSections({
 
         {/* Görsel */}
         <div className="w-full aspect-square relative bg-slate-50 rounded-xl mb-3 overflow-hidden flex items-center justify-center p-2">
-          {img ? (
-            <Image
-              src={img}
-              alt={product.ad}
-              fill
-              sizes="(max-width: 640px) 180px, 220px"
-              className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
-            />
-          ) : (
-            <Package size={28} className="text-slate-300" />
-          )}
+          <SafeProductImage
+            src={img}
+            alt={product.ad}
+            fill
+            sizes="(max-width: 640px) 180px, 220px"
+            className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+            placeholderIconSize={28}
+          />
         </div>
 
         {/* İçerik */}
@@ -329,17 +326,14 @@ export default function DiscoverCuratedSections({
                 className="snap-start shrink-0 w-36 sm:w-40 p-2.5 rounded-xl bg-white border border-slate-200 hover:border-brand-red/40 hover:shadow-xs transition-all group flex flex-col justify-between"
               >
                 <div className="w-full aspect-square relative bg-slate-50 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      sizes="160px"
-                      className="object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <Package size={24} className="text-slate-300" />
-                  )}
+                  <SafeProductImage
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    sizes="160px"
+                    className="object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+                    placeholderIconSize={24}
+                  />
                 </div>
                 <div className="text-[11px] font-medium text-slate-800 line-clamp-2 group-hover:text-brand-red leading-tight">
                   {item.name}

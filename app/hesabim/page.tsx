@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
 import KargoTakip from '@/components/KargoTakip'
 import Link from 'next/link'
-import Image from 'next/image'
+import SafeProductImage from '@/components/SafeProductImage'
 import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map as MapIcon, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
 import OrderTimeline from '@/components/OrderTimeline'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
@@ -862,9 +862,7 @@ export default function HesabimPage() {
                                 {Array.isArray(s.urunler) && s.urunler.map((u, idx) => (
                                   <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                                     <div className="w-14 h-14 bg-slate-50 rounded-lg border border-slate-100 flex-shrink-0 relative overflow-hidden">
-                                      {u.fotograf && (
-                                        <Image src={u.fotograf} alt={u.ad} fill className="object-contain p-1" />
-                                      )}
+                                      <SafeProductImage src={u.fotograf} alt={u.ad} fill className="object-contain p-1" placeholderIconSize={20} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="font-display font-bold text-sm text-slate-800 truncate">{u.ad}</div>
@@ -1229,11 +1227,7 @@ export default function HesabimPage() {
                       return (
                         <div key={deg.id} className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row gap-5">
                           <Link href={`/urun/${deg.urun?.slug}`} className="w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center flex-shrink-0 relative overflow-hidden group">
-                            {urunFirtPhoto ? (
-                              <Image src={urunFirtPhoto} alt={deg.urun?.ad || ''} fill className="object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
-                            ) : (
-                              <Package size={24} className="text-slate-300" />
-                            )}
+                            <SafeProductImage src={urunFirtPhoto} alt={deg.urun?.ad || ''} fill className="object-contain p-2 group-hover:scale-110 transition-transform duration-500" placeholderIconSize={24} />
                           </Link>
                           
                           <div className="flex-1">

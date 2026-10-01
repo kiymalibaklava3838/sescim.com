@@ -1052,8 +1052,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                     <div className="grid grid-cols-5 gap-2">
                       {editFotograflar.map((url, i) => (
                         <div key={i} className="aspect-square relative group bg-black border border-slate-200">
-                          <Image src={url} alt="" fill className="object-cover" />
-                          <button onClick={() => removeExistingPhoto(url)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-slate-900 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                          <SafeProductImage src={url} alt="" fill className="object-cover" placeholderIconSize={20} />
+                          <button onClick={() => removeExistingPhoto(url)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-slate-900 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"><X size={12} /></button>
                         </div>
                       ))}
                       {newPhotos.map((p, i) => (

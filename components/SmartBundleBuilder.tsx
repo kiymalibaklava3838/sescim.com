@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { Plus, Check, ShoppingBag, Sparkles, Tag } from 'lucide-react'
 import { addManyToCart } from '@/lib/cart'
@@ -125,12 +125,13 @@ export default function SmartBundleBuilder({ mainProduct, accessories, kur }: Pr
                 </span>
               </div>
               <div className="aspect-square relative mb-2 bg-white rounded-lg p-2 overflow-hidden">
-                <Image
+                <SafeProductImage
                   src={mainImage}
                   alt={mainProduct.ad}
                   fill
                   className="object-contain group-hover:scale-105 transition-transform"
                   sizes="(max-width: 768px) 140px, 180px"
+                  placeholderIconSize={24}
                 />
               </div>
               <div>
@@ -171,12 +172,13 @@ export default function SmartBundleBuilder({ mainProduct, accessories, kur }: Pr
                       />
                     </div>
                     <div className="aspect-square relative mb-2 bg-white rounded-lg p-2 overflow-hidden border border-slate-100">
-                      <Image
+                      <SafeProductImage
                         src={accImg}
                         alt={acc.ad}
                         fill
                         className="object-contain group-hover:scale-105 transition-transform"
                         sizes="(max-width: 768px) 140px, 180px"
+                        placeholderIconSize={24}
                       />
                     </div>
                     <div>

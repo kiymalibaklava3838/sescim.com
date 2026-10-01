@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import { Sparkles, Plus, Check, ShieldCheck, Headphones, Mic, Volume2, Cable } from 'lucide-react'
 import { addToCart, type CartItem } from '@/lib/cart'
 
@@ -189,12 +189,13 @@ export default function CartCrossSell({ items, isDrawer = false, onAdded }: Prop
                 className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-3 shadow-xs hover:border-brand-red/30 transition-colors"
               >
                 <div className="relative w-12 h-12 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                  <Image
+                  <SafeProductImage
                     src={acc.fotograf}
                     alt={acc.ad}
                     fill
                     className="object-contain p-1"
                     sizes="48px"
+                    placeholderIconSize={20}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -264,12 +265,13 @@ export default function CartCrossSell({ items, isDrawer = false, onAdded }: Prop
             >
               <div className="flex items-start gap-3 mb-3">
                 <div className="relative w-16 h-16 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                  <Image
+                  <SafeProductImage
                     src={acc.fotograf}
                     alt={acc.ad}
                     fill
                     className="object-contain p-1 group-hover:scale-105 transition-transform"
                     sizes="64px"
+                    placeholderIconSize={24}
                   />
                 </div>
                 <div className="flex-1 min-w-0">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ShoppingBag, ArrowRight, X } from 'lucide-react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { useCartStore } from '@/store/useCartStore'
 
@@ -56,11 +56,12 @@ export default function CartToast() {
             {/* Görsel veya İkon */}
             <div className="relative w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
               {toast.fotograf ? (
-                <Image
+                <SafeProductImage
                   src={toast.fotograf}
                   alt={toast.ad}
                   fill
                   className="object-cover"
+                  placeholderIconSize={18}
                 />
               ) : (
                 <ShoppingBag size={20} className="text-brand-red" />

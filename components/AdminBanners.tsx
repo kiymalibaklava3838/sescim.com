@@ -81,17 +81,18 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     if (!confirm('Varsayılan 3 adet profesyonel vitrin bannerı veritabanına eklensin mi?')) return
     setUploading(true)
     try {
-      for (const slide of DEFAULT_HERO_SLIDES) {
-        const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText)
-        await supabase.from('store_banners').insert({
-          title: slide.title,
-          subtitle: packed,
-          image_url: slide.image,
-          link_url: slide.ctaLink,
-          sort_order: slide.sortOrder,
-          is_active: true
-        })
-      }
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
+      const res = await fetch('/api/admin/banners', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'seed' })
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Varsayılan bannerlar yüklenemedi')
+
       await triggerRevalidate()
       await loadData()
       alert('Varsayılan bannerlar başarıyla veritabanına yüklendi ve vitrinde anında yayına alındı!')
@@ -242,31 +243,12 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
 
     setUploading(true)
     try {
-      let finalImageUrl = imageUrl
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
 
-      // 1. Upload image if a new file was cropped/selected
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop() || 'jpg'
-        const fileName = `banner-${Date.now()}.${fileExt}`
-        const filePath = `${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('kampanya-gorselleri')
-          .upload(filePath, imageFile, {
-            contentType: imageFile.type || 'image/jpeg',
-            upsert: true
-          })
-
-        if (uploadError) throw uploadError
-
-        const { data } = supabase.storage
-          .from('kampanya-gorselleri')
-          .getPublicUrl(filePath)
-          
-        finalImageUrl = data.publicUrl
-      }
-
-      // 2. Resolve link URL
+      // 1. Resolve link URL
       let finalLinkUrl = ''
       if (linkType === 'product' && selectedProductId) {
         const prod = products.find(p => p.id === selectedProductId)
@@ -277,43 +259,53 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         finalLinkUrl = linkUrl.trim()
       }
 
-      // 3. Pack subtitle with JSON { subtitle, description, button_text }
+      // 2. Pack subtitle with JSON { subtitle, description, button_text }
       const packedSubtitle = packBannerSubtitle(subtitle, description, buttonText)
 
-      // 4. Save to DB (Insert or Update)
-      if (editingBannerId) {
-        const { error: updateError } = await supabase
-          .from('store_banners')
-          .update({
-            title: title.trim() || null,
-            subtitle: packedSubtitle,
-            image_url: finalImageUrl,
-            link_url: finalLinkUrl || null,
-            sort_order: Number(sortOrder) || 0,
-            is_active: isActive
-          })
-          .eq('id', editingBannerId)
+      let res: Response
+      if (imageFile) {
+        // FormData ile dosya yükleme (Sunucu tarafı Service Role ile yükler, RLS hatası vermez)
+        const formData = new FormData()
+        if (editingBannerId) formData.append('id', editingBannerId)
+        formData.append('file', imageFile)
+        formData.append('image_url', imageUrl || '')
+        formData.append('title', title.trim() || '')
+        formData.append('subtitle', packedSubtitle)
+        formData.append('link_url', finalLinkUrl)
+        formData.append('sort_order', String(Number(sortOrder) || 0))
+        formData.append('is_active', String(isActive))
 
-        if (updateError) throw updateError
-        alert('Banner başarıyla güncellendi!')
+        res = await fetch('/api/admin/banners', {
+          method: editingBannerId ? 'PUT' : 'POST',
+          headers,
+          body: formData
+        })
       } else {
-        const { error: insertError } = await supabase
-          .from('store_banners')
-          .insert({
-            title: title.trim() || null,
-            subtitle: packedSubtitle,
-            image_url: finalImageUrl,
-            link_url: finalLinkUrl || null,
-            sort_order: Number(sortOrder) || 0,
-            is_active: true
-          })
+        // JSON ile kaydetme
+        headers['Content-Type'] = 'application/json'
+        const payload: any = {
+          title: title.trim() || null,
+          subtitle: packedSubtitle,
+          image_url: imageUrl,
+          link_url: finalLinkUrl || null,
+          sort_order: Number(sortOrder) || 0,
+          is_active: isActive
+        }
+        if (editingBannerId) payload.id = editingBannerId
 
-        if (insertError) throw insertError
-        alert('Yeni banner başarıyla eklendi!')
+        res = await fetch('/api/admin/banners', {
+          method: editingBannerId ? 'PUT' : 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        })
       }
 
-      // 5. Revalidate cache and reload
-      await triggerRevalidate()
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Banner kaydedilemedi')
+      }
+
+      alert(editingBannerId ? 'Banner başarıyla güncellendi!' : 'Yeni banner başarıyla eklendi!')
       setShowForm(false)
       resetForm()
       await loadData()
@@ -328,32 +320,42 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
 
   const toggleActive = async (banner: StoreBanner) => {
     const nextState = !banner.is_active
-    const { error } = await supabase
-      .from('store_banners')
-      .update({ is_active: nextState })
-      .eq('id', banner.id)
-      
-    if (!error) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
+      const res = await fetch('/api/admin/banners', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ id: banner.id, is_active: nextState })
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Durum güncellenemedi')
+
       setBanners(banners.map(b => b.id === banner.id ? { ...b, is_active: nextState } : b))
-      await triggerRevalidate()
-    } else {
-      alert('Durum güncellenirken hata oluştu: ' + error.message)
+    } catch (err: any) {
+      alert('Durum güncellenirken hata oluştu: ' + err.message)
     }
   }
 
   const deleteBanner = async (id: string) => {
     if (!confirm('Bu bannerı silmek istediğinize emin misiniz?')) return
-    
-    const { error } = await supabase
-      .from('store_banners')
-      .delete()
-      .eq('id', id)
-      
-    if (!error) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
+      const res = await fetch(`/api/admin/banners?id=${id}`, {
+        method: 'DELETE',
+        headers
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Banner silinemedi')
+
       setBanners(banners.filter(b => b.id !== id))
-      await triggerRevalidate()
-    } else {
-      alert('Banner silinirken hata oluştu: ' + error.message)
+    } catch (err: any) {
+      alert('Banner silinirken hata oluştu: ' + err.message)
     }
   }
 

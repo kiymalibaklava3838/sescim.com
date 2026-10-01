@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
+import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { X, ShoppingCart, Check, Heart, GitCompare, Package, ShieldCheck, Truck, ArrowRight, Minus, Plus, Star } from 'lucide-react'
 import { addToCart } from '@/lib/cart'
@@ -140,18 +140,13 @@ export default function QuickViewModal() {
         {/* Sol Sütun: Fotoğraf Galerisi */}
         <div className="w-full md:w-1/2 p-6 bg-slate-50 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
           <div className="aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden relative mb-4">
-            {photos[activePhoto] ? (
-              <Image
-                src={photos[activePhoto]}
-                alt={product.ad}
-                fill
-                className="object-contain p-4 transition-all duration-300"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-300">
-                <Package size={56} />
-              </div>
-            )}
+            <SafeProductImage
+              src={photos[activePhoto]}
+              alt={product.ad}
+              fill
+              className="object-contain p-4 transition-all duration-300"
+              placeholderIconSize={56}
+            />
           </div>
 
           {photos.length > 1 && (
@@ -164,7 +159,7 @@ export default function QuickViewModal() {
                     activePhoto === i ? 'border-brand-red ring-2 ring-brand-red/20' : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <Image src={photo} alt="" fill className="object-contain p-1" />
+                  <SafeProductImage src={photo} alt="" fill className="object-contain p-1" placeholderIconSize={18} />
                 </button>
               ))}
             </div>

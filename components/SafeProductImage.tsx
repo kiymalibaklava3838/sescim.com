@@ -88,6 +88,7 @@ export default function SafeProductImage({
       )}
 
       <Image
+        key={`${src}-${stage}`}
         src={src}
         alt={alt || 'Ürün görseli'}
         fill={fill}

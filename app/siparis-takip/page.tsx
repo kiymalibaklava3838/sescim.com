@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
+import SafeProductImage from '@/components/SafeProductImage'
 import { 
   Search, Package, Truck, Clock, CheckCircle, XCircle, 
   FileText, ShieldCheck, Phone, AlertCircle, Loader2, ArrowLeft,
@@ -304,11 +304,7 @@ function SiparisTakipContent() {
                     <div key={idx} className="py-3.5 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative w-14 h-14 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
-                          {item.fotograf ? (
-                            <Image src={item.fotograf} alt={item.ad} fill className="object-contain p-1" />
-                          ) : (
-                            <Package size={20} className="text-slate-300" />
-                          )}
+                          <SafeProductImage src={item.fotograf} alt={item.ad} fill className="object-contain p-1" placeholderIconSize={20} />
                         </div>
                         <div className="min-w-0">
                           <h4 className="font-display font-bold text-xs sm:text-sm text-slate-800 truncate">

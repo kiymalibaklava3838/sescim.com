@@ -144,6 +144,7 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
                 fill
                 priority={index === 0}
                 sizes="100vw"
+                unoptimized={true}
                 className="object-cover object-center"
               />
               {/* Premium dark gradient overlays for crystal clear text readability */}

@@ -55,6 +55,7 @@ export default function InspirationSetsSection({ sets }: Props) {
                     alt={set.baslik}
                     fill
                     sizes="(max-width: 768px) 300px, 33vw"
+                    unoptimized={true}
                     className="object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-95"
                   />
                 )}

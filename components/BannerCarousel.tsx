@@ -46,6 +46,7 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
                     fill
                     className="object-cover object-center"
                     priority={idx === 0}
+                    unoptimized={true}
                   />
                 </a>
               ) : (
@@ -55,6 +56,7 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
                   fill
                   className="object-cover object-center"
                   priority={idx === 0}
+                  unoptimized={true}
                 />
               )}
 

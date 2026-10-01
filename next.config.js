@@ -12,9 +12,12 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   images: {
-    formats: ['image/webp'],
-    minimumCacheTTL: 2592000,
+    unoptimized: true,
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ktoifumardevbznyzljb.supabase.co',
+      },
       {
         protocol: 'https',
         hostname: 'csekzzsaeehakpdmzfam.supabase.co',

@@ -38,14 +38,14 @@ export default function SafeProductImage({
   loading,
   className = 'object-contain',
   wrapperClassName = '',
-  unoptimized = false,
+  unoptimized = true,
   quality = 80,
   placeholderIconSize = 32,
 }: SafeProductImageProps) {
-  // Aşama: 'optimizing' -> hata verirse -> 'direct' -> hata verirse -> 'failed'
-  const [stage, setStage] = useState<'optimizing' | 'direct' | 'failed'>(() => {
+  // Aşama: Doğrudan CDN üzerinden hızlı yükleme, hata verirse fallback ikonu
+  const [stage, setStage] = useState<'direct' | 'failed'>(() => {
     if (!src || !src.trim()) return 'failed'
-    return unoptimized ? 'direct' : 'optimizing'
+    return 'direct'
   })
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -55,19 +55,13 @@ export default function SafeProductImage({
       setStage('failed')
       setIsLoaded(false)
     } else {
-      setStage(unoptimized ? 'direct' : 'optimizing')
+      setStage('direct')
       setIsLoaded(false)
     }
-  }, [src, unoptimized])
+  }, [src])
 
   const handleError = () => {
-    if (stage === 'optimizing') {
-      // 1. Düzey Kurtarma: Next.js optimizer başarısız olduysa, doğrudan ham CDN linkine geç
-      setStage('direct')
-    } else {
-      // 2. Düzey Kurtarma: CDN de yanıt vermiyorsa fallback ikonu göster
-      setStage('failed')
-    }
+    setStage('failed')
   }
 
   if (stage === 'failed' || !src || !src.trim()) {

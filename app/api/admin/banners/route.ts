@@ -91,7 +91,10 @@ export async function POST(req: NextRequest) {
 
       if (action === 'seed') {
         for (const slide of DEFAULT_HERO_SLIDES) {
-          const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText)
+          const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText, {
+            showOverlay: slide.showOverlay,
+            showButton: slide.showButton
+          })
           await db.from('store_banners').insert({
             title: slide.title,
             subtitle: packed,
@@ -109,10 +112,28 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file') as File | null
       let imageUrl = formData.get('image_url') as string || ''
       const title = formData.get('title') as string || ''
-      const subtitle = formData.get('subtitle') as string || ''
+      let subtitle = formData.get('subtitle') as string || ''
       const linkUrl = formData.get('link_url') as string || ''
       const sortOrder = Number(formData.get('sort_order')) || 0
       const isActive = formData.get('is_active') !== 'false'
+
+      const rawShowOverlay = formData.get('show_overlay')
+      const rawShowButton = formData.get('show_button')
+      if (rawShowOverlay !== null || rawShowButton !== null) {
+        try {
+          const parsed = JSON.parse(subtitle)
+          if (parsed && typeof parsed === 'object') {
+            if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
+            if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
+            subtitle = JSON.stringify(parsed)
+          }
+        } catch {
+          subtitle = packBannerSubtitle(subtitle, '', '', {
+            showOverlay: rawShowOverlay === 'true',
+            showButton: rawShowButton === 'true'
+          })
+        }
+      }
 
       // Dosya varsa Supabase Storage'a Service Role ile yükle (RLS engeline takılmaz)
       if (file && typeof file === 'object' && file.size > 0) {
@@ -170,7 +191,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     if (body.action === 'seed') {
       for (const slide of DEFAULT_HERO_SLIDES) {
-        const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText)
+        const packed = packBannerSubtitle(slide.subtitle, slide.description, slide.ctaText, {
+          showOverlay: slide.showOverlay,
+          showButton: slide.showButton
+        })
         await db.from('store_banners').insert({
           title: slide.title,
           subtitle: packed,
@@ -185,7 +209,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: 'Varsayılan bannerlar eklendi' })
     }
 
-    const { title, subtitle, image_url, link_url, sort_order, is_active } = body
+    const { title, image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
+    let subtitle = body.subtitle || ''
+    if (typeof show_overlay === 'boolean' || typeof show_button === 'boolean') {
+      try {
+        const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
+        if (parsed && typeof parsed === 'object') {
+          if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
+          if (typeof show_button === 'boolean') parsed.show_button = show_button
+          subtitle = JSON.stringify(parsed)
+        }
+      } catch {
+        subtitle = packBannerSubtitle(String(subtitle), '', '', {
+          showOverlay: Boolean(show_overlay),
+          showButton: Boolean(show_button)
+        })
+      }
+    }
+
     if (!image_url) {
       return NextResponse.json({ error: 'Görsel URL zorunludur' }, { status: 400 })
     }
@@ -235,10 +276,28 @@ export async function PUT(req: NextRequest) {
       const file = formData.get('file') as File | null
       let imageUrl = formData.get('image_url') as string || ''
       const title = formData.get('title') as string || ''
-      const subtitle = formData.get('subtitle') as string || ''
+      let subtitle = formData.get('subtitle') as string || ''
       const linkUrl = formData.get('link_url') as string || ''
       const sortOrder = Number(formData.get('sort_order')) || 0
       const isActive = formData.get('is_active') === 'true'
+
+      const rawShowOverlay = formData.get('show_overlay')
+      const rawShowButton = formData.get('show_button')
+      if (rawShowOverlay !== null || rawShowButton !== null) {
+        try {
+          const parsed = JSON.parse(subtitle)
+          if (parsed && typeof parsed === 'object') {
+            if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
+            if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
+            subtitle = JSON.stringify(parsed)
+          }
+        } catch {
+          subtitle = packBannerSubtitle(subtitle, '', '', {
+            showOverlay: rawShowOverlay === 'true',
+            showButton: rawShowButton === 'true'
+          })
+        }
+      }
 
       if (file && typeof file === 'object' && file.size > 0) {
         const fileExt = file.name.split('.').pop() || 'jpg'
@@ -291,8 +350,25 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { id, title, subtitle, image_url, link_url, sort_order, is_active } = body
+    const { id, title, image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
     if (!id) return NextResponse.json({ error: 'Banner ID zorunludur' }, { status: 400 })
+
+    let subtitle = body.subtitle || ''
+    if (typeof show_overlay === 'boolean' || typeof show_button === 'boolean') {
+      try {
+        const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
+        if (parsed && typeof parsed === 'object') {
+          if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
+          if (typeof show_button === 'boolean') parsed.show_button = show_button
+          subtitle = JSON.stringify(parsed)
+        }
+      } catch {
+        subtitle = packBannerSubtitle(String(subtitle), '', '', {
+          showOverlay: Boolean(show_overlay),
+          showButton: Boolean(show_button)
+        })
+      }
+    }
 
     const { data: updated, error: updateError } = await db
       .from('store_banners')

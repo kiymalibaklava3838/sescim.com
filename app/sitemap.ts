@@ -7,57 +7,79 @@ import { getSiteUrl } from '@/lib/site-url'
 // Vercel kotalarını ve sunucu çağrılarını korumak için 24 saat (86400 sn) Edge önbelleği
 export const revalidate = 86400
 
-// Category slugs collector
-function collectCategorySlugs(node: any, path: string = ''): string[] {
+interface CategoryRoute {
+  url: string
+  depth: number
+}
+
+// Category slugs collector with depth calculation
+function collectCategoryRoutes(node: any, path: string = '', depth: number = 1): CategoryRoute[] {
   const currentPath = `${path}/${node.slug}`
-  let urls = [currentPath]
+  let routes: CategoryRoute[] = [{ url: currentPath, depth }]
   if (node.children) {
     node.children.forEach((child: any) => {
-      urls = urls.concat(collectCategorySlugs(child, currentPath))
+      routes = routes.concat(collectCategoryRoutes(child, currentPath, depth + 1))
     })
   }
-  return urls
+  return routes
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getSiteUrl()
   const supabase = await createAkdagServerClient()
 
-  // 1. Static Pages (Indexable public pages)
+  // 1. Static Pages & Core Hubs (Prioritized for Google Sitelinks & SERP Hierarchy)
   const staticPages = [
-    '',
-    '/urunler',
-    '/hakkimizda',
-    '/iletisim',
-    '/teslimat-ve-kargo',
-    '/iptal-ve-iade',
-    '/mesafeli-satis-sozlesmesi',
-    '/on-bilgilendirme-formu',
-    '/gizlilik-politikasi',
-    '/karsilastir',
-    '/yeni-gelenler',
-    '/firsatlar',
-    '/kampanyalar',
-    '/outlet',
-  ].map((route) => ({
+    // Tier 1: Anasayfa
+    { route: '', priority: 1.0, changeFrequency: 'daily' as const },
+    // Tier 2: Ticari Merkezler & Kampanyalar
+    { route: '/urunler', priority: 0.85, changeFrequency: 'daily' as const },
+    { route: '/firsatlar', priority: 0.85, changeFrequency: 'daily' as const },
+    { route: '/kampanyalar', priority: 0.85, changeFrequency: 'daily' as const },
+    { route: '/outlet', priority: 0.85, changeFrequency: 'daily' as const },
+    { route: '/yeni-gelenler', priority: 0.85, changeFrequency: 'daily' as const },
+    // Tier 3: Kurumsal & İletişim
+    { route: '/iletisim', priority: 0.75, changeFrequency: 'monthly' as const },
+    { route: '/hakkimizda', priority: 0.70, changeFrequency: 'monthly' as const },
+    { route: '/karsilastir', priority: 0.50, changeFrequency: 'monthly' as const },
+    // Tier 4: Yasal Sözleşmeler & Politikalar
+    { route: '/teslimat-ve-kargo', priority: 0.30, changeFrequency: 'yearly' as const },
+    { route: '/iptal-ve-iade', priority: 0.30, changeFrequency: 'yearly' as const },
+    { route: '/mesafeli-satis-sozlesmesi', priority: 0.30, changeFrequency: 'yearly' as const },
+    { route: '/on-bilgilendirme-formu', priority: 0.30, changeFrequency: 'yearly' as const },
+    { route: '/gizlilik-politikasi', priority: 0.30, changeFrequency: 'yearly' as const },
+  ].map(({ route, priority, changeFrequency }) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: route === '' ? 1 : 0.8,
+    changeFrequency,
+    priority,
   }))
 
-  // 2. Dynamic Categories
-  const categoryUrls: string[] = []
+  // 2. Dynamic Categories (Depth-based priority: Top-level hubs = 0.9 for sitelinks, deeper = 0.75 / 0.70)
+  const categoryRoutes: CategoryRoute[] = []
   HIERARCHY_DATA.forEach((ana) => {
-    categoryUrls.push(...collectCategorySlugs(ana, '/urunler'))
+    categoryRoutes.push(...collectCategoryRoutes(ana, '/urunler', 1))
   })
 
-  const categorySitemap = categoryUrls.map((url) => ({
-    url: `${baseUrl}${url}`,
-    lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: 0.9,
-  }))
+  const categorySitemap = categoryRoutes.map(({ url, depth }) => {
+    let priority = 0.70
+    let changeFrequency: 'daily' | 'weekly' = 'weekly'
+
+    if (depth === 1) {
+      priority = 0.90
+      changeFrequency = 'daily'
+    } else if (depth === 2) {
+      priority = 0.75
+      changeFrequency = 'weekly'
+    }
+
+    return {
+      url: `${baseUrl}${url}`,
+      lastModified: new Date(),
+      changeFrequency,
+      priority,
+    }
+  })
 
   // 3. Products (Hibrit Akdağ + Sescim)
   const sescimDb = await createServerSupabaseClient()
@@ -75,7 +97,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/urun/${product.slug}`,
     lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
     changeFrequency: 'weekly' as const,
-    priority: 0.8,
+    priority: 0.65,
     ...(Array.isArray(product.fotograflar) && product.fotograflar.length > 0 
       ? { images: product.fotograflar.slice(0, 5) } 
       : {})

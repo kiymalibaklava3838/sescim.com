@@ -3,12 +3,16 @@ import Link from 'next/link';
 import { Tag, Sparkles, ArrowRight, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import KampanyalarCoupons from '@/components/KampanyalarCoupons';
+import { getSiteUrl } from '@/lib/site-url';
 
 export const revalidate = 1800; // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata = {
-  title: 'Kampanyalar & İndirim Kuponları',
-  description: 'Sescim güncel indirim kuponları, hoşgeldin fırsatları ve özel ses ekipmanı kampanyaları.',
+  title: 'Kampanyalar & İndirim Kuponları | Sescim',
+  description: 'Sescim güncel indirim kuponları, hoşgeldin fırsatları ve profesyonel ses-ışık ekipmanı kampanyaları.',
+  alternates: {
+    canonical: `${getSiteUrl()}/kampanyalar`,
+  },
 };
 
 async function getInitialCoupons() {
@@ -70,9 +74,33 @@ const kampanyalar = [
 
 export default async function KampanyalarPage() {
   const coupons = await getInitialCoupons();
+  const baseUrl = getSiteUrl();
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Kampanyalar',
+        item: `${baseUrl}/kampanyalar`,
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-body text-slate-800">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">

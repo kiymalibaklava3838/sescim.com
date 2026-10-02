@@ -7,12 +7,16 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import ProductGrid from '@/components/ProductGrid'
 import SpecialSectionExplorer from '@/components/SpecialSectionExplorer'
+import { getSiteUrl } from '@/lib/site-url'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata: Metadata = {
-  title: 'Outlet & Teşhir Ürünleri',
+  title: 'Outlet & Teşhir Ürünleri | Sescim',
   description: '1 Yıl garantili, test edilmiş teşhir, kutusu açık ve seri sonu profesyonel ses-ışık ekipmanları en uygun fiyatlarla Sescim Outlet\'te.',
+  alternates: {
+    canonical: `${getSiteUrl()}/outlet`,
+  },
 }
 
 export default async function OutletPage() {
@@ -111,8 +115,32 @@ export default async function OutletPage() {
     }).filter(p => p.sescim_aktif !== false)
   }
 
+  const baseUrl = getSiteUrl()
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Outlet & Teşhir',
+        item: `${baseUrl}/outlet`,
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-10 font-body text-slate-800">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Breadcrumb */}

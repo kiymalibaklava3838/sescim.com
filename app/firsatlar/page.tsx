@@ -9,11 +9,16 @@ import ProductGrid from '@/components/ProductGrid'
 import DealCountdown from '@/components/DealCountdown'
 import SpecialSectionExplorer from '@/components/SpecialSectionExplorer'
 
+import { getSiteUrl } from '@/lib/site-url'
+
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata: Metadata = {
-  title: 'Günün Fırsatları & Flaş İndirimler',
+  title: 'Günün Fırsatları & Flaş İndirimler | Sescim',
   description: 'Seçili profesyonel ses sistemleri, stüdyo monitörleri, sahne ışıkları ve DJ ekipmanlarında günün fırsatları ve flaş indirimler.',
+  alternates: {
+    canonical: `${getSiteUrl()}/firsatlar`,
+  },
 }
 
 export default async function FirsatlarPage() {
@@ -105,8 +110,32 @@ export default async function FirsatlarPage() {
     }).filter(p => p.sescim_aktif !== false)
   }
 
+  const baseUrl = getSiteUrl()
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Günün Fırsatları',
+        item: `${baseUrl}/firsatlar`,
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-10 font-body text-slate-800">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Breadcrumb */}

@@ -79,9 +79,16 @@ const siteUrl = getSiteUrl()
 const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
+  '@id': `${siteUrl}/#website`,
   name: 'Sescim',
-  alternateName: 'Sescim - Yeni Nesil Müzik Market',
+  alternateName: [
+    'Sescim Müzik Market',
+    'Sescim - Yeni Nesil Müzik Market',
+    'sescim.com',
+    'Akdağ Elektronik Sescim'
+  ],
   url: siteUrl,
+  description: 'Türkiye\'nin profesyonel ses, ışık ve stüdyo ekipmanları online satış mağazası.',
   potentialAction: {
     '@type': 'SearchAction',
     target: {
@@ -89,18 +96,85 @@ const websiteJsonLd = {
       urlTemplate: `${siteUrl}/arama?q={search_term_string}`
     },
     'query-input': 'required name=search_term_string'
-  }
+  },
+  inLanguage: 'tr-TR'
+}
+
+const siteNavigationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  itemListElement: [
+    {
+      '@type': 'SiteNavigationElement',
+      position: 1,
+      name: 'Tüm Ürünler & Keşfet',
+      description: 'Profesyonel ses, ışık ve görüntü ekipmanları kataloğu',
+      url: `${siteUrl}/urunler`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 2,
+      name: 'Ses Sistemleri',
+      description: 'Hoparlörler, mikserler, amfiler ve profesyonel mikrofon sistemleri',
+      url: `${siteUrl}/urunler/ses-sistemleri`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 3,
+      name: 'Işık Sistemleri',
+      description: 'Robot ışıklar, sahne spotları, LED par ve efekt makineleri',
+      url: `${siteUrl}/urunler/isik-sistemleri`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 4,
+      name: 'DJ Ekipmanları',
+      description: 'DJ kontrol üniteleri, DJ mikserleri ve performans ekipmanları',
+      url: `${siteUrl}/urunler/dj-ekipmanlari`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 5,
+      name: 'Stüdyo Ekipmanları',
+      description: 'Stüdyo referans monitörleri, ses kartları ve kondenser mikrofonlar',
+      url: `${siteUrl}/urunler/studyo-ekipmanlari`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 6,
+      name: 'Günün Fırsatları',
+      description: 'Özel indirimli ses ve ışık ekipmanı fırsatları ve flaş indirimler',
+      url: `${siteUrl}/firsatlar`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 7,
+      name: 'Kampanyalar & Kuponlar',
+      description: 'Güncel indirim kuponları ve avantajlı ses paketi kampanyaları',
+      url: `${siteUrl}/kampanyalar`
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 8,
+      name: 'İletişim & Mağaza Bilgileri',
+      description: 'Müşteri hizmetleri telefonu (+90 352 231 69 15), Kayseri mağaza adresi ve canlı destek',
+      url: `${siteUrl}/iletisim`
+    }
+  ]
 }
 
 const orgJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
+  '@id': `${siteUrl}/#organization`,
   name: 'Sescim',
   legalName: 'Mustafa Akdağ - Akdağ Elektronik',
   taxID: '0200327808',
   url: siteUrl,
   logo: `${siteUrl}/logo.png`,
+  image: `${siteUrl}/logo.png`,
   email: 'info@sescim.com',
+  telephone: '+90-352-231-69-15',
   address: {
     '@type': 'PostalAddress',
     streetAddress: 'Cumhuriyet Mah. Sur Cad. No:17/A',
@@ -201,6 +275,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
         />
         <Navbar />
         <CartDrawer />

@@ -1,14 +1,61 @@
 import Link from 'next/link'
 import { ArrowRight, Target, ShieldCheck, HeartPulse, Mic2, Users2, Headphones } from 'lucide-react'
+import { getSiteUrl } from '@/lib/site-url'
 
 export const metadata = {
-  title: 'Hakkımızda | sescim.com',
-  description: 'sescim.com - 2026 yılında sektöre giriş yapan, Türkiye\'nin profesyonel ve amatör ses, ışık ve müzik teknolojileri platformu.',
+  title: 'Hakkımızda | Sescim',
+  description: 'sescim.com - Mustafa Akdağ ve Akdağ Elektronik güvencesiyle Türkiye\'nin profesyonel ses, ışık ve müzik teknolojileri e-ticaret platformu.',
+  alternates: {
+    canonical: `${getSiteUrl()}/hakkimizda`,
+  },
 }
 
 export default function HakkimizdaPage() {
+  const baseUrl = getSiteUrl()
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Hakkımızda',
+        item: `${baseUrl}/hakkimizda`,
+      },
+    ],
+  }
+
+  const aboutPageJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: 'Hakkımızda | Sescim',
+    description: 'Sescim - Akdağ Elektronik çatısı altında ses, sahne ve ışık sistemlerinde yeni nesil profesyonel müzik market.',
+    url: `${baseUrl}/hakkimizda`,
+    mainEntity: {
+      '@type': 'Organization',
+      name: 'Sescim',
+      legalName: 'Mustafa Akdağ - Akdağ Elektronik',
+      url: baseUrl,
+    },
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageJsonLd) }}
+      />
       {/* Hero Section */}
       <section className="relative pt-24 pb-32 bg-slate-900 overflow-hidden">
         {/* Abstract Background Elements */}

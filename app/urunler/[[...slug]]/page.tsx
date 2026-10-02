@@ -422,13 +422,32 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     })),
   }
 
+  const collectionPageJsonLd = activeCategory ? {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${activeCategory.name} Fiyatları ve Modelleri`,
+    description: `${activeCategory.name} profesyonel ses, ışık ve müzik ekipmanları Sescim güvencesiyle.`,
+    url: `${baseUrl}${categoryPath}`,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Sescim',
+      url: baseUrl,
+    },
+  } : null
+
   return (
     <div className="min-h-screen pb-24">
-      {/* Google Rich Snippets: BreadcrumbList & ItemList */}
+      {/* Google Rich Snippets: BreadcrumbList, ItemList & CollectionPage */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {collectionPageJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageJsonLd) }}
+        />
+      )}
       {products && products.length > 0 && (
         <script
           type="application/ld+json"

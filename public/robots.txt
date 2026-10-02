@@ -14,7 +14,6 @@ Disallow: /hesabim
 Disallow: /siparis-takip
 Disallow: /siparis/
 Disallow: /api/
-Disallow: /arama
 Disallow: /*?*min=
 Disallow: /*?*max=
 Disallow: /*?*sirala=

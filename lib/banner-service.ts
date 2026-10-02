@@ -21,6 +21,8 @@ export interface ParsedBannerSlide {
   image: string
   isActive: boolean
   sortOrder: number
+  showOverlay?: boolean
+  showButton?: boolean
 }
 
 export const DEFAULT_HERO_SLIDES: ParsedBannerSlide[] = [
@@ -34,6 +36,8 @@ export const DEFAULT_HERO_SLIDES: ParsedBannerSlide[] = [
     ctaLink: '/urunler/studyo-ekipmanlari',
     isActive: true,
     sortOrder: 1,
+    showOverlay: true,
+    showButton: true,
   },
   {
     id: 'default-2',
@@ -45,6 +49,8 @@ export const DEFAULT_HERO_SLIDES: ParsedBannerSlide[] = [
     ctaLink: '/urunler/dj-ekipmanlari',
     isActive: true,
     sortOrder: 2,
+    showOverlay: true,
+    showButton: true,
   },
   {
     id: 'default-3',
@@ -56,13 +62,17 @@ export const DEFAULT_HERO_SLIDES: ParsedBannerSlide[] = [
     ctaLink: '/urunler/isik-sistemleri',
     isActive: true,
     sortOrder: 3,
+    showOverlay: true,
+    showButton: true,
   },
 ]
 
 export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
   let subtitle = ''
   let description = ''
-  let ctaText = 'Hemen Keşfet'
+  let ctaText = ''
+  let showOverlay: boolean | undefined = undefined
+  let showButton: boolean | undefined = undefined
 
   if (banner.subtitle) {
     try {
@@ -70,7 +80,11 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
       if (parsed && typeof parsed === 'object') {
         subtitle = parsed.subtitle || ''
         description = parsed.description || ''
-        ctaText = parsed.button_text || parsed.buttonText || parsed.ctaText || 'Hemen Keşfet'
+        ctaText = (parsed.button_text ?? parsed.buttonText ?? parsed.ctaText ?? '').trim()
+        if (typeof parsed.show_overlay === 'boolean') showOverlay = parsed.show_overlay
+        else if (typeof parsed.showOverlay === 'boolean') showOverlay = parsed.showOverlay
+        if (typeof parsed.show_button === 'boolean') showButton = parsed.show_button
+        else if (typeof parsed.showButton === 'boolean') showButton = parsed.showButton
       } else {
         subtitle = String(banner.subtitle)
       }
@@ -78,6 +92,14 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
       subtitle = String(banner.subtitle)
     }
   }
+
+  const hasAnyText = Boolean(banner.title?.trim() || subtitle.trim() || description.trim())
+
+  // Karartma varsayılanı: Belirtilmemişse metin varsa true, metin yoksa saf grafik için false
+  const finalShowOverlay = showOverlay !== undefined ? showOverlay : hasAnyText
+
+  // Buton varsayılanı: Belirtilmemişse buton metni girilmişse ve showButton açıkça false değilse true
+  const finalShowButton = showButton !== undefined ? showButton : Boolean(ctaText && ctaText.trim())
 
   return {
     id: banner.id,
@@ -89,14 +111,23 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
     image: banner.image_url,
     isActive: banner.is_active,
     sortOrder: banner.sort_order ?? 0,
+    showOverlay: finalShowOverlay,
+    showButton: finalShowButton,
   }
 }
 
-export function packBannerSubtitle(subtitle: string, description: string, buttonText: string): string {
+export function packBannerSubtitle(
+  subtitle: string,
+  description: string,
+  buttonText: string,
+  options?: { showOverlay?: boolean; showButton?: boolean }
+): string {
   return JSON.stringify({
     subtitle: (subtitle || '').trim(),
     description: (description || '').trim(),
-    button_text: (buttonText || '').trim() || 'Hemen Keşfet',
+    button_text: (buttonText || '').trim(),
+    show_overlay: options?.showOverlay ?? false,
+    show_button: options?.showButton ?? false,
   })
 }
 

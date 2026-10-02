@@ -119,7 +119,7 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
 
   return (
     <section 
-      className="relative w-full h-[420px] sm:h-[500px] md:h-[580px] lg:h-[640px] overflow-hidden bg-slate-950 select-none group"
+      className="relative w-full h-[360px] sm:h-[440px] md:h-[500px] lg:h-[540px] xl:h-[560px] overflow-hidden bg-slate-950 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
@@ -129,6 +129,16 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
     >
       {slides.map((slide, index) => {
         const isActive = index === activeIndex
+        const hasAnyText = Boolean(slide.title?.trim() || slide.subtitle?.trim() || slide.description?.trim())
+        const shouldShowOverlay = slide.showOverlay ?? hasAnyText
+        const shouldShowButton = (slide.showButton ?? false) && Boolean(slide.ctaText?.trim()) && Boolean(slide.ctaLink)
+        const isWholeSlideClickable = Boolean(slide.ctaLink) && !shouldShowButton
+
+        const SlideWrapper = isWholeSlideClickable ? Link : 'div'
+        const wrapperProps: any = isWholeSlideClickable 
+          ? { href: slide.ctaLink!, className: 'absolute inset-0 block cursor-pointer group/link' }
+          : { className: 'absolute inset-0 block' }
+
         return (
           <div
             key={slide.id || index}
@@ -136,68 +146,77 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
               isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'
             }`}
           >
-            {/* Background Image */}
-            <div className="absolute inset-0">
-              <Image
-                src={slide.image}
-                alt={slide.title || 'Sescim Kampanya'}
-                fill
-                priority={index === 0}
-                sizes="100vw"
-                unoptimized={true}
-                className="object-cover object-center"
-              />
-              {/* Premium dark gradient overlays for crystal clear text readability */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 md:via-slate-950/50 to-slate-950/30" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-black/30" />
-            </div>
-
-            {/* Slide Content */}
-            <div className="relative z-20 h-full flex items-center max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
-              <div 
-                className="max-w-2xl text-left transform transition-all duration-700 delay-100"
-                style={{ 
-                  opacity: isActive ? 1 : 0, 
-                  transform: `translateY(${isActive ? '0' : '24px'})` 
-                }}
-              >
-                {/* Subtitle / Badge */}
-                {slide.subtitle && (
-                  <div className="mb-2 sm:mb-3.5">
-                    <span className="inline-flex items-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[10px] sm:text-xs font-bold uppercase tracking-widest backdrop-blur-md">
-                      {slide.subtitle}
-                    </span>
-                  </div>
-                )}
-
-                {/* Main Title */}
-                {slide.title && (
-                  <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black text-white mb-2.5 sm:mb-5 leading-[1.15] tracking-tight uppercase drop-shadow-md">
-                    {slide.title}
-                  </h2>
-                )}
-
-                {/* Description Text */}
-                {slide.description && (
-                  <p className="text-slate-200 text-xs sm:text-base md:text-lg mb-4 sm:mb-8 max-w-xl line-clamp-2 sm:line-clamp-4 font-normal leading-relaxed drop-shadow">
-                    {slide.description}
-                  </p>
-                )}
-
-                {/* Action CTA Button */}
-                {slide.ctaLink && (
-                  <div>
-                    <Link
-                      href={slide.ctaLink}
-                      className="inline-flex items-center gap-2.5 bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs sm:text-sm tracking-widest uppercase px-6 sm:px-8 py-3.5 sm:py-4 rounded-md shadow-xl shadow-brand-red/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                      <span>{slide.ctaText || 'Hemen Keşfet'}</span>
-                      <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-1" />
-                    </Link>
-                  </div>
+            <SlideWrapper {...wrapperProps}>
+              {/* Background Image */}
+              <div className="absolute inset-0">
+                <Image
+                  src={slide.image}
+                  alt={slide.title || 'Sescim Kampanya'}
+                  fill
+                  priority={index === 0}
+                  sizes="100vw"
+                  unoptimized={true}
+                  className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
+                />
+                
+                {/* Sadece metin varsa veya özellikle istenmişse karanlık gradyan uygulanır */}
+                {shouldShowOverlay && (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 md:via-slate-950/40 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                  </>
                 )}
               </div>
-            </div>
+
+              {/* Slide Content (Metin veya Buton varsa gösterilir) */}
+              {(hasAnyText || shouldShowButton) && (
+                <div className="relative z-20 h-full flex items-center max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pointer-events-none">
+                  <div 
+                    className="max-w-2xl text-left transform transition-all duration-700 delay-100 pointer-events-auto"
+                    style={{ 
+                      opacity: isActive ? 1 : 0, 
+                      transform: `translateY(${isActive ? '0' : '24px'})` 
+                    }}
+                  >
+                    {/* Subtitle / Badge */}
+                    {slide.subtitle && (
+                      <div className="mb-2 sm:mb-3.5">
+                        <span className="inline-flex items-center px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[10px] sm:text-xs font-bold uppercase tracking-widest backdrop-blur-md">
+                          {slide.subtitle}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Main Title */}
+                    {slide.title && (
+                      <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black text-white mb-2.5 sm:mb-5 leading-[1.15] tracking-tight uppercase drop-shadow-md">
+                        {slide.title}
+                      </h2>
+                    )}
+
+                    {/* Description Text */}
+                    {slide.description && (
+                      <p className="text-slate-200 text-xs sm:text-base md:text-lg mb-4 sm:mb-8 max-w-xl line-clamp-2 sm:line-clamp-4 font-normal leading-relaxed drop-shadow">
+                        {slide.description}
+                      </p>
+                    )}
+
+                    {/* Action CTA Button (Sadece butona izin verilmişse) */}
+                    {shouldShowButton && slide.ctaLink && (
+                      <div>
+                        <Link
+                          href={slide.ctaLink}
+                          className="inline-flex items-center gap-2.5 bg-brand-red hover:bg-red-700 text-white font-display font-bold text-xs sm:text-sm tracking-widest uppercase px-6 sm:px-8 py-3.5 sm:py-4 rounded-md shadow-xl shadow-brand-red/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                        >
+                          <span>{slide.ctaText}</span>
+                          <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-1" />
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </SlideWrapper>
           </div>
         )
       })}

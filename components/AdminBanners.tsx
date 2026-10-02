@@ -37,6 +37,8 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
   const [subtitle, setSubtitle] = useState('')
   const [description, setDescription] = useState('')
   const [buttonText, setButtonText] = useState('Hemen Keşfet')
+  const [showOverlay, setShowOverlay] = useState(false)
+  const [showButton, setShowButton] = useState(false)
   const [sortOrder, setSortOrder] = useState(1)
   const [isActive, setIsActive] = useState(true)
   const [imageUrl, setImageUrl] = useState('')
@@ -180,6 +182,8 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     setSubtitle(parsed.subtitle || '')
     setDescription(parsed.description || '')
     setButtonText(parsed.ctaText || 'Hemen Keşfet')
+    setShowOverlay(parsed.showOverlay ?? false)
+    setShowButton(parsed.showButton ?? false)
     setSortOrder(banner.sort_order ?? 1)
     setIsActive(banner.is_active)
     setImageUrl(banner.image_url)
@@ -223,6 +227,8 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     setSubtitle('')
     setDescription('')
     setButtonText('Hemen Keşfet')
+    setShowOverlay(false)
+    setShowButton(false)
     setSortOrder(banners.length + 1)
     setIsActive(true)
     setImageUrl('')
@@ -259,8 +265,11 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         finalLinkUrl = linkUrl.trim()
       }
 
-      // 2. Pack subtitle with JSON { subtitle, description, button_text }
-      const packedSubtitle = packBannerSubtitle(subtitle, description, buttonText)
+      // 2. Pack subtitle with JSON { subtitle, description, button_text, show_overlay, show_button }
+      const packedSubtitle = packBannerSubtitle(subtitle, description, buttonText, {
+        showOverlay,
+        showButton
+      })
 
       let res: Response
       if (imageFile) {
@@ -274,6 +283,8 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         formData.append('link_url', finalLinkUrl)
         formData.append('sort_order', String(Number(sortOrder) || 0))
         formData.append('is_active', String(isActive))
+        formData.append('show_overlay', String(showOverlay))
+        formData.append('show_button', String(showButton))
 
         res = await fetch('/api/admin/banners', {
           method: editingBannerId ? 'PUT' : 'POST',
@@ -289,7 +300,9 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
           image_url: imageUrl,
           link_url: finalLinkUrl || null,
           sort_order: Number(sortOrder) || 0,
-          is_active: isActive
+          is_active: isActive,
+          show_overlay: showOverlay,
+          show_button: showButton
         }
         if (editingBannerId) payload.id = editingBannerId
 
@@ -519,6 +532,34 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   <span className="text-[11px] text-slate-400">Anasayfada görünsün mü?</span>
                 </div>
               </div>
+
+              {/* Görsel Karartma / Filtre Efekti Kontrolü */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-sm space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-xs font-display font-bold text-slate-900 tracking-wide uppercase">
+                      Karanlık Karartma Efekti (Overlay)
+                    </label>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Görselin soluna ve altına karanlık gradyan gölge atar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOverlay(!showOverlay)}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-colors flex items-center gap-1.5 flex-shrink-0 ${
+                      showOverlay
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                        : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {showOverlay ? 'Açık (Gölge Var)' : 'Kapalı (Net Görsel)'}
+                  </button>
+                </div>
+                <div className="text-[11px] text-amber-800 bg-amber-50 p-2 border border-amber-200 rounded leading-relaxed">
+                  💡 <span className="font-semibold">Grafik Afiş İpucu:</span> Kendi üzerinde yazısı veya logosu olan hazır afişlerde <span className="font-bold underline">Kapalı</span> tutun; görsel %100 orijinal ve canlı kalır.
+                </div>
+              </div>
             </div>
             
             {/* Right Column: Texts & Actions (7 cols) */}
@@ -533,7 +574,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   value={subtitle}
                   onChange={e => setSubtitle(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red"
-                  placeholder="Örn: Yeni Sezon, Özel Fırsat, DJ Ekipmanları..."
+                  placeholder="Örn: Yeni Sezon, Özel Fırsat, DJ Ekipmanları... (Yoksa boş bırakın)"
                 />
                 <span className="text-[11px] text-slate-400">Başlığın hemen üzerinde kırmızı küçük etiket olarak görünür.</span>
               </div>
@@ -548,9 +589,9 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red font-bold text-slate-900"
-                  placeholder="Örn: Profesyonel Stüdyo ve Sahne Ekipmanları"
+                  placeholder="Örn: Profesyonel Stüdyo ve Sahne Ekipmanları (Yoksa boş bırakın)"
                 />
-                <span className="text-[11px] text-slate-400">Slayt üzerinde büyük fontla çıkan dikkat çekici ana başlık.</span>
+                <span className="text-[11px] text-slate-400">Slayt üzerinde büyük fontla çıkan başlık. Grafik afişlerde boş bırakabilirsiniz.</span>
               </div>
 
               {/* Açıklama Metni */}
@@ -559,46 +600,32 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   Açıklama Metni (Opsiyonel)
                 </label>
                 <textarea 
-                  rows={3}
+                  rows={2}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red resize-none"
-                  placeholder="Örn: En iyi ses performansı için dünya markalarından monitör ve mikserler şimdi avantajlı fiyatlarla..."
+                  placeholder="Örn: En iyi ses performansı için dünya markalarından monitör ve mikserler... (Yoksa boş bırakın)"
                 />
                 <span className="text-[11px] text-slate-400">Başlığın altında slayt hakkında bilgi veren 1-2 cümlelik açıklama.</span>
               </div>
 
-              {/* Buton Metni */}
-              <div>
+              {/* Tıklama Yönlendirmesi (Link) & Buton Ayarları */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
                 <label className="block text-xs font-display font-bold text-slate-700 tracking-widest uppercase mb-1">
-                  Buton Üzerindeki Yazı (CTA)
-                </label>
-                <input 
-                  type="text" 
-                  value={buttonText}
-                  onChange={e => setButtonText(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red font-medium"
-                  placeholder="Örn: Hemen Keşfet, Ürünleri İncele, Fırsatları Yakala"
-                />
-              </div>
-
-              {/* Tıklama Yönlendirmesi (Link) */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-display font-bold text-slate-700 tracking-widest uppercase mb-2">
-                  Buton Tıklama Yönlendirmesi (Link)
+                  Tıklama Yönlendirmesi (Link)
                 </label>
                 
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2">
                   <button 
                     type="button"
-                    onClick={() => setLinkType('none')}
+                    onClick={() => { setLinkType('none'); setShowButton(false); }}
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border rounded-sm transition-colors ${
                       linkType === 'none' 
                         ? 'bg-slate-800 border-slate-800 text-white' 
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    Butonsuz / Linksiz
+                    Linksiz
                   </button>
                   <button 
                     type="button"
@@ -688,11 +715,55 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                       value={linkUrl}
                       onChange={e => setLinkUrl(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red font-mono"
-                      placeholder="Örn: /urunler/ses-sistemleri veya /iletisim"
+                      placeholder="Örn: /urunler/studyo-ekipmanlari veya /iletisim"
                     />
                     <span className="text-[11px] text-slate-400 mt-1 block">
                       Site içi sayfa (örn: /urunler/studyo-ekipmanlari) veya dış link yazabilirsiniz.
                     </span>
+                  </div>
+                )}
+
+                {/* Aksiyon Butonu Ayarı (Link seçildiyse) */}
+                {linkType !== 'none' && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-sm space-y-2.5 mt-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <label className="block text-xs font-display font-bold text-slate-800 tracking-wide uppercase">
+                          Aksiyon Butonu (Hemen Keşfet vb.)
+                        </label>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {showButton 
+                            ? 'Afişin sol altında buton gösterilir.' 
+                            : 'Butonsuz: Banner üzerinde buton çıkmaz, ziyaretçi afişin herhangi bir yerine tıkladığında hedefe gider.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowButton(!showButton)}
+                        className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded border transition-colors flex items-center gap-1.5 flex-shrink-0 ${
+                          showButton
+                            ? 'bg-brand-red border-brand-red text-white shadow-sm'
+                            : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {showButton ? 'Buton Göster' : 'Butonsuz (Tüm Banner Tıklanabilir)'}
+                      </button>
+                    </div>
+
+                    {showButton && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <label className="block text-xs font-display font-bold text-slate-700 tracking-widest uppercase mb-1">
+                          Buton Üzerindeki Yazı (CTA)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={buttonText}
+                          onChange={e => setButtonText(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:border-brand-red font-medium"
+                          placeholder="Örn: Hemen Keşfet, Ürünleri İncele, Fırsatları Yakala"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -722,46 +793,62 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   alt="Canlı Önizleme"
                   className="w-full h-full object-cover object-center"
                 />
-                {/* HeroSlider ile birebir aynı gradient katmanları */}
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 md:via-slate-950/50 to-slate-950/30" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-black/30" />
+                {/* HeroSlider ile birebir aynı gradient katmanları (şartlı) */}
+                {showOverlay && (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 md:via-slate-950/40 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                  </>
+                )}
               </div>
 
               {/* Slide Content */}
-              <div className="relative z-20 h-full flex items-center px-6 sm:px-12">
-                <div className="max-w-2xl text-left">
-                  {/* Rozet */}
-                  {subtitle && (
-                    <div className="mb-3">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[11px] font-bold uppercase tracking-widest backdrop-blur-md">
-                        {subtitle}
-                      </span>
-                    </div>
-                  )}
+              {(title || subtitle || description || (showButton && linkType !== 'none')) && (
+                <div className="relative z-20 h-full flex items-center px-6 sm:px-12">
+                  <div className="max-w-2xl text-left">
+                    {/* Rozet */}
+                    {subtitle && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-red/20 border border-brand-red/40 text-brand-red font-display text-[11px] font-bold uppercase tracking-widest backdrop-blur-md">
+                          {subtitle}
+                        </span>
+                      </div>
+                    )}
 
-                  {/* Ana Başlık */}
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-white mb-3 leading-[1.12] tracking-tight uppercase drop-shadow-md">
-                    {title || 'KAMPANYA BAŞLIĞI BURADA GÖRÜNECEK'}
-                  </h2>
+                    {/* Ana Başlık */}
+                    {title && (
+                      <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-white mb-3 leading-[1.12] tracking-tight uppercase drop-shadow-md">
+                        {title}
+                      </h2>
+                    )}
 
-                  {/* Açıklama */}
-                  {description && (
-                    <p className="text-slate-200 text-xs sm:text-sm mb-5 max-w-xl line-clamp-3 font-normal leading-relaxed drop-shadow">
-                      {description}
-                    </p>
-                  )}
+                    {/* Açıklama */}
+                    {description && (
+                      <p className="text-slate-200 text-xs sm:text-sm mb-5 max-w-xl line-clamp-3 font-normal leading-relaxed drop-shadow">
+                        {description}
+                      </p>
+                    )}
 
-                  {/* Buton */}
-                  {linkType !== 'none' && buttonText && (
-                    <div>
-                      <span className="inline-flex items-center gap-2.5 bg-brand-red text-white font-display font-bold text-xs sm:text-sm tracking-widest uppercase px-6 py-3.5 rounded-md shadow-xl shadow-brand-red/30">
-                        <span>{buttonText}</span>
-                        <ArrowRight size={16} />
-                      </span>
-                    </div>
-                  )}
+                    {/* Buton */}
+                    {showButton && linkType !== 'none' && buttonText && (
+                      <div>
+                        <span className="inline-flex items-center gap-2.5 bg-brand-red text-white font-display font-bold text-xs sm:text-sm tracking-widest uppercase px-6 py-3.5 rounded-md shadow-xl shadow-brand-red/30">
+                          <span>{buttonText}</span>
+                          <ArrowRight size={16} />
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Tüm banner tıklanabilir bilgi rozeti */}
+              {!showButton && linkType !== 'none' && (
+                <div className="absolute bottom-3 right-4 z-20 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded text-white/90 text-[11px] font-medium flex items-center gap-1.5 border border-white/10">
+                  <LinkIcon size={12} className="text-brand-red" />
+                  <span>Tüm banner tıklanabilir: {linkType === 'product' ? (products.find(p => p.id === selectedProductId)?.ad || 'Ürün Sayfası') : (linkUrl || 'Özel Link')}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -860,7 +947,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                   />
                   
                   {/* Top Badges */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                  <div className="absolute top-2 left-2 flex flex-wrap items-center gap-1.5 max-w-[90%]">
                     <span className="bg-slate-950/80 backdrop-blur-sm text-white px-2 py-0.5 text-[10px] font-display font-bold uppercase tracking-widest rounded">
                       Sıra: {banner.sort_order ?? 0}
                     </span>
@@ -873,6 +960,24 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                         Yayında Değil
                       </span>
                     )}
+                    {parsed.showOverlay ? (
+                      <span className="bg-indigo-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 text-[9px] font-display font-bold uppercase tracking-wider rounded">
+                        Gölge Var
+                      </span>
+                    ) : (
+                      <span className="bg-amber-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 text-[9px] font-display font-bold uppercase tracking-wider rounded">
+                        Net Görsel
+                      </span>
+                    )}
+                    {parsed.showButton ? (
+                      <span className="bg-rose-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 text-[9px] font-display font-bold uppercase tracking-wider rounded">
+                        Butonlu
+                      </span>
+                    ) : parsed.ctaLink ? (
+                      <span className="bg-teal-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 text-[9px] font-display font-bold uppercase tracking-wider rounded">
+                        Tüm Afiş Link
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 
@@ -908,11 +1013,13 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                           href={parsed.ctaLink} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="inline-flex items-center gap-1 text-slate-700 hover:text-brand-red font-medium transition-colors truncate max-w-[160px]"
+                          className="inline-flex items-center gap-1 text-slate-700 hover:text-brand-red font-medium transition-colors truncate max-w-[170px]"
                           title={parsed.ctaLink}
                         >
                           <LinkIcon size={12} className="text-brand-red flex-shrink-0" />
-                          <span className="font-bold text-slate-900">{parsed.ctaText}:</span>
+                          <span className="font-bold text-slate-900">
+                            {parsed.showButton && parsed.ctaText ? `${parsed.ctaText}:` : 'Hedef:'}
+                          </span>
                           <span className="truncate text-slate-500">{parsed.ctaLink}</span>
                         </a>
                       ) : (

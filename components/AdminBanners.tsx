@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { 
   Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, 
   Check, AlertTriangle, Eye, EyeOff, ZoomIn, Crop, ArrowRight, 
-  ArrowUpDown, ExternalLink, Sparkles 
+  ArrowUpDown, ExternalLink, Sparkles, Smartphone, Monitor
 } from 'lucide-react'
 import Cropper from 'react-easy-crop'
 import { getCroppedImg } from '@/lib/cropImage'
@@ -43,6 +43,11 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
   const [isActive, setIsActive] = useState(true)
   const [imageUrl, setImageUrl] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
+  
+  // Mobile Image State
+  const [mobileImageUrl, setMobileImageUrl] = useState('')
+  const [mobileImageFile, setMobileImageFile] = useState<File | null>(null)
+  const [mobileImagePreview, setMobileImagePreview] = useState<string | null>(null)
   
   // Link selection type
   const [linkType, setLinkType] = useState<'none' | 'product' | 'custom'>('none')
@@ -175,6 +180,20 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     }
   }
 
+  const handleMobileImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setMobileImageFile(file)
+      setMobileImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const removeMobileImage = () => {
+    setMobileImageFile(null)
+    setMobileImagePreview(null)
+    setMobileImageUrl('')
+  }
+
   const handleEdit = (banner: StoreBanner) => {
     const parsed = parseBannerContent(banner)
     setEditingBannerId(banner.id)
@@ -189,6 +208,9 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     setImageUrl(banner.image_url)
     setImagePreview(banner.image_url)
     setImageFile(null)
+    setMobileImageUrl(parsed.mobileImage || '')
+    setMobileImagePreview(parsed.mobileImage || null)
+    setMobileImageFile(null)
 
     // Determine link type
     if (!banner.link_url) {
@@ -234,6 +256,9 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
     setImageUrl('')
     setImagePreview(null)
     setImageFile(null)
+    setMobileImageUrl('')
+    setMobileImagePreview(null)
+    setMobileImageFile(null)
     setLinkType('none')
     setLinkUrl('')
     setSelectedProductId('')
@@ -265,19 +290,22 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
         finalLinkUrl = linkUrl.trim()
       }
 
-      // 2. Pack subtitle with JSON { subtitle, description, button_text, show_overlay, show_button }
+      // 2. Pack subtitle with JSON { subtitle, description, button_text, show_overlay, show_button, mobile_image_url }
       const packedSubtitle = packBannerSubtitle(subtitle, description, buttonText, {
         showOverlay,
-        showButton
+        showButton,
+        mobile_image_url: mobileImageUrl || null
       })
 
       let res: Response
-      if (imageFile) {
+      if (imageFile || mobileImageFile) {
         // FormData ile dosya yükleme (Sunucu tarafı Service Role ile yükler, RLS hatası vermez)
         const formData = new FormData()
         if (editingBannerId) formData.append('id', editingBannerId)
-        formData.append('file', imageFile)
+        if (imageFile) formData.append('file', imageFile)
+        if (mobileImageFile) formData.append('mobile_file', mobileImageFile)
         formData.append('image_url', imageUrl || '')
+        formData.append('mobile_image_url', mobileImageUrl || '')
         formData.append('title', title.trim() || '')
         formData.append('subtitle', packedSubtitle)
         formData.append('link_url', finalLinkUrl)
@@ -298,6 +326,7 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
           title: title.trim() || null,
           subtitle: packedSubtitle,
           image_url: imageUrl,
+          mobile_image_url: mobileImageUrl || null,
           link_url: finalLinkUrl || null,
           sort_order: Number(sortOrder) || 0,
           is_active: isActive,
@@ -495,6 +524,64 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                     </button>
                   </div>
                 )}
+
+                {/* MOBİL BANNER GÖRSELİ (İsteğe Bağlı - Akıllı Mobil Geçiş) */}
+                <div className="mt-6 pt-5 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-display font-bold text-slate-800 tracking-widest uppercase flex items-center gap-1.5">
+                      <Smartphone size={14} className="text-sky-600" />
+                      Mobil Banner Görseli <span className="text-[10px] text-slate-400 font-normal lowercase">(isteğe bağlı)</span>
+                    </label>
+                    {mobileImagePreview && (
+                      <button
+                        type="button"
+                        onClick={removeMobileImage}
+                        className="text-[11px] text-red-600 hover:text-red-700 font-bold hover:underline"
+                      >
+                        Görseli Kaldır
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-start gap-2 bg-sky-50 border border-sky-200 p-2.5 mb-2.5 rounded-sm">
+                    <Smartphone size={15} className="text-sky-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-sky-900 leading-relaxed">
+                      <span className="font-bold">Telefon ekranlarına özel dikey/kare görsel:</span><br />
+                      Önerilen boyut: <span className="font-mono font-bold">800 × 1000 px</span> veya <span className="font-mono font-bold">1080 × 1080 px</span>.<br />
+                      Telefonlardan giren ziyaretçilere otomatik olarak bu görsel gösterilir. Yüklemezseniz masaüstü banner kullanılır.
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed border-sky-300 hover:border-sky-500 transition-colors bg-sky-50/30 rounded-sm p-3 text-center cursor-pointer relative group">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleMobileImageSelect}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                    />
+                    
+                    {mobileImagePreview ? (
+                      <div className="relative aspect-[4/5] max-h-48 mx-auto overflow-hidden border border-sky-200 rounded-sm bg-slate-900">
+                        <img 
+                          src={mobileImagePreview} 
+                          alt="Mobil Banner Önizleme" 
+                          className="w-full h-full object-cover" 
+                        />
+                        <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                          <span className="text-white text-[11px] font-bold uppercase tracking-wider bg-sky-600 px-3 py-1.5 rounded-sm">
+                            Mobil Görseli Değiştir
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-6 flex flex-col items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+                        <Smartphone size={28} className="mb-2 text-sky-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-xs font-semibold text-slate-700">Mobil görsel seçmek için tıklayın</span>
+                        <span className="text-[10px] mt-0.5 text-slate-400">Dikey veya kare format önerilir</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Sıralama ve Aktiflik */}
@@ -978,6 +1065,15 @@ export default function AdminBanners({ supabase }: { supabase: any }) {
                         Tüm Afiş Link
                       </span>
                     ) : null}
+                    {parsed.mobileImage ? (
+                      <span className="bg-sky-600/90 backdrop-blur-sm text-white px-1.5 py-0.5 text-[9px] font-display font-bold uppercase tracking-wider rounded flex items-center gap-1">
+                        <Smartphone size={10} /> Mobil Var
+                      </span>
+                    ) : (
+                      <span className="bg-slate-800/80 backdrop-blur-sm text-slate-300 px-1.5 py-0.5 text-[9px] font-display font-medium rounded flex items-center gap-1">
+                        <Monitor size={10} /> Sadece Masaüstü
+                      </span>
+                    )}
                   </div>
                 </div>
                 

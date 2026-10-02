@@ -119,7 +119,7 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
 
   return (
     <section 
-      className="relative w-full h-[360px] sm:h-[440px] md:h-[500px] lg:h-[540px] xl:h-[560px] overflow-hidden bg-slate-950 select-none group"
+      className="relative w-full h-[400px] sm:h-[460px] md:h-[500px] lg:h-[540px] xl:h-[580px] overflow-hidden bg-slate-950 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
@@ -147,30 +147,48 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
             }`}
           >
             <SlideWrapper {...wrapperProps}>
-              {/* Background Image */}
+              {/* Background Image Container */}
               <div className="absolute inset-0">
-                <Image
-                  src={slide.image}
-                  alt={slide.title || 'Sescim Kampanya'}
-                  fill
-                  priority={index === 0}
-                  sizes="100vw"
-                  unoptimized={true}
-                  className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
-                />
+                {/* Masaüstü Görseli (Eğer mobil görsel varsa md ve üzerinde gösterilir, yoksa her ekranda gösterilir) */}
+                <div className={`absolute inset-0 ${slide.mobileImage ? 'hidden md:block' : 'block'}`}>
+                  <Image
+                    src={slide.image}
+                    alt={slide.title || 'Sescim Kampanya'}
+                    fill
+                    priority={index === 0}
+                    sizes="100vw"
+                    unoptimized={true}
+                    className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
+                  />
+                </div>
+
+                {/* Mobil Görseli (Sadece mobilde md ekranın altında devreye girer) */}
+                {slide.mobileImage && (
+                  <div className="absolute inset-0 block md:hidden">
+                    <Image
+                      src={slide.mobileImage}
+                      alt={slide.title || 'Sescim Mobil Kampanya'}
+                      fill
+                      priority={index === 0}
+                      sizes="100vw"
+                      unoptimized={true}
+                      className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
+                    />
+                  </div>
+                )}
                 
                 {/* Sadece metin varsa veya özellikle istenmişse karanlık gradyan uygulanır */}
                 {shouldShowOverlay && (
                   <>
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 md:via-slate-950/40 to-transparent" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                    <div className="hidden md:block absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 md:via-slate-950/40 to-transparent" />
+                    <div className="block md:hidden absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent" />
                   </>
                 )}
               </div>
 
               {/* Slide Content (Metin veya Buton varsa gösterilir) */}
               {(hasAnyText || shouldShowButton) && (
-                <div className="relative z-20 h-full flex items-center max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pointer-events-none">
+                <div className="relative z-20 h-full flex items-end md:items-center max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pb-8 md:pb-0 pointer-events-none">
                   <div 
                     className="max-w-2xl text-left transform transition-all duration-700 delay-100 pointer-events-auto"
                     style={{ 

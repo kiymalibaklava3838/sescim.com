@@ -63,6 +63,41 @@ export default function AdminFirsatYonetimi() {
   const [outletDurum, setOutletDurum] = useState('Teşhir Ürünü - 1 Yıl Distribütör Garantili')
   const [outletStok, setOutletStok] = useState('1')
 
+  const toDateTimeLocal = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    return headers
+  }
+
+  const openNewForm = () => {
+    if (!showForm) {
+      if (activeSubTab === 'firsatlar') {
+        const now = new Date()
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+        setBaslangic(toDateTimeLocal(now))
+        setBitis(toDateTimeLocal(tomorrow))
+      }
+      setShowForm(true)
+      setError('')
+    } else {
+      setShowForm(false)
+    }
+  }
+
+  const setDurationHours = (hours: number) => {
+    const start = baslangic ? new Date(baslangic) : new Date()
+    const end = new Date(start.getTime() + hours * 60 * 60 * 1000)
+    setBitis(toDateTimeLocal(end))
+  }
+
   useEffect(() => {
     loadData()
   }, [])
@@ -71,14 +106,31 @@ export default function AdminFirsatYonetimi() {
     setLoading(true)
     try {
       const akdag = createAkdagBrowserClient()
-      const [firsatlarRes, outletRes, akdagUrunlerRes, sescimUrunlerRes, pricingRes, kurRes] = await Promise.all([
-        supabase.from('flas_indirimler').select('*').order('created_at', { ascending: false }),
-        supabase.from('outlet_urunler').select('*').order('created_at', { ascending: false }),
+      const headers = await getAuthHeaders()
+
+      // API rotası üzerinden çekmeyi dene (RLS bypass), başarısız olursa browser client ile fallback yap
+      const adminDataRes = await fetch('/api/admin/firsatlar', { headers })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+
+      const [akdagUrunlerRes, sescimUrunlerRes, pricingRes, kurRes] = await Promise.all([
         akdag.from('urunler').select('id, slug, ad, fiyat, para_birimi, marka, model_kodu, fotograflar').order('ad'),
         supabase.from('urunler').select('id, slug, ad, fiyat, para_birimi, marka, model_kodu, fotograflar').order('ad'),
         supabase.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat'),
         fetch('/api/kur').then(r => r.json()).catch(() => DEFAULT_KUR)
       ])
+
+      let rawFirsatlar = adminDataRes?.firsatlar
+      let rawOutlet = adminDataRes?.outlet
+
+      if (!rawFirsatlar) {
+        const fRes = await supabase.from('flas_indirimler').select('*').order('created_at', { ascending: false })
+        rawFirsatlar = fRes.data || []
+      }
+      if (!rawOutlet) {
+        const oRes = await supabase.from('outlet_urunler').select('*').order('created_at', { ascending: false })
+        rawOutlet = oRes.data || []
+      }
 
       if (kurRes?.USD) {
         setKur(kurRes)
@@ -101,14 +153,14 @@ export default function AdminFirsatYonetimi() {
       setUrunler(allUrunler)
 
       // Fırsat ürünlerini eşleştir
-      const firsatlarWithUrun = (firsatlarRes.data || []).map((f: any) => ({
+      const firsatlarWithUrun = (rawFirsatlar || []).map((f: any) => ({
         ...f,
         urun: allUrunler.find(u => u.id === f.urun_id) || { id: f.urun_id, ad: 'Ürün Adı Bulunamadı', fiyat: f.indirimli_fiyat, para_birimi: 'TRY' }
       }))
       setFirsatlar(firsatlarWithUrun)
 
       // Outlet ürünlerini eşleştir
-      const outletsWithUrun = (outletRes.data || []).map((o: any) => ({
+      const outletsWithUrun = (rawOutlet || []).map((o: any) => ({
         ...o,
         urun: allUrunler.find(u => u.id === o.urun_id) || { id: o.urun_id, ad: 'Ürün Adı Bulunamadı', fiyat: o.outlet_fiyat, para_birimi: 'TRY' }
       }))
@@ -147,41 +199,35 @@ export default function AdminFirsatYonetimi() {
 
     setSaving(true)
     setError('')
-    const { error: err } = await supabase.from('flas_indirimler').insert({
-      urun_id: urunId,
-      indirimli_fiyat: finalIndirimliFiyat,
-      baslangic_tarihi: baslangic,
-      bitis_tarihi: bitis,
-      aktif: true
-    })
-    
-    // sescim_fiyatlar tablosunu senkronize et
+
     try {
-      await supabase.from('sescim_fiyatlar').upsert({
-        urun_id: urunId,
-        sescim_indirimli_fiyat: finalIndirimliFiyat,
-        is_firsat: true,
-        sescim_aktif: true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'urun_id' })
-    } catch (e) {
-      console.error('Failed to sync sescim_fiyatlar:', e)
-    }
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/firsatlar', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create_firsat',
+          urun_id: urunId,
+          indirimli_fiyat: finalIndirimliFiyat,
+          baslangic_tarihi: baslangic,
+          bitis_tarihi: bitis,
+          product: selectedUrun
+        })
+      })
 
-    // Cache revalidate
-    const targetSlug = selectedUrun?.slug || urunId
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/firsatlar' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${targetSlug}` }) }).catch(() => {})
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Fırsat kaydedilirken hata oluştu.')
+      }
 
-    if (err) {
-      setError(err.message)
-    } else {
       setShowForm(false)
       setUrunId(''); setIndirimliFiyat(''); setBaslangic(''); setBitis('')
-      loadData()
+      await loadData()
+    } catch (err: any) {
+      setError(err.message || 'Kayıt sırasında hata oluştu.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const handleSaveOutlet = async (e: React.FormEvent) => {
@@ -206,111 +252,122 @@ export default function AdminFirsatYonetimi() {
     setSaving(true)
     setError('')
 
-    const { error: err } = await supabase.from('outlet_urunler').insert({
-      urun_id: urunId,
-      outlet_fiyat: finalOutletFiyat,
-      durum_aciklamasi: outletDurum,
-      stok_adedi: parseInt(outletStok) || 1,
-      aktif: true
-    })
-
-    // sescim_fiyatlar tablosuna da yansıt
     try {
-      await supabase.from('sescim_fiyatlar').upsert({
-        urun_id: urunId,
-        sescim_indirimli_fiyat: finalOutletFiyat,
-        is_outlet: true,
-        outlet_durum: outletDurum,
-        sescim_aktif: true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'urun_id' })
-    } catch {}
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/firsatlar', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create_outlet',
+          urun_id: urunId,
+          indirimli_fiyat: finalOutletFiyat,
+          durum_aciklamasi: outletDurum,
+          stok_adedi: parseInt(outletStok) || 1,
+          product: selectedUrun
+        })
+      })
 
-    const targetSlug = selectedUrun?.slug || urunId
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/outlet' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${targetSlug}` }) }).catch(() => {})
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'Outlet ürünü kaydedilirken hata oluştu.')
+      }
 
-    if (err) {
-      setError(err.message)
-    } else {
       setShowForm(false)
       setUrunId(''); setIndirimliFiyat('')
-      loadData()
+      await loadData()
+    } catch (err: any) {
+      setError(err.message || 'Kayıt sırasında hata oluştu.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const toggleAktifFirsat = async (id: string, currentStatus: boolean, urun_id: string) => {
     const newStatus = !currentStatus
-    await supabase.from('flas_indirimler').update({ aktif: newStatus }).eq('id', id)
-    try {
-      if (!newStatus) {
-        await supabase.from('sescim_fiyatlar').update({ is_firsat: false, sescim_indirimli_fiyat: null }).eq('urun_id', urun_id)
-      } else {
-        const firsatItem = firsatlar.find(f => f.id === id)
-        if (firsatItem) {
-          await supabase.from('sescim_fiyatlar').upsert({
-            urun_id,
-            sescim_indirimli_fiyat: firsatItem.indirimli_fiyat,
-            is_firsat: true,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'urun_id' })
-        }
-      }
-    } catch {}
-
     const u = urunler.find(x => x.id === urun_id)
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/firsatlar' }) }).catch(() => {})
-    if (u?.slug) {
-      fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${u.slug}` }) }).catch(() => {})
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/firsatlar', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          type: 'firsat',
+          id,
+          urun_id,
+          new_status: newStatus,
+          slug: u?.slug
+        })
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        alert('Durum güncellenemedi: ' + (json.error || 'Bilinmeyen hata'))
+      }
+    } catch (e: any) {
+      console.error('Toggle firsat error:', e)
     }
     loadData()
   }
 
   const deleteFirsat = async (id: string, urun_id: string) => {
     if (!confirm('Bu fırsatı silmek istediğinize emin misiniz?')) return
-    await supabase.from('flas_indirimler').delete().eq('id', id)
-    try {
-      await supabase.from('sescim_fiyatlar').update({ is_firsat: false, sescim_indirimli_fiyat: null }).eq('urun_id', urun_id)
-    } catch {}
-
     const u = urunler.find(x => x.id === urun_id)
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/firsatlar' }) }).catch(() => {})
-    if (u?.slug) {
-      fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${u.slug}` }) }).catch(() => {})
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`/api/admin/firsatlar?type=firsat&id=${id}&urun_id=${urun_id}&slug=${encodeURIComponent(u?.slug || '')}`, {
+        method: 'DELETE',
+        headers
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        alert('Fırsat silinemedi: ' + (json.error || 'Bilinmeyen hata'))
+      }
+    } catch (e: any) {
+      console.error('Delete firsat error:', e)
     }
     loadData()
   }
 
   const toggleAktifOutlet = async (id: string, currentStatus: boolean, urun_id: string) => {
     const newStatus = !currentStatus
-    await supabase.from('outlet_urunler').update({ aktif: newStatus }).eq('id', id)
-    try {
-      await supabase.from('sescim_fiyatlar').update({ is_outlet: newStatus }).eq('urun_id', urun_id)
-    } catch {}
     const u = urunler.find(x => x.id === urun_id)
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/outlet' }) }).catch(() => {})
-    if (u?.slug) {
-      fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${u.slug}` }) }).catch(() => {})
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/firsatlar', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          type: 'outlet',
+          id,
+          urun_id,
+          new_status: newStatus,
+          slug: u?.slug
+        })
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        alert('Durum güncellenemedi: ' + (json.error || 'Bilinmeyen hata'))
+      }
+    } catch (e: any) {
+      console.error('Toggle outlet error:', e)
     }
     loadData()
   }
 
   const deleteOutlet = async (id: string, urun_id: string) => {
     if (!confirm('Bu outlet ürününü silmek istediğinize emin misiniz?')) return
-    await supabase.from('outlet_urunler').delete().eq('id', id)
-    try {
-      await supabase.from('sescim_fiyatlar').update({ is_outlet: false }).eq('urun_id', urun_id)
-    } catch {}
     const u = urunler.find(x => x.id === urun_id)
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/' }) }).catch(() => {})
-    fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/outlet' }) }).catch(() => {})
-    if (u?.slug) {
-      fetch('/api/revalidate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `/urun/${u.slug}` }) }).catch(() => {})
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`/api/admin/firsatlar?type=outlet&id=${id}&urun_id=${urun_id}&slug=${encodeURIComponent(u?.slug || '')}`, {
+        method: 'DELETE',
+        headers
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        alert('Outlet silinemedi: ' + (json.error || 'Bilinmeyen hata'))
+      }
+    } catch (e: any) {
+      console.error('Delete outlet error:', e)
     }
     loadData()
   }
@@ -353,7 +410,7 @@ export default function AdminFirsatYonetimi() {
         </div>
 
         <button 
-          onClick={() => { setShowForm(!showForm); setError('') }} 
+          onClick={openNewForm} 
           className="flex items-center gap-2 bg-brand-red text-white px-5 py-2.5 rounded-lg font-display font-bold text-xs tracking-widest uppercase hover:bg-red-700 transition-all shadow-sm"
         >
           <Plus size={14} /> {activeSubTab === 'firsatlar' ? 'Yeni Fırsat Ekle' : 'Yeni Outlet Ekle'}
@@ -550,7 +607,15 @@ export default function AdminFirsatYonetimi() {
                     <input type="datetime-local" value={baslangic} onChange={e => setBaslangic(e.target.value)} className="input-base text-sm" />
                   </div>
                   <div>
-                    <label className="font-display text-xs tracking-widest uppercase text-slate-500 block mb-2">Bitiş Tarihi (Geri Sayım)</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="font-display text-xs tracking-widest uppercase text-slate-500 block">Bitiş Tarihi (Geri Sayım)</label>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => setDurationHours(24)} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors">+24 Sa</button>
+                        <button type="button" onClick={() => setDurationHours(72)} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors">+3 Gün</button>
+                        <button type="button" onClick={() => setDurationHours(168)} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors">+7 Gün</button>
+                        <button type="button" onClick={() => setDurationHours(720)} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors">+30 Gün</button>
+                      </div>
+                    </div>
                     <input type="datetime-local" value={bitis} onChange={e => setBitis(e.target.value)} className="input-base text-sm" />
                   </div>
                 </div>

@@ -5,6 +5,7 @@ export interface StoreBanner {
   title?: string | null
   subtitle?: string | null
   image_url: string
+  mobile_image_url?: string | null
   link_url?: string | null
   is_active: boolean
   sort_order: number
@@ -19,6 +20,7 @@ export interface ParsedBannerSlide {
   ctaText: string
   ctaLink: string | null
   image: string
+  mobileImage?: string | null
   isActive: boolean
   sortOrder: number
   showOverlay?: boolean
@@ -73,6 +75,7 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
   let ctaText = ''
   let showOverlay: boolean | undefined = undefined
   let showButton: boolean | undefined = undefined
+  let mobileImage: string | null = banner.mobile_image_url || null
 
   if (banner.subtitle) {
     try {
@@ -81,6 +84,9 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
         subtitle = parsed.subtitle || ''
         description = parsed.description || ''
         ctaText = (parsed.button_text ?? parsed.buttonText ?? parsed.ctaText ?? '').trim()
+        if (parsed.mobile_image_url || parsed.mobileImage) {
+          mobileImage = parsed.mobile_image_url || parsed.mobileImage
+        }
         if (typeof parsed.show_overlay === 'boolean') showOverlay = parsed.show_overlay
         else if (typeof parsed.showOverlay === 'boolean') showOverlay = parsed.showOverlay
         if (typeof parsed.show_button === 'boolean') showButton = parsed.show_button
@@ -109,6 +115,7 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
     ctaText,
     ctaLink: banner.link_url || null,
     image: banner.image_url,
+    mobileImage,
     isActive: banner.is_active,
     sortOrder: banner.sort_order ?? 0,
     showOverlay: finalShowOverlay,
@@ -120,7 +127,7 @@ export function packBannerSubtitle(
   subtitle: string,
   description: string,
   buttonText: string,
-  options?: { showOverlay?: boolean; showButton?: boolean }
+  options?: { showOverlay?: boolean; showButton?: boolean; mobile_image_url?: string | null }
 ): string {
   return JSON.stringify({
     subtitle: (subtitle || '').trim(),
@@ -128,6 +135,7 @@ export function packBannerSubtitle(
     button_text: (buttonText || '').trim(),
     show_overlay: options?.showOverlay ?? false,
     show_button: options?.showButton ?? false,
+    mobile_image_url: options?.mobile_image_url || null,
   })
 }
 

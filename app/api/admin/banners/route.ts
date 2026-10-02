@@ -110,7 +110,9 @@ export async function POST(req: NextRequest) {
       }
 
       const file = formData.get('file') as File | null
+      const mobileFile = formData.get('mobile_file') as File | null
       let imageUrl = formData.get('image_url') as string || ''
+      let mobileImageUrl = formData.get('mobile_image_url') as string || ''
       const title = formData.get('title') as string || ''
       let subtitle = formData.get('subtitle') as string || ''
       const linkUrl = formData.get('link_url') as string || ''
@@ -119,23 +121,8 @@ export async function POST(req: NextRequest) {
 
       const rawShowOverlay = formData.get('show_overlay')
       const rawShowButton = formData.get('show_button')
-      if (rawShowOverlay !== null || rawShowButton !== null) {
-        try {
-          const parsed = JSON.parse(subtitle)
-          if (parsed && typeof parsed === 'object') {
-            if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
-            if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
-            subtitle = JSON.stringify(parsed)
-          }
-        } catch {
-          subtitle = packBannerSubtitle(subtitle, '', '', {
-            showOverlay: rawShowOverlay === 'true',
-            showButton: rawShowButton === 'true'
-          })
-        }
-      }
 
-      // Dosya varsa Supabase Storage'a Service Role ile yükle (RLS engeline takılmaz)
+      // 1. Ana görsel dosyası varsa yükle
       if (file && typeof file === 'object' && file.size > 0) {
         const fileExt = file.name.split('.').pop() || 'jpg'
         const fileName = `banner-${Date.now()}.${fileExt}`
@@ -158,6 +145,44 @@ export async function POST(req: NextRequest) {
           .getPublicUrl(fileName)
 
         imageUrl = urlData.publicUrl
+      }
+
+      // 2. Mobil görsel dosyası varsa yükle
+      if (mobileFile && typeof mobileFile === 'object' && mobileFile.size > 0) {
+        const mExt = mobileFile.name.split('.').pop() || 'jpg'
+        const mFileName = `banner-mobile-${Date.now()}.${mExt}`
+        const mBuffer = Buffer.from(await mobileFile.arrayBuffer())
+
+        const { error: mUploadError } = await db.storage
+          .from('kampanya-gorselleri')
+          .upload(mFileName, mBuffer, {
+            contentType: mobileFile.type || 'image/jpeg',
+            upsert: true
+          })
+
+        if (!mUploadError) {
+          const { data: mUrlData } = db.storage
+            .from('kampanya-gorselleri')
+            .getPublicUrl(mFileName)
+          mobileImageUrl = mUrlData.publicUrl
+        }
+      }
+
+      // Subtitle JSON içine mobile_image_url paketle
+      try {
+        const parsed = JSON.parse(subtitle)
+        if (parsed && typeof parsed === 'object') {
+          if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
+          if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
+          parsed.mobile_image_url = mobileImageUrl || parsed.mobile_image_url || null
+          subtitle = JSON.stringify(parsed)
+        }
+      } catch {
+        subtitle = packBannerSubtitle(subtitle, '', '', {
+          showOverlay: rawShowOverlay === 'true',
+          showButton: rawShowButton === 'true',
+          mobile_image_url: mobileImageUrl || null
+        })
       }
 
       if (!imageUrl) {
@@ -209,22 +234,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: 'Varsayılan bannerlar eklendi' })
     }
 
-    const { title, image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
+    const { title, image_url, mobile_image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
     let subtitle = body.subtitle || ''
-    if (typeof show_overlay === 'boolean' || typeof show_button === 'boolean') {
-      try {
-        const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
-        if (parsed && typeof parsed === 'object') {
-          if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
-          if (typeof show_button === 'boolean') parsed.show_button = show_button
-          subtitle = JSON.stringify(parsed)
-        }
-      } catch {
-        subtitle = packBannerSubtitle(String(subtitle), '', '', {
-          showOverlay: Boolean(show_overlay),
-          showButton: Boolean(show_button)
-        })
+    try {
+      const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
+      if (parsed && typeof parsed === 'object') {
+        if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
+        if (typeof show_button === 'boolean') parsed.show_button = show_button
+        if (mobile_image_url !== undefined) parsed.mobile_image_url = mobile_image_url || null
+        subtitle = JSON.stringify(parsed)
       }
+    } catch {
+      subtitle = packBannerSubtitle(String(subtitle), '', '', {
+        showOverlay: Boolean(show_overlay),
+        showButton: Boolean(show_button),
+        mobile_image_url: mobile_image_url || null
+      })
     }
 
     if (!image_url) {
@@ -274,7 +299,9 @@ export async function PUT(req: NextRequest) {
       if (!id) return NextResponse.json({ error: 'Banner ID zorunludur' }, { status: 400 })
 
       const file = formData.get('file') as File | null
+      const mobileFile = formData.get('mobile_file') as File | null
       let imageUrl = formData.get('image_url') as string || ''
+      let mobileImageUrl = formData.get('mobile_image_url') as string || ''
       const title = formData.get('title') as string || ''
       let subtitle = formData.get('subtitle') as string || ''
       const linkUrl = formData.get('link_url') as string || ''
@@ -283,21 +310,6 @@ export async function PUT(req: NextRequest) {
 
       const rawShowOverlay = formData.get('show_overlay')
       const rawShowButton = formData.get('show_button')
-      if (rawShowOverlay !== null || rawShowButton !== null) {
-        try {
-          const parsed = JSON.parse(subtitle)
-          if (parsed && typeof parsed === 'object') {
-            if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
-            if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
-            subtitle = JSON.stringify(parsed)
-          }
-        } catch {
-          subtitle = packBannerSubtitle(subtitle, '', '', {
-            showOverlay: rawShowOverlay === 'true',
-            showButton: rawShowButton === 'true'
-          })
-        }
-      }
 
       if (file && typeof file === 'object' && file.size > 0) {
         const fileExt = file.name.split('.').pop() || 'jpg'
@@ -320,6 +332,49 @@ export async function PUT(req: NextRequest) {
           .getPublicUrl(fileName)
 
         imageUrl = urlData.publicUrl
+      }
+
+      // Mobil görsel dosyası varsa yükle
+      if (mobileFile && typeof mobileFile === 'object' && mobileFile.size > 0) {
+        const mExt = mobileFile.name.split('.').pop() || 'jpg'
+        const mFileName = `banner-mobile-${Date.now()}.${mExt}`
+        const mBuffer = Buffer.from(await mobileFile.arrayBuffer())
+
+        const { error: mUploadError } = await db.storage
+          .from('kampanya-gorselleri')
+          .upload(mFileName, mBuffer, {
+            contentType: mobileFile.type || 'image/jpeg',
+            upsert: true
+          })
+
+        if (!mUploadError) {
+          const { data: mUrlData } = db.storage
+            .from('kampanya-gorselleri')
+            .getPublicUrl(mFileName)
+          mobileImageUrl = mUrlData.publicUrl
+        }
+      }
+
+      // Subtitle JSON içine mobile_image_url paketle
+      try {
+        const parsed = JSON.parse(subtitle)
+        if (parsed && typeof parsed === 'object') {
+          if (rawShowOverlay !== null) parsed.show_overlay = rawShowOverlay === 'true'
+          if (rawShowButton !== null) parsed.show_button = rawShowButton === 'true'
+          // Eğer mobile_image_url açıkça gönderilmişse (veya yeni yüklendiyse) güncelle
+          if (mobileImageUrl !== '') {
+            parsed.mobile_image_url = mobileImageUrl
+          } else if (formData.has('mobile_image_url') && formData.get('mobile_image_url') === '') {
+            parsed.mobile_image_url = null
+          }
+          subtitle = JSON.stringify(parsed)
+        }
+      } catch {
+        subtitle = packBannerSubtitle(subtitle, '', '', {
+          showOverlay: rawShowOverlay === 'true',
+          showButton: rawShowButton === 'true',
+          mobile_image_url: mobileImageUrl || null
+        })
       }
 
       const updatePayload: any = {
@@ -350,24 +405,24 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { id, title, image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
+    const { id, title, image_url, mobile_image_url, link_url, sort_order, is_active, show_overlay, show_button } = body
     if (!id) return NextResponse.json({ error: 'Banner ID zorunludur' }, { status: 400 })
 
     let subtitle = body.subtitle || ''
-    if (typeof show_overlay === 'boolean' || typeof show_button === 'boolean') {
-      try {
-        const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
-        if (parsed && typeof parsed === 'object') {
-          if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
-          if (typeof show_button === 'boolean') parsed.show_button = show_button
-          subtitle = JSON.stringify(parsed)
-        }
-      } catch {
-        subtitle = packBannerSubtitle(String(subtitle), '', '', {
-          showOverlay: Boolean(show_overlay),
-          showButton: Boolean(show_button)
-        })
+    try {
+      const parsed = typeof subtitle === 'string' ? JSON.parse(subtitle) : subtitle
+      if (parsed && typeof parsed === 'object') {
+        if (typeof show_overlay === 'boolean') parsed.show_overlay = show_overlay
+        if (typeof show_button === 'boolean') parsed.show_button = show_button
+        if (mobile_image_url !== undefined) parsed.mobile_image_url = mobile_image_url || null
+        subtitle = JSON.stringify(parsed)
       }
+    } catch {
+      subtitle = packBannerSubtitle(String(subtitle), '', '', {
+        showOverlay: Boolean(show_overlay),
+        showButton: Boolean(show_button),
+        mobile_image_url: mobile_image_url || null
+      })
     }
 
     const { data: updated, error: updateError } = await db

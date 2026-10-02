@@ -48,7 +48,24 @@ export default async function DailyDealsSection() {
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)
       .in('id', flasUrunIds)) as any
-    products = data || []
+    const akdagProducts = (data || []) as any[]
+
+    // Sescim kataloğundan eklenmiş veya aynalanmış eksik ürünleri de Sescim DB'sinden çek
+    const foundIds = new Set(akdagProducts.map((p: any) => p.id))
+    const missingIds = flasUrunIds.filter(id => !foundIds.has(id))
+    let sescimProducts: any[] = []
+    if (missingIds.length > 0 && sescimSupabase) {
+      const { data: sData } = await sescimSupabase
+        .from('urunler')
+        .select(LIGHT_PRODUCT_FIELDS)
+        .in('id', missingIds)
+      sescimProducts = (sData || []) as any[]
+    }
+
+    const allFlasProducts = [...akdagProducts, ...sescimProducts]
+    const orderMap = new Map<string, number>(flasUrunIds.map((id, idx) => [id, idx]))
+    allFlasProducts.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999))
+    products = allFlasProducts
   }
 
   // Yeterli flaş indirim yoksa, indirimli_fiyat'ı olan ürünlerle tamamla

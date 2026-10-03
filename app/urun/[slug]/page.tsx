@@ -79,7 +79,13 @@ export default async function UrunDetayPage({ params }: Props) {
   }
 
   const related = await getRelatedProducts(product.kategori, product.id)
-  const crossSellData = await getCrossSellProducts(product.kategori)
+  const crossSellData = await getCrossSellProducts(
+    product.id,
+    product.ad,
+    product.kategori || '',
+    product.alt_kategori || '',
+    (product as any).urun_tipi || ''
+  )
 
   const stockInfo = resolveStock({
     stok_durumu: product.stok_durumu,

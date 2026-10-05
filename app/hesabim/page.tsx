@@ -174,41 +174,45 @@ export default function HesabimPage() {
     setUser(session.user)
     accessTokenRef.current = session.access_token
 
-    const { data: orders } = await supabase
-      .from('siparisler')
-      .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
-      .or(`user_id.eq.${session.user.id},email.eq.${session.user.email}`)
-      .neq('durum', 'odeme_bekliyor')
-      .order('created_at', { ascending: false })
-      .limit(30)
-
-    if (orders && orders.length > 0) {
-      const orderIds = orders.map((o: any) => o.id)
-      const { data: allKalemler } = await supabase
-        .from('siparis_kalemleri')
-        .select('*')
-        .in('siparis_id', orderIds)
-      
-      const ordersWithItems = orders.map((o: any) => {
-        const orderKalemler = (allKalemler || []).filter((k: any) => k.siparis_id === o.id)
-        const dekontMatch = (o as any).notlar?.match(/Dekont yüklendi - ([^\s\]]+)/)
-        const dekontUrl = (o as any).dekont_url || (dekontMatch ? dekontMatch[1] : undefined)
-
-        return {
-          ...o,
-          dekont_url: dekontUrl,
-          urunler: orderKalemler.map((k: any) => ({
-            urun_id: k.urun_id || k.id,
-            ad: k.urun_adi,
-            fiyat: Number(k.birim_fiyat),
-            adet: Number(k.adet),
-            fotograf: '',
-          }))
-        }
+    let loadedOrders = false
+    try {
+      const res = await fetch('/api/hesabim/siparisler', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
       })
-      setSiparisler(ordersWithItems as any)
-    } else {
-      setSiparisler([])
+      if (res.ok) {
+        const json = await res.json()
+        if (json.siparisler) {
+          setSiparisler(json.siparisler)
+          loadedOrders = true
+        }
+      }
+    } catch (e) {
+      console.warn('API siparisler yuklenemedi, fallback yapiliyor:', e)
+    }
+
+    if (!loadedOrders) {
+      const { data: orders } = await supabase
+        .from('siparisler')
+        .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
+        .or(`user_id.eq.${session.user.id},email.eq.${session.user.email}`)
+        .neq('durum', 'odeme_bekliyor')
+        .order('created_at', { ascending: false })
+        .limit(30)
+
+      if (orders && orders.length > 0) {
+        const ordersWithItems = orders.map((o: any) => {
+          const dekontMatch = (o as any).notlar?.match(/Dekont yüklendi - ([^\s\]]+)/)
+          const dekontUrl = (o as any).dekont_url || (dekontMatch ? dekontMatch[1] : undefined)
+          return {
+            ...o,
+            dekont_url: dekontUrl,
+            urunler: [],
+          }
+        })
+        setSiparisler(ordersWithItems as any)
+      } else {
+        setSiparisler([])
+      }
     }
 
     const { data: addresses } = await supabase

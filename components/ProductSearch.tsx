@@ -33,6 +33,7 @@ interface Product {
 interface FlattenedCategory {
   name: string
   slug: string
+  path: string
 }
 
 const POPULAR_BRANDS = [
@@ -50,12 +51,12 @@ const POPULAR_BRANDS = [
 ]
 
 const POPULAR_CATEGORIES = [
-  { name: 'Stüdyo & Podcast', slug: 'studyo-ekipmanlari' },
-  { name: 'Mikrofon Sistemleri', slug: 'mikrofon-sistemleri' },
-  { name: 'DJ Ekipmanları', slug: 'dj-ekipmanlari' },
-  { name: 'Hoparlörler', slug: 'hoparlorler' },
-  { name: 'Mixer & Amfi', slug: 'mixer-amfi' },
-  { name: 'Kulaklıklar', slug: 'kulaklik-monitor' },
+  { name: 'Stüdyo Ekipmanları', path: '/urunler/studyo-ekipmanlari' },
+  { name: 'Mikrofon Sistemleri', path: '/urunler/ses-sistemleri/mikrofon-sistemleri' },
+  { name: 'DJ Ekipmanları', path: '/urunler/dj-ekipmanlari' },
+  { name: 'Hoparlörler', path: '/urunler/ses-sistemleri/hoparlorler' },
+  { name: 'Mixer & Amfi', path: '/urunler/ses-sistemleri/mixer-amfi' },
+  { name: 'Kulaklık & Monitör', path: '/urunler/kulaklik-ve-monitor' },
 ]
 
 export default function ProductSearch({ fullPage = false }: { fullPage?: boolean }) {
@@ -77,16 +78,17 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
     getKurClient().then(setKur).catch(() => {})
   }, [])
 
-  // Kategori ağacını düzleştir (Arama için hızlı eşleşme)
+  // Kategori ağacını düzleştir (Arama için hızlı eşleşme ve tam hiyerarşik URL)
   const allCategories = useMemo(() => {
     const list: FlattenedCategory[] = []
-    const traverse = (nodes: typeof HIERARCHY_DATA) => {
+    const traverse = (nodes: typeof HIERARCHY_DATA, parentPath = '') => {
       for (const node of nodes) {
-        list.push({ name: node.name, slug: node.slug })
-        if (node.children) traverse(node.children)
+        const fullPath = `${parentPath}/${node.slug}`
+        list.push({ name: node.name, slug: node.slug, path: fullPath })
+        if (node.children) traverse(node.children, fullPath)
       }
     }
-    traverse(HIERARCHY_DATA)
+    traverse(HIERARCHY_DATA, '/urunler')
     return list
   }, [])
 
@@ -314,8 +316,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {POPULAR_CATEGORIES.map((cat) => (
                     <Link
-                      key={cat.slug}
-                      href={`/urunler/${cat.slug}`}
+                      key={cat.path}
+                      href={cat.path}
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-brand-red transition-colors"
                     >
@@ -432,8 +434,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   <div className="flex flex-wrap gap-2">
                     {categoryResults.map((cat) => (
                       <Link
-                        key={cat.slug}
-                        href={`/urunler/${cat.slug}`}
+                        key={cat.path}
+                        href={cat.path}
                         onClick={() => setOpen(false)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-brand-red/50 hover:text-brand-red rounded-lg text-xs font-medium text-slate-700 transition-colors"
                       >

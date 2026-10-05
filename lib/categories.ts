@@ -384,16 +384,61 @@ export function getDetayKategoriler(anaKategori: string, altKategori: string): s
   return alt ? alt.detaylar : []
 }
 
-export function findCategoryBySlug(slugs: string[]) {
+export interface MatchedCategory extends CategoryNode {
+  level: number
+  canonicalPath: string[]
+}
+
+export function findCategoryBySlug(slugs: string[]): MatchedCategory | null {
+  if (!slugs || slugs.length === 0) return null
+
+  // 1. Standart hiyerarşik eşleşme (Tam yol: ['ses-sistemleri', 'mikrofon-sistemleri', 'kablolu-mikrofonlar'])
   let current: CategoryNode | undefined = undefined
   let list = HIERARCHY_DATA
+  let exactMatch = true
 
   for (const slug of slugs) {
     current = list.find(n => n.slug === slug)
-    if (!current) return null
+    if (!current) {
+      exactMatch = false
+      break
+    }
     list = current.children || []
   }
-  return current
+
+  if (exactMatch && current) {
+    return {
+      ...current,
+      level: slugs.length,
+      canonicalPath: slugs
+    }
+  }
+
+  // 2. Eksik yol eşleşmesi (Örn: doğrudan ['kablolu-mikrofonlar'] veya ['mikrofon-sistemleri'] arandığında)
+  // Ağacı dolaşarak son slug ile eşleşen düğümü bul
+  const targetSlug = slugs[slugs.length - 1]
+  let result: MatchedCategory | null = null
+
+  function search(nodes: CategoryNode[], currentPath: string[], currentLevel: number) {
+    for (const node of nodes) {
+      const nodePath = [...currentPath, node.slug]
+      if (node.slug === targetSlug) {
+        result = {
+          ...node,
+          level: currentLevel,
+          canonicalPath: nodePath
+        }
+        return
+      }
+      if (node.children && node.children.length > 0) {
+        search(node.children, nodePath, currentLevel + 1)
+        if (result) return
+      }
+    }
+  }
+
+  search(HIERARCHY_DATA, [], 1)
+  return result
 }
 
 export function getBreadcrumbs(ana?: string | null, alt?: string | null, detay?: string | null) {

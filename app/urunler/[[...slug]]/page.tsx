@@ -6,7 +6,7 @@ import ProductSearch from '@/components/ProductSearch'
 import ProductGrid from '@/components/ProductGrid'
 import Pagination from '@/components/Pagination'
 import { TUM_KATEGORILER, KATEGORI_HIYERARSI, NEW_KATEGORI_HIYERARSI, HIERARCHY_DATA, findCategoryBySlug } from '@/lib/categories'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Filter, SlidersHorizontal, ChevronRight, X } from 'lucide-react'
 import { getActiveBanners } from '@/lib/banner-service'
 import BannerCarousel from '@/components/BannerCarousel'
@@ -154,7 +154,8 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const catName = category.name
   const rawTitle = `${catName} Fiyatları ve Modelleri | Peşin Fiyatına Taksit - Sescim`
   const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, %100 orijinal distribütör garantisi, aynı gün kargo ve 12 aya varan taksit avantajıyla Sescim'de. Hemen inceleyin!`
-  const url = `${baseUrl}/urunler/${params.slug.join('/')}`
+  const canonicalSlug = category.canonicalPath ? category.canonicalPath.join('/') : params.slug.join('/')
+  const url = `${baseUrl}/urunler/${canonicalSlug}`
 
   return { 
     title: rawTitle,
@@ -188,6 +189,16 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   if (slugArray.length > 0) {
     activeCategory = findCategoryBySlug(slugArray)
     if (!activeCategory) notFound()
+
+    // Eğer eksik hiyerarşik bağlantıyla gelinmişse (örn: /urunler/kablolu-mikrofonlar), canonical hiyerarşik URL'e yönlendir
+    if (activeCategory.canonicalPath && activeCategory.canonicalPath.join('/') !== slugArray.join('/')) {
+      const sp = new URLSearchParams()
+      for (const [key, val] of Object.entries(searchParams || {})) {
+        if (val !== undefined) sp.set(key, String(val))
+      }
+      const qStr = sp.toString() ? `?${sp.toString()}` : ''
+      redirect(`/urunler/${activeCategory.canonicalPath.join('/')}${qStr}`)
+    }
   }
 
   const sayfa = Math.max(1, parseInt(searchParams.sayfa || '1'))
@@ -200,7 +211,7 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   const filters = {
     q: searchParams.q,
     activeCategory,
-    slugLength: slugArray.length,
+    slugLength: activeCategory?.level || slugArray.length,
     min,
     max,
     stok: searchParams.stok,

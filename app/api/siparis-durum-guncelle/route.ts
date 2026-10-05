@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
     }
 
-    const { id, durum, kargo_takip_no, kargo_firmasi } = await req.json()
+    const { id, durum, odeme_durumu, kargo_takip_no, kargo_firmasi } = await req.json()
     const db = supabaseAdmin()
     const akdagDb = akdagAdmin()
 
@@ -65,25 +65,29 @@ export async function POST(req: NextRequest) {
 
     const items = orderKalemler || []
     const eskiDurum = siparis.durum
-    const yeniDurum = durum
+    const yeniDurum = durum || eskiDurum
 
     // 2. Stok Yönetimi (Sadece Sescim veritabanı güncellenir, Akdağ DB salt-okunurdur)
-    if (eskiDurum !== 'iptal' && yeniDurum === 'iptal') {
-      // Sipariş iptal: Sescim stoklarını geri yükle
-      for (const item of items) {
-        if (!item.urun_id || !item.adet) continue
-        await restoreSescimStock(db, item.urun_id, item.adet)
-      }
-    } else if (eskiDurum === 'iptal' && yeniDurum !== 'iptal') {
-      // İptal edilmiş sipariş tekrar aktif: Sescim stoklarını düş
-      for (const item of items) {
-        if (!item.urun_id || !item.adet) continue
-        await deductSescimStock(db, { id: item.urun_id }, item.adet)
+    if (durum) {
+      if (eskiDurum !== 'iptal' && yeniDurum === 'iptal') {
+        // Sipariş iptal: Sescim stoklarını geri yükle
+        for (const item of items) {
+          if (!item.urun_id || !item.adet) continue
+          await restoreSescimStock(db, item.urun_id, item.adet)
+        }
+      } else if (eskiDurum === 'iptal' && yeniDurum !== 'iptal') {
+        // İptal edilmiş sipariş tekrar aktif: Sescim stoklarını düş
+        for (const item of items) {
+          if (!item.urun_id || !item.adet) continue
+          await deductSescimStock(db, { id: item.urun_id }, item.adet)
+        }
       }
     }
 
     // 3. Durumu güncelle
-    const updateData: any = { durum: yeniDurum }
+    const updateData: any = {}
+    if (durum) updateData.durum = yeniDurum
+    if (odeme_durumu !== undefined) updateData.odeme_durumu = odeme_durumu
     if (kargo_takip_no !== undefined) updateData.kargo_takip_no = kargo_takip_no
 
     const { error: updErr } = await db

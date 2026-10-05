@@ -102,25 +102,44 @@ export default function AdminSiparisler() {
     if (append) setLoadingMore(true)
     else setLoading(true)
 
-    const from = p * PAGE_SIZE
-    const to = from + PAGE_SIZE - 1
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/admin/siparisler?page=${p}&limit=${PAGE_SIZE}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        }
+      })
 
-    const { data } = await supabase
-      .from('siparisler')
-      .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti')
-      .neq('durum', 'odeme_bekliyor')
-      .order('created_at', { ascending: false })
-      .range(from, to)
-    
-    if (data) {
-      if (append) setSiparisler(prev => [...prev, ...data])
-      else setSiparisler(data)
-      setHasMore(data.length === PAGE_SIZE)
+      if (res.ok) {
+        const json = await res.json()
+        const data = json.siparisler || []
+        if (append) setSiparisler(prev => [...prev, ...data])
+        else setSiparisler(data)
+        setHasMore(json.hasMore ?? false)
+      } else {
+        // Fallback: direct Supabase query
+        const from = p * PAGE_SIZE
+        const to = from + PAGE_SIZE - 1
+        const { data } = await supabase
+          .from('siparisler')
+          .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti')
+          .neq('durum', 'odeme_bekliyor')
+          .order('created_at', { ascending: false })
+          .range(from, to)
+
+        if (data) {
+          if (append) setSiparisler(prev => [...prev, ...data])
+          else setSiparisler(data)
+          setHasMore(data.length === PAGE_SIZE)
+        }
+      }
+    } catch (e) {
+      console.error('Sipariş yükleme hatası:', e)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+      setPage(p)
     }
-    
-    setLoading(false)
-    setLoadingMore(false)
-    setPage(p)
   }
 
   const updateDurum = async (id: string, durum: string) => {
@@ -148,10 +167,27 @@ export default function AdminSiparisler() {
   }
 
   const updateOdemeDurumu = async (id: string, durum: string) => {
-    await supabase.from('siparisler').update({
-      odeme_durumu: durum,
-    }).eq('id', id)
-    await loadSiparisler(0)
+    setUpdatingId(id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/siparis-durum-guncelle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ id, odeme_durumu: durum })
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData?.error || 'Ödeme durumu güncellenemedi')
+      }
+      await loadSiparisler(0)
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'Ödeme durumu güncellenemedi.'}`)
+    } finally {
+      setUpdatingId(null)
+    }
   }
 
   const kaydetKargoNo = async (id: string, no: string, firma: string) => {
@@ -178,40 +214,8 @@ export default function AdminSiparisler() {
     }
   }
 
-  const toggleExpand = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null)
-      return
-    }
-
-    setExpandedId(id)
-    
-    // Eğer ürünler zaten yüklüyse tekrar çekme
-    const siparis = siparisler.find(s => s.id === id)
-    if (siparis?.urunler && Array.isArray(siparis.urunler) && siparis.urunler.length > 0) return
-
-    setLoadingItems(prev => ({ ...prev, [id]: true }))
-    try {
-      const { data: items } = await supabase
-        .from('siparis_kalemleri')
-        .select('*')
-        .eq('siparis_id', id)
-      
-      if (items && items.length > 0) {
-        const mappedItems: SiparisUrun[] = items.map((it: any) => ({
-          urun_id: it.urun_id || it.id,
-          ad: it.urun_adi || 'Ürün',
-          fiyat: Number(it.birim_fiyat) || 0,
-          adet: Number(it.adet) || 1,
-          fotograf: '',
-        }))
-        setSiparisler(prev => prev.map(s => s.id === id ? { ...s, urunler: mappedItems } : s))
-      }
-    } catch (err) {
-      console.error('Ürünler yüklenemedi:', err)
-    } finally {
-      setLoadingItems(prev => ({ ...prev, [id]: false }))
-    }
+  const toggleExpand = (id: string) => {
+    setExpandedId(prev => (prev === id ? null : id))
   }
 
   const getDekontUrl = (s: Siparis) => {

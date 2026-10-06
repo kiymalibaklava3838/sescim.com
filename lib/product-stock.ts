@@ -139,7 +139,17 @@ export async function deductSescimStock(
   if (!sescimDb || !product?.id || adet <= 0) return
 
   try {
-    // 1. Mevcut sescim_fiyatlar kaydını çek
+    // 1. Varsa atomik PostgreSQL fonksiyonu ile tek işlemde düş
+    const { error: rpcErr } = await sescimDb.rpc('deduct_sescim_stock', {
+      p_urun_id: product.id,
+      p_adet: adet
+    })
+
+    if (!rpcErr) {
+      return
+    }
+
+    // 2. RPC yoksa manuel okuma ve yazma ile devam et
     const { data: sf } = await sescimDb
       .from('sescim_fiyatlar')
       .select('urun_id, sescim_stok, sescim_stok_durumu')

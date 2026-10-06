@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Truck, MapPin, CheckCircle, Package, Loader2, Info } from 'lucide-react'
+import { Truck, MapPin, CheckCircle, Package, Loader2, Info, ExternalLink } from 'lucide-react'
 
 interface KargoHareket {
   tarih: string
@@ -15,7 +15,9 @@ interface KargoData {
   durum: string
   hareketler: KargoHareket[]
   tahmini_teslimat?: string
+  resmi_takip_url?: string | null
 }
+
 
 export default function KargoTakip({ firma, takipNo }: { firma: string, takipNo: string }) {
   const [data, setData] = useState<KargoData | null>(null)
@@ -106,7 +108,21 @@ export default function KargoTakip({ firma, takipNo }: { firma: string, takipNo:
             </div>
           ))}
         </div>
+        {data.resmi_takip_url && (
+          <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+            <a
+              href={data.resmi_takip_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded transition-colors"
+            >
+              <span>Resmi Kargo Sitesinde Canlı Takip Et</span>
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+

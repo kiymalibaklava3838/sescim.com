@@ -4,8 +4,11 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   Package, Clock, CheckCircle, XCircle, Truck, Store,
-  RefreshCw, Search, X, ChevronDown, ChevronUp, Phone, Mail, MapPin, FileText, ExternalLink, Briefcase, User as UserIcon, CreditCard, Printer
+  RefreshCw, Search, X, ChevronDown, ChevronUp, Phone, Mail, MapPin, FileText, ExternalLink, Briefcase, User as UserIcon, CreditCard, Printer,
+  Tag, Trash2, Layers, AlertCircle
 } from 'lucide-react'
+import { BASIT_KARGO_HANDLERS } from '@/lib/shipping'
+
 
 interface SiparisUrun {
   urun_id: string
@@ -59,7 +62,20 @@ const ODEME_TIPI: Record<string, string> = {
 
 const PAGE_SIZE = 50
 
+const VARSAYILAN_KARGO_FIRMASI = 'HepsiJet'
+
+const MANUEL_KARGO_FIRMALARI = [
+  'HepsiJet',
+  'Yurtiçi Kargo',
+  'Aras Kargo',
+  'MNG Kargo',
+  'Sürat Kargo',
+  'PTT Kargo',
+  'KolayGelsin',
+] as const
+
 export default function AdminSiparisler() {
+
   const [siparisler, setSiparisler] = useState<Siparis[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -73,10 +89,15 @@ export default function AdminSiparisler() {
   const [kargoInputs, setKargoInputs] = useState<Record<string, string>>({})
   const [kargoFirmaInputs, setKargoFirmaInputs] = useState<Record<string, string>>({})
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
+  const [basitKargoHandler, setBasitKargoHandler] = useState<Record<string, string>>({})
+  const [basitKargoDesi, setBasitKargoDesi] = useState<Record<string, number>>({})
+  const [sendingBasitKargo, setSendingBasitKargo] = useState<Record<string, boolean>>({})
+  const [basitKargoBalance, setBasitKargoBalance] = useState<number | null>(null)
   const supabase = useRef(createClient()).current
 
   useEffect(() => {
     loadSiparisler(0)
+    loadBasitKargoBalance()
 
     const channel = supabase
       .channel('admin-siparisler-realtime')
@@ -191,6 +212,12 @@ export default function AdminSiparisler() {
   }
 
   const kaydetKargoNo = async (id: string, no: string, firma: string) => {
+    const cleanNo = (no || '').trim()
+    if (!cleanNo) {
+      alert('Lütfen geçerli bir kargo takip numarası girin.')
+      return
+    }
+
     setUpdatingKargo(id)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -200,12 +227,18 @@ export default function AdminSiparisler() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({ id, durum: 'kargolandi', kargo_takip_no: no, kargo_firmasi: firma })
+        body: JSON.stringify({
+          id,
+          durum: 'kargolandi',
+          kargo_takip_no: cleanNo,
+          kargo_firmasi: firma || VARSAYILAN_KARGO_FIRMASI
+        })
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData?.error || 'Güncellenemedi')
+        throw new Error(errData?.error || 'Kargo bilgisi kaydedilemedi')
       }
+      alert('✅ Kargo takip numarası başarıyla kaydedildi.')
       await loadSiparisler(0)
     } catch (err: any) {
       alert(`Hata: ${err.message || 'Kargo bilgisi güncellenemedi.'}`)
@@ -214,7 +247,103 @@ export default function AdminSiparisler() {
     }
   }
 
+
+  const loadBasitKargoBalance = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const res = await fetch('/api/admin/cargo/basit-kargo?desi=3', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (typeof data.balance === 'number') {
+          setBasitKargoBalance(data.balance)
+        }
+      }
+    } catch {
+      // sessizce geç
+    }
+  }
+
+  const gonderBasitKargo = async (siparis: Siparis) => {
+    const handler = basitKargoHandler[siparis.id] || 'HEPSIJET'
+    const desi = basitKargoDesi[siparis.id] || 3
+
+    if (!confirm(`${siparis.siparis_no} numaralı sipariş ${desi} Desi olarak "${handler}" ile Basit Kargo'ya gönderilsin mi?`)) {
+      return
+    }
+
+    setSendingBasitKargo(prev => ({ ...prev, [siparis.id]: true }))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/cargo/basit-kargo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'create',
+          orderId: siparis.id,
+          handlerCode: handler,
+          desi: desi
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Basit Kargo siparişi oluşturulamadı.')
+      }
+
+      alert(`✅ Kargo Barkodu Başarıyla Oluşturuldu!\n\nBarkod: ${data.barcode}\nTaşıyıcı: ${data.handlerName}\nTahmini Maliyet: ${data.totalCost || data.shipmentFee || 'Hesaplandı'} ₺`)
+      await loadSiparisler(page)
+      loadBasitKargoBalance()
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'Kargo oluşturulurken bir hata oluştu.'}`)
+    } finally {
+      setSendingBasitKargo(prev => ({ ...prev, [siparis.id]: false }))
+    }
+  }
+
+  const iptalBasitKargo = async (siparisId: string, barcode: string) => {
+    if (!confirm(`Bu kargo barkodunu (${barcode}) iptal etmek istediğinize emin misiniz?\nÜcret Basit Kargo bakiyenize iade edilecektir.`)) {
+      return
+    }
+
+    setSendingBasitKargo(prev => ({ ...prev, [siparisId]: true }))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/cargo/basit-kargo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'cancel',
+          orderId: siparisId,
+          barcode: barcode
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kargo kodu iptal edilemedi.')
+      }
+
+      alert('✅ Kargo barkodu iptal edildi ve bakiye hesabınıza iade edildi.')
+      await loadSiparisler(page)
+      loadBasitKargoBalance()
+    } catch (err: any) {
+      alert(`Hata: ${err.message || 'İptal işlemi başarısız.'}`)
+    } finally {
+      setSendingBasitKargo(prev => ({ ...prev, [siparisId]: false }))
+    }
+  }
+
   const toggleExpand = (id: string) => {
+
     setExpandedId(prev => (prev === id ? null : id))
   }
 
@@ -304,10 +433,19 @@ export default function AdminSiparisler() {
             </button>
           ))}
         </div>
-        <button onClick={() => loadSiparisler(0)} className="flex items-center gap-2 text-slate-900/30 hover:text-slate-900 text-xs font-display uppercase tracking-widest transition-colors px-3">
-          <RefreshCw size={12} />Yenile
-        </button>
+        <div className="flex items-center gap-2">
+          {basitKargoBalance !== null && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-display font-bold uppercase tracking-wider">
+              <span>📦 Bakiye:</span>
+              <span className="font-mono text-blue-900 font-extrabold">{basitKargoBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+            </div>
+          )}
+          <button onClick={() => { loadSiparisler(0); loadBasitKargoBalance(); }} className="flex items-center gap-2 text-slate-900/30 hover:text-slate-900 text-xs font-display uppercase tracking-widest transition-colors px-3">
+            <RefreshCw size={12} />Yenile
+          </button>
+        </div>
       </div>
+
 
       <div className="font-body text-slate-900/30 text-sm mb-4">{filtered.length} sipariş</div>
 
@@ -514,57 +652,210 @@ export default function AdminSiparisler() {
                      </div>
 
                      <div>
-                        <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 mb-3">Lojistik & Takip</h4>
-                        {siparis.teslimat_tipi === 'depo' ? (
-                           <div className="bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-3">
-                              <Store size={16} className="text-orange-400" />
-                              <span className="font-display font-bold text-[10px] uppercase tracking-widest text-orange-400">Mağazadan Teslim Edilecek</span>
-                           </div>
-                        ) : (
-                           <div className="flex flex-col gap-2">
-                              <select
-                                className="input-dark text-xs p-2"
-                                value={kargoFirmaInputs[siparis.id] !== undefined ? kargoFirmaInputs[siparis.id] : (siparis.kargo_firmasi || 'HepsiJet')}
-                                onChange={(e) => setKargoFirmaInputs({...kargoFirmaInputs, [siparis.id]: e.target.value})}
-                              >
-                                <option value="HepsiJet">HepsiJet</option>
-                                <option value="Yurtiçi Kargo">Yurtiçi Kargo</option>
-                                <option value="Aras Kargo">Aras Kargo</option>
-                                <option value="MNG Kargo">MNG Kargo</option>
-                                <option value="Sürat Kargo">Sürat Kargo</option>
-                                <option value="PTT Kargo">PTT Kargo</option>
-                              </select>
-                              <div className="flex gap-2">
-                                <input 
-                                  type="text" 
-                                  className="input-dark text-xs flex-1" 
-                                  placeholder="Kargo Takip No" 
-                                  value={kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || '')}
-                                  onChange={(e) => setKargoInputs({...kargoInputs, [siparis.id]: e.target.value})}
-                                />
-                                <button 
-                                  onClick={() => kaydetKargoNo(
-                                    siparis.id, 
-                                    kargoInputs[siparis.id] !== undefined ? kargoInputs[siparis.id] : (siparis.kargo_takip_no || ''),
-                                    kargoFirmaInputs[siparis.id] !== undefined ? kargoFirmaInputs[siparis.id] : (siparis.kargo_firmasi || 'HepsiJet')
-                                  )}
-                                  disabled={updatingKargo === siparis.id}
-                                  className="btn-primary text-[10px] py-2 whitespace-nowrap"
-                                >
-                                  {updatingKargo === siparis.id ? '...' : 'KAYDET'}
-                                </button>
-                                <a
-                                  href={`/siparis/${siparis.siparis_no || siparis.id}/kargo-etiketi`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-display font-bold uppercase tracking-wider transition-colors whitespace-nowrap"
-                                  title="Termal / A4 Kargo Sevk Etiketi Yazdır"
-                                >
-                                  <Printer size={12} /> ETİKET
-                                </a>
+                        {(() => {
+                          const basitKargoMatch = siparis.notlar?.match(/\[Basit Kargo ID:\s*([^\]|]+)/)
+                          const basitKargoId = basitKargoMatch ? basitKargoMatch[1].trim() : null
+
+                          return (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-display font-bold text-xs uppercase tracking-widest text-slate-900/40 flex items-center gap-1.5">
+                                  <Truck size={14} className="text-brand-red" /> Lojistik & Kargo
+                                </h4>
+                                {basitKargoId && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 rounded font-bold">
+                                    BK ID: {basitKargoId}
+                                  </span>
+                                )}
                               </div>
-                           </div>
-                        )}
+
+                              {siparis.teslimat_tipi === 'depo' ? (
+                                 <div className="bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-3">
+                                    <Store size={16} className="text-orange-400" />
+                                    <span className="font-display font-bold text-[10px] uppercase tracking-widest text-orange-400">Mağazadan Teslim Edilecek</span>
+                                 </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  {/* 1. Basit Kargo Hızlı Sevk Kutusu */}
+                                  <div className="bg-white p-3 border border-blue-200 rounded shadow-sm space-y-3">
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                      <span className="font-display font-bold text-xs uppercase text-blue-900 flex items-center gap-1.5">
+                                        <span>📦</span> Basit Kargo Otomasyonu
+                                      </span>
+                                      {siparis.kargo_takip_no ? (
+                                        <span className="text-[10px] font-bold uppercase text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
+                                          Barkod Alındı
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] font-medium text-slate-400">
+                                          Tek Tıkla Sevk
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Eğer kargo zaten oluşturulduysa: Etiket ve Takip aksiyonları */}
+                                    {siparis.kargo_takip_no ? (
+                                      <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between bg-slate-50 p-2.5 border border-slate-200 rounded">
+                                          <div>
+                                            <div className="text-[10px] text-slate-500 font-bold uppercase">
+                                              {siparis.kargo_firmasi || 'HepsiJet'}
+                                            </div>
+                                            <div className="font-mono font-bold text-xs text-slate-900">
+                                              {siparis.kargo_takip_no}
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1.5">
+                                            {basitKargoId ? (
+                                              <a
+                                                href={`/api/admin/cargo/label/${basitKargoId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-display font-bold uppercase tracking-wider transition-colors shadow-sm"
+                                                title="Basit Kargo Resmi SVG Etiketini Yazdır"
+                                              >
+                                                <Printer size={12} /> RESMİ ETİKET
+                                              </a>
+                                            ) : null}
+                                            <a
+                                              href={`https://basitkargo.com/takip/${siparis.kargo_takip_no}`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-display font-bold uppercase tracking-wider transition-colors"
+                                              title="Kargoyu Takip Et"
+                                            >
+                                              <ExternalLink size={12} /> TAKİP ET
+                                            </a>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-1">
+                                          <a
+                                            href={`/siparis/${siparis.siparis_no || siparis.id}/kargo-etiketi`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 underline inline-flex items-center gap-1"
+                                          >
+                                            Yerel A4 Sevk Fişi
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => iptalBasitKargo(siparis.id, siparis.kargo_takip_no!)}
+                                            disabled={sendingBasitKargo[siparis.id]}
+                                            className="text-[10px] font-bold text-red-600 hover:text-red-800 inline-flex items-center gap-1"
+                                          >
+                                            <Trash2 size={11} /> Kargo Kodunu İptal Et
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-2.5">
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                                              Taşıyıcı Seçimi
+                                            </label>
+                                            <select
+                                              className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-medium text-slate-800"
+                                              value={basitKargoHandler[siparis.id] || 'HEPSIJET'}
+                                              onChange={(e) => setBasitKargoHandler({ ...basitKargoHandler, [siparis.id]: e.target.value })}
+                                            >
+                                              {BASIT_KARGO_HANDLERS.map(h => (
+                                                <option key={h.code} value={h.code}>
+                                                  {h.icon} {h.name}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+
+                                          <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                                              Desi / Paket
+                                            </label>
+                                            <div className="flex items-center gap-1">
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                max="99"
+                                                step="1"
+                                                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-mono font-bold text-slate-800"
+                                                value={basitKargoDesi[siparis.id] !== undefined ? basitKargoDesi[siparis.id] : 3}
+                                                onChange={(e) => setBasitKargoDesi({ ...basitKargoDesi, [siparis.id]: Math.max(1, parseInt(e.target.value) || 1) })}
+                                              />
+                                              <span className="text-[10px] text-slate-400 font-bold uppercase pr-1">Desi</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => gonderBasitKargo(siparis)}
+                                          disabled={sendingBasitKargo[siparis.id]}
+                                          className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded font-display font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                                        >
+                                          {sendingBasitKargo[siparis.id] ? (
+                                            <>
+                                              <RefreshCw size={13} className="animate-spin" />
+                                              <span>Basit Kargo'ya İletiliyor...</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span>⚡</span>
+                                              <span>Basit Kargo'ya Aktar & Barkod Al</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* 2. Manuel Kargo Girişi (Alternatif / Manuel Düzenleme) */}
+                                  <details className="text-xs text-slate-600">
+                                    <summary className="cursor-pointer font-display font-semibold text-[10px] uppercase text-slate-400 hover:text-slate-600 mb-2">
+                                      + Manuel Takip No Gir / Düzenle
+                                    </summary>
+                                    {(() => {
+                                      const seciliTakipNo = kargoInputs[siparis.id] ?? siparis.kargo_takip_no ?? ''
+                                      const seciliFirma = kargoFirmaInputs[siparis.id] || siparis.kargo_firmasi || VARSAYILAN_KARGO_FIRMASI
+                                      const canSave = seciliTakipNo.trim().length > 0 && updatingKargo !== siparis.id
+
+                                      return (
+                                        <div className="p-2.5 bg-slate-100 border border-slate-200 rounded space-y-2">
+                                          <select
+                                            className="w-full input-dark text-xs p-1.5"
+                                            value={seciliFirma}
+                                            onChange={(e) => setKargoFirmaInputs({ ...kargoFirmaInputs, [siparis.id]: e.target.value })}
+                                          >
+                                            {MANUEL_KARGO_FIRMALARI.map(firma => (
+                                              <option key={firma} value={firma}>{firma}</option>
+                                            ))}
+                                          </select>
+                                          <div className="flex gap-2">
+                                            <input 
+                                              type="text" 
+                                              className="input-dark text-xs flex-1" 
+                                              placeholder="Manuel Takip No" 
+                                              value={seciliTakipNo}
+                                              onChange={(e) => setKargoInputs({ ...kargoInputs, [siparis.id]: e.target.value })}
+                                            />
+                                            <button 
+                                              onClick={() => kaydetKargoNo(siparis.id, seciliTakipNo, seciliFirma)}
+                                              disabled={!canSave}
+                                              className="btn-primary text-[10px] py-1.5 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                                              title={!seciliTakipNo.trim() ? 'Lütfen takip no girin' : 'Kaydet'}
+                                            >
+                                              {updatingKargo === siparis.id ? '...' : 'KAYDET'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )
+                                    })()}
+                                  </details>
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                      </div>
                   </div>
                 </div>

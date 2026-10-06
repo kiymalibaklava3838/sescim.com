@@ -1,5 +1,6 @@
 import { BANK_ACCOUNTS } from './bank-accounts'
 import { getSiteUrl } from './site-url'
+import { getCarrierTrackingUrl } from './shipping'
 
 // ─── Ortak Stil ve Yardımcılar ───────────────────────────────────────────────
 
@@ -156,24 +157,41 @@ function urunTablosu(urunler: SiparisItem[], toplam_tutar: number): string {
 
 // ─── Kargo Firması Tespiti ─────────────────────────────────────────────────────
 
-function kargoTakipLinki(takipNo: string): { firma: string; url: string } | null {
+function kargoTakipLinki(takipNo: string, kargoFirmasi?: string): { firma: string; url: string } | null {
   if (!takipNo) return null
   const no = takipNo.trim().replace(/\s/g, '')
 
+  if (kargoFirmasi) {
+    const url = getCarrierTrackingUrl(kargoFirmasi, no)
+    if (url) {
+      return { firma: kargoFirmasi, url }
+    }
+  }
+
+  // Otomatik tespit (Firma belirtilmediyse)
+  if (no.startsWith('HJ') || /^1\d{10}$/.test(no)) {
+    const hjUrl = getCarrierTrackingUrl('HepsiJet', no)
+    if (hjUrl) return { firma: 'HepsiJet', url: hjUrl }
+  }
   if (/^1\d{10}$/.test(no) || no.startsWith('Y')) {
-    return { firma: 'Yurtiçi Kargo', url: `https://www.yurticikargo.com/tr/online-islemler/gonderi-sorgula?code=${no}` }
+    const ykUrl = getCarrierTrackingUrl('Yurtiçi Kargo', no)
+    if (ykUrl) return { firma: 'Yurtiçi Kargo', url: ykUrl }
   }
   if (/^\d{13}$/.test(no) && no.startsWith('7')) {
-    return { firma: 'Aras Kargo', url: `https://www.araskargo.com.tr/ArasTrack/Track/?trackno=${no}` }
+    const arasUrl = getCarrierTrackingUrl('Aras Kargo', no)
+    if (arasUrl) return { firma: 'Aras Kargo', url: arasUrl }
   }
   if (/^MNG/i.test(no) || /^M\d{10}/.test(no)) {
-    return { firma: 'MNG Kargo', url: `https://www.mngkargo.com.tr/wps/portal/mng/main/sorgu/gondericisorgula?barkod=${no}` }
+    const mngUrl = getCarrierTrackingUrl('MNG Kargo', no)
+    if (mngUrl) return { firma: 'MNG Kargo', url: mngUrl }
   }
   if (/^PTT/i.test(no) || no.startsWith('9')) {
-    return { firma: 'PTT Kargo', url: `https://www.ptt.gov.tr/tr/main/kargo-takip?barkodNo=${no}` }
+    const pttUrl = getCarrierTrackingUrl('PTT Kargo', no)
+    if (pttUrl) return { firma: 'PTT Kargo', url: pttUrl }
   }
   if (/^\d{10,12}$/.test(no)) {
-    return { firma: 'Sürat Kargo', url: `https://www.suratkargo.com.tr/KargoSorgulama/Index?durum=1&barkod=${no}` }
+    const suratUrl = getCarrierTrackingUrl('Sürat Kargo', no)
+    if (suratUrl) return { firma: 'Sürat Kargo', url: suratUrl }
   }
 
   return null
@@ -315,9 +333,10 @@ export function siparisKargolandiHTML(data: {
   siparis_no: string
   ad_soyad: string
   kargo_takip_no?: string
+  kargo_firmasi?: string
 }): string {
   const siteUrl = getSiteUrl()
-  const takip = data.kargo_takip_no ? kargoTakipLinki(data.kargo_takip_no) : null
+  const takip = data.kargo_takip_no ? kargoTakipLinki(data.kargo_takip_no, data.kargo_firmasi) : null
 
   const takipSection = data.kargo_takip_no ? `
     ${infoBox(`
@@ -401,6 +420,43 @@ export function siparisIptalHTML(data: { siparis_no: string; ad_soyad: string })
       <div style="color:#ddd;font-size:14px;line-height:1.8">
         Bu işlemde bir yanlışlık olduğunu düşünüyorsanız müşteri hizmetlerimizle iletişime geçebilirsiniz:<br>
         📞 <a href="tel:+903522316915" style="color:#DA291C;text-decoration:none;font-weight:600">+90 352 231 69 15</a><br>
+        ✉️ <a href="mailto:info@sescim.com" style="color:#DA291C;text-decoration:none;font-weight:600">info@sescim.com</a>
+      </div>
+    `)}
+  `)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÜŞTERİ E-POSTASI — Ödeme Alınamadı / Başarısız (Tekrar Dene)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function odemeBasarisizHTML(data: {
+  siparis_no: string
+  ad_soyad: string
+  hata_nedeni?: string
+}): string {
+  const siteUrl = getSiteUrl()
+  return emailShell(`
+    ${header('Ödemeniz Alınamadı ⚠️', `Sipariş No: <strong style="color:#DA291C">#${data.siparis_no}</strong>`)}
+    ${statusBadge('#f59e0b', '💳', 'Kart ödemesi bankanız tarafından onaylanmadı.')}
+    ${infoBox(`
+      <div style="color:#ddd;font-size:14px;line-height:1.8">
+        Sayın <strong style="color:#fff">${data.ad_soyad}</strong>,<br><br>
+        <strong>#${data.siparis_no}</strong> numaralı siparişiniz için gerçekleştirdiğiniz kart ödemesi bankanız tarafından onaylanmadı.<br>
+        ${data.hata_nedeni ? `<div style="background-color:#202020;padding:10px 14px;border-left:3px solid #f59e0b;margin:12px 0;font-size:13px;color:#fcd34d">Banka Mesajı: <strong>${data.hata_nedeni}</strong></div>` : ''}
+        Siparişiniz iptal edilmemiş olup, farklı bir kredi kartı ile veya Havale / EFT yöntemiyle ödemenizi kolayca tamamlayabilirsiniz.
+      </div>
+    `)}
+    <div style="text-align:center;padding:12px 0">
+      <a href="${siteUrl}/odeme" style="display:inline-block;padding:14px 28px;background-color:#DA291C;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;border-radius:6px;box-shadow:0 4px 14px rgba(218,41,28,0.3)">
+        Ödemeyi Tekrar Dene →
+      </a>
+    </div>
+    ${infoBox(`
+      ${label('Destek & İletişim')}
+      <div style="color:#ddd;font-size:13px;line-height:1.8">
+        Herhangi bir soru veya destek talebiniz olursa müşteri hizmetlerimizle iletişime geçebilirsiniz:<br>
+        📞 <a href="tel:+903522316915" style="color:#DA291C;text-decoration:none;font-weight:600">+90 352 231 69 15</a> | 
         ✉️ <a href="mailto:info@sescim.com" style="color:#DA291C;text-decoration:none;font-weight:600">info@sescim.com</a>
       </div>
     `)}

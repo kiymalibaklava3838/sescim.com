@@ -201,15 +201,17 @@ export default function OrderTimeline({
                 {showMovements ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
 
-              <a
-                href={trackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-brand-red hover:bg-red-700 text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-              >
-                <span>Kargom Nerede</span>
-                <ExternalLink size={12} />
-              </a>
+              {trackingUrl && (
+                <a
+                  href={trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-brand-red hover:bg-red-700 text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <span>Kargom Nerede</span>
+                  <ExternalLink size={12} />
+                </a>
+              )}
             </div>
           </div>
 

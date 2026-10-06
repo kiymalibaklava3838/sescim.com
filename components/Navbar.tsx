@@ -154,12 +154,12 @@ export default function Navbar() {
             </Link>
           </div>
           <a 
-            href="tel:+903522316915" 
-            aria-label="Müşteri Hizmetleri Telefon: +90 352 231 69 15"
+            href="tel:+908503053870" 
+            aria-label="Müşteri Hizmetleri Telefon: 0850 305 38 70"
             className="flex items-center gap-1.5 font-semibold text-slate-300 hover:text-white transition-colors shrink-0 ml-4"
           >
             <Phone size={12} className="text-brand-red" />
-            <span className="hidden sm:inline">+90 352 231 69 15</span>
+            <span className="hidden sm:inline">0850 305 38 70</span>
           </a>
         </div>
       </div>
@@ -359,7 +359,7 @@ export default function Navbar() {
                 {/* Alt Destek & İletişim */}
                 <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 pb-safe shrink-0">
                   <a 
-                    href="https://wa.me/905323934370"
+                    href="https://wa.me/908503053870"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider shadow-xs transition-colors"
@@ -367,11 +367,11 @@ export default function Navbar() {
                     WhatsApp Destek
                   </a>
                   <a 
-                    href="tel:+903522316915"
+                    href="tel:+908503053870"
                     className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold font-display uppercase tracking-wider transition-colors"
                   >
                     <Phone size={13} className="text-brand-red" />
-                    +90 352 231 69 15
+                    0850 305 38 70
                   </a>
                 </div>
               </motion.div>

@@ -101,7 +101,7 @@ export const SHIPPING_CONFIG = {
     brand: 'SESCİM.COM',
     address: 'Cumhuriyet Mah. Sur Cad. No:17/A Melikgazi',
     city: 'KAYSERİ',
-    phone: '+90 (352) 231 69 15',
+    phone: '0850 305 38 70',
     taxOffice: 'Erciyes Vergi Dairesi',
     taxNo: '0200327808',
   },

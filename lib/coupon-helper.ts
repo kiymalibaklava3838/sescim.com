@@ -176,3 +176,78 @@ export function calculateCouponDiscount(
     categoryName: kupon.kategori || null
   }
 }
+
+/**
+ * Kullanıcının (user_id veya e-posta bazında) bu kuponu daha önce kullanıp kullanmadığını kontrol eder.
+ * İptal edilmiş veya ödeme hatası almış siparişler hesabı engellemez (hakkı iade edilir).
+ */
+export async function isCouponAlreadyUsedByUser(
+  db: any,
+  params: {
+    userId?: string | null
+    email?: string | null
+    couponCode: string
+    excludeOrderId?: string | null
+  }
+): Promise<boolean> {
+  const { userId, email, couponCode, excludeOrderId } = params
+  if (!userId && !email) return false
+  if (!couponCode) return false
+  const cleanCode = couponCode.trim().toUpperCase()
+
+  // 1. kupon_kullanimlari tablosu kontrolü
+  try {
+    let q = db
+      .from('kupon_kullanimlari')
+      .select('id, durum, siparis_id')
+      .ilike('kupon_kodu', cleanCode)
+      .neq('durum', 'iptal')
+
+    if (userId) {
+      q = q.eq('user_id', userId)
+    } else if (email) {
+      q = q.ilike('email', email.trim().toLowerCase())
+    }
+
+    const { data: usageList } = await q
+    if (usageList && usageList.length > 0) {
+      const active = excludeOrderId
+        ? usageList.filter((u: any) => u.siparis_id !== excludeOrderId)
+        : usageList
+      if (active.length > 0) return true
+    }
+  } catch {
+    // Tablo henüz oluşturulmadıysa siparişler tablosuna geç
+  }
+
+  // 2. siparisler tablosu kontrolü (aktif, onaylanmış veya ödemesi yapılmış siparişler)
+  try {
+    let q = db
+      .from('siparisler')
+      .select('id, durum, odeme_durumu')
+      .ilike('kupon_kodu', cleanCode)
+      .neq('durum', 'iptal')
+      .neq('odeme_durumu', 'odeme_hatasi')
+
+    if (userId && email) {
+      q = q.or(`user_id.eq.${userId},email.ilike.${email.trim().toLowerCase()}`)
+    } else if (userId) {
+      q = q.eq('user_id', userId)
+    } else if (email) {
+      q = q.ilike('email', email.trim().toLowerCase())
+    }
+
+    if (excludeOrderId) {
+      q = q.neq('id', excludeOrderId)
+    }
+
+    const { data: orders } = await q.limit(1)
+    if (orders && orders.length > 0) {
+      return true
+    }
+  } catch (e) {
+    console.warn('[coupon-helper] siparisler kupon kontrol hatası:', e)
+  }
+
+  return false
+}

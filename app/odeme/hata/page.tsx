@@ -32,8 +32,8 @@ export default function OdemeHata() {
             <RefreshCw size={14} />
             Sepete Dön ve Tekrar Dene
           </Link>
-          <a href="tel:+903522316915" className="btn-outline text-sm justify-center py-3.5 px-6 rounded-xl">
-            Destek Al
+          <a href="tel:+908503053870" className="btn-outline text-sm justify-center py-3.5 px-6 rounded-xl">
+            Destek Al (0850 305 38 70)
           </a>
         </div>
       </div>

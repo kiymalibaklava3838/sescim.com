@@ -157,7 +157,7 @@ const siteNavigationJsonLd = {
       '@type': 'SiteNavigationElement',
       position: 8,
       name: 'İletişim & Mağaza Bilgileri',
-      description: 'Müşteri hizmetleri telefonu (+90 352 231 69 15), Kayseri mağaza adresi ve canlı destek',
+      description: 'Müşteri hizmetleri telefonu (0850 305 38 70), Kayseri mağaza adresi ve canlı destek',
       url: `${siteUrl}/iletisim`
     }
   ]
@@ -174,7 +174,7 @@ const orgJsonLd = {
   logo: `${siteUrl}/logo.png`,
   image: `${siteUrl}/logo.png`,
   email: 'info@sescim.com',
-  telephone: '+90-352-231-69-15',
+  telephone: '+90-850-305-38-70',
   address: {
     '@type': 'PostalAddress',
     streetAddress: 'Cumhuriyet Mah. Sur Cad. No:17/A',
@@ -185,7 +185,7 @@ const orgJsonLd = {
   },
   contactPoint: {
     '@type': 'ContactPoint',
-    telephone: '+90-352-231-69-15',
+    telephone: '+90-850-305-38-70',
     email: 'info@sescim.com',
     contactType: 'customer service',
     areaServed: 'TR',
@@ -205,7 +205,7 @@ const storeJsonLd = {
   image: `${siteUrl}/logo.png`,
   '@id': `${siteUrl}/#store`,
   url: siteUrl,
-  telephone: '+90-352-231-69-15',
+  telephone: '+90-850-305-38-70',
   email: 'info@sescim.com',
   priceRange: '₺₺₺',
   address: {

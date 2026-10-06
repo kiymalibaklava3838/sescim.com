@@ -79,8 +79,8 @@ export default function AdminNotification() {
           const yeni = payload.new
           if (!yeni) return
 
-          // Ödeme bekleyen (kullanıcının henüz satın almadığı) taslaklarda ASLA bildirim çalma!
-          const isOdendi = yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi'
+          // Ödeme bekleyen (kullanıcının henüz satın almadığı) veya ödeme hatası alan taslaklarda ASLA bildirim çalma!
+          const isOdendi = (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi') && yeni.odeme_durumu !== 'odeme_hatasi' && yeni.durum !== 'iptal'
           if (!isOdendi) return
 
           // PayTR onayı UPDATE ile geldiğinde veya doğrudan ödendi geldiğinde çal

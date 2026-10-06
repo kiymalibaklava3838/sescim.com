@@ -43,7 +43,7 @@ export default function GizlilikPolitikasi() {
               <ul className="space-y-2">
                 <li><strong className="text-slate-800">Unvan:</strong> Sescim</li>
                 <li><strong className="text-slate-800">Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
-                <li><strong className="text-slate-800">Telefon:</strong> +90 352 231 69 15</li>
+                <li><strong className="text-slate-800">Telefon:</strong> 0850 305 38 70</li>
                 <li><strong className="text-slate-800">E-posta:</strong> info@sescim.com</li>
               </ul>
             </div>
@@ -180,7 +180,7 @@ export default function GizlilikPolitikasi() {
                 <Phone size={16} className="text-brand-red shrink-0 mt-0.5" />
                 <div>
                   <div className="font-display font-bold text-xs uppercase text-slate-800 mb-1">Telefon</div>
-                  <div className="text-slate-500 font-body text-sm">+90 352 231 69 15</div>
+                  <div className="text-slate-500 font-body text-sm">0850 305 38 70</div>
                 </div>
               </div>
             </div>

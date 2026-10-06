@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
 
     const { data: siparis, error: siparisErr } = await db
       .from('siparisler')
-      .select('id, siparis_no, email, ad_soyad, telefon, toplam_tutar, durum, odeme_durumu, notlar, stok_dusuldu, onay_maili_gonderildi, odeme_hata_maili_gonderildi')
+      .select('id, siparis_no, email, ad_soyad, telefon, toplam_tutar, durum, odeme_durumu, notlar, stok_dusuldu, onay_maili_gonderildi, odeme_hata_maili_gonderildi, kupon_kodu')
       .in('siparis_no', [merchant_oid, hyphenatedOid])
       .maybeSingle()
 
@@ -470,6 +470,20 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+
+      // 8.3. KUPON KULLANIMINI KESİNLEŞTİR
+      if (siparis.kupon_kodu) {
+        try {
+          await db
+            .from('kupon_kullanimlari')
+            .update({ durum: 'onaylandi' })
+            .eq('siparis_id', siparis.id)
+
+          await db.rpc('increment_kupon_kullanim', { p_kod: siparis.kupon_kodu.trim().toUpperCase() })
+        } catch (kErr: any) {
+          console.warn('[paytr-callback] Kupon onaylama uyarısı:', kErr?.message)
+        }
+      }
     } else {
       // ───────────────────────────────────────────────────────────────────────
       // 9. ÖDEME BAŞARISIZ / BANKA REDDİ
@@ -483,6 +497,7 @@ export async function POST(req: NextRequest) {
         .from('siparisler')
         .update({
           odeme_durumu: 'odeme_hatasi',
+          durum: 'iptal',
           odeme_hata_mesaji: failed_reason_msg || 'Red',
           updated_at: new Date().toISOString(),
         })
@@ -499,6 +514,17 @@ export async function POST(req: NextRequest) {
       // Kesinlikle müşteriye yanlışlıkla "Ödemeniz Alınamadı" maili GÖNDERİLMEZ.
       if (!failClaim || failClaim.length === 0) {
         return new NextResponse('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } })
+      }
+
+      // Başarısız ödemede kullanıcının beklemedeki kuponunu serbest bırak (tekrar deneyebilsin)
+      if (siparis.kupon_kodu) {
+        try {
+          await db
+            .from('kupon_kullanimlari')
+            .delete()
+            .eq('siparis_id', siparis.id)
+            .eq('durum', 'beklemede')
+        } catch {}
       }
 
       // Müşteriye "Tekrar Deneyin" e-postası (Spam engeli: Yalnızca bir kez sahiplen)

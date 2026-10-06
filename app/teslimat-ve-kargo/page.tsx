@@ -125,7 +125,7 @@ export default function TeslimatVeKargoPage() {
               <ul className="space-y-2 text-sm text-slate-700">
                 <li className="flex items-start gap-2"><strong>Ticari Unvan:</strong> Mustafa Akdağ - Akdağ Elektronik (sescim.com)</li>
                 <li className="flex items-start gap-2"><MapPin size={16} className="text-brand-red shrink-0 mt-0.5" /><strong>Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
-                <li className="flex items-start gap-2"><Phone size={16} className="text-brand-red shrink-0 mt-0.5" /><strong>Telefon:</strong> +90 352 231 69 15 (Pzt - Cmt: 09:00 - 19:00)</li>
+                <li className="flex items-start gap-2"><Phone size={16} className="text-brand-red shrink-0 mt-0.5" /><strong>Telefon:</strong> 0850 305 38 70 (Pzt - Cmt: 09:00 - 19:00)</li>
                 <li className="flex items-start gap-2"><Mail size={16} className="text-brand-red shrink-0 mt-0.5" /><strong>E-posta:</strong> info@sescim.com</li>
                 <li className="flex items-start gap-2"><strong>Vergi Dairesi &amp; No:</strong> Erciyes Vergi Dairesi / 0200327808</li>
               </ul>

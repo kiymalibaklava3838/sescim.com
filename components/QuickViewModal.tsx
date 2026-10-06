@@ -243,7 +243,7 @@ export default function QuickViewModal() {
             <div className="flex items-center gap-3">
               {product.fiyat_sorunuz ? (
                 <a
-                  href={`https://wa.me/905323934370?text=${encodeURIComponent(
+                  href={`https://wa.me/908503053870?text=${encodeURIComponent(
                     `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://www.sescim.com/urun/${product.slug || product.id}`
                   )}`}
                   target="_blank"

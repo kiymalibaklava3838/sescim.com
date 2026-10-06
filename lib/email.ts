@@ -62,7 +62,7 @@ function emailShell(content: string): string {
               </div>
 
               <div style="margin-bottom:12px">
-                <a href="tel:+903522316915" style="color:#ffffff;font-size:15px;font-weight:700;text-decoration:none">📞 +90 352 231 69 15</a>
+                <a href="tel:+908503053870" style="color:#ffffff;font-size:15px;font-weight:700;text-decoration:none">📞 0850 305 38 70</a>
                 <span style="color:#444;margin:0 8px">|</span>
                 <a href="mailto:info@sescim.com" style="color:#DA291C;font-size:14px;font-weight:600;text-decoration:none">✉️ info@sescim.com</a>
               </div>
@@ -419,7 +419,7 @@ export function siparisIptalHTML(data: { siparis_no: string; ad_soyad: string })
       ${label('Destek & İletişim')}
       <div style="color:#ddd;font-size:14px;line-height:1.8">
         Bu işlemde bir yanlışlık olduğunu düşünüyorsanız müşteri hizmetlerimizle iletişime geçebilirsiniz:<br>
-        📞 <a href="tel:+903522316915" style="color:#DA291C;text-decoration:none;font-weight:600">+90 352 231 69 15</a><br>
+        📞 <a href="tel:+908503053870" style="color:#DA291C;text-decoration:none;font-weight:600">0850 305 38 70</a><br>
         ✉️ <a href="mailto:info@sescim.com" style="color:#DA291C;text-decoration:none;font-weight:600">info@sescim.com</a>
       </div>
     `)}
@@ -456,7 +456,7 @@ export function odemeBasarisizHTML(data: {
       ${label('Destek & İletişim')}
       <div style="color:#ddd;font-size:13px;line-height:1.8">
         Herhangi bir soru veya destek talebiniz olursa müşteri hizmetlerimizle iletişime geçebilirsiniz:<br>
-        📞 <a href="tel:+903522316915" style="color:#DA291C;text-decoration:none;font-weight:600">+90 352 231 69 15</a> | 
+        📞 <a href="tel:+908503053870" style="color:#DA291C;text-decoration:none;font-weight:600">0850 305 38 70</a> | 
         ✉️ <a href="mailto:info@sescim.com" style="color:#DA291C;text-decoration:none;font-weight:600">info@sescim.com</a>
       </div>
     `)}
@@ -792,7 +792,7 @@ export function bayiAskiyaAlindiHTML(data: {
     ${infoBox(`
       ${label('İletişim')}
       <div style="color:#ddd;font-size:14px;line-height:1.8">
-        📞 <a href="tel:+903522316915" style="color:#DA291C;text-decoration:none">+90 352 231 69 15</a><br>
+        📞 <a href="tel:+908503053870" style="color:#DA291C;text-decoration:none">0850 305 38 70</a><br>
         ✉️ <a href="mailto:info@sescim.com" style="color:#DA291C;text-decoration:none">info@sescim.com</a>
       </div>
     `)}

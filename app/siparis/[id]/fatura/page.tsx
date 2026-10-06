@@ -91,7 +91,7 @@ export default async function SiparisFaturaPage({ params }: Props) {
               Cumhuriyet Mah. Sur Cad. No:17/A Melikgazi / KAYSERİ
             </p>
             <p className="text-[11px] text-slate-500">
-              Tel: +90 (352) 231 69 15 • Vergi Dairesi: Erciyes Vergi Dairesi • V.No: 0200327808
+              Tel: 0850 305 38 70 • Vergi Dairesi: Erciyes Vergi Dairesi • V.No: 0200327808
             </p>
           </div>
 

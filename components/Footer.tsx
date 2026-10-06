@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck, Check, Copy, Sparkles, Lock, CreditCard } from 'lucide-react'
+import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck, Check, Copy, Sparkles, Lock, CreditCard, MessageCircle } from 'lucide-react'
 import { KATEGORILER } from '@/lib/categories'
 import { usePathname } from 'next/navigation'
 
@@ -185,9 +185,15 @@ export default function Footer() {
               <span>Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</span>
             </li>
             <li>
-              <a href="tel:+903522316915" className="flex items-center gap-3 text-slate-500 hover:text-brand-red text-sm transition-colors">
+              <a href="tel:+908503053870" className="flex items-center gap-3 text-slate-500 hover:text-brand-red text-sm transition-colors">
                 <Phone size={18} className="text-slate-400 shrink-0" />
-                <span>+90 352 231 69 15 <span className="block text-xs text-slate-400">Pzt - Cmt: 09:00 - 19:00</span></span>
+                <span>0850 305 38 70 <span className="block text-xs text-slate-400">Pzt - Cmt: 09:00 - 19:00</span></span>
+              </a>
+            </li>
+            <li>
+              <a href="https://wa.me/908503053870" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-slate-500 hover:text-emerald-600 text-sm transition-colors">
+                <MessageCircle size={18} className="text-emerald-500 shrink-0" />
+                <span>0850 305 38 70 <span className="block text-xs text-slate-400">WhatsApp Business Destek</span></span>
               </a>
             </li>
             <li>

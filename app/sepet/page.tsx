@@ -86,6 +86,7 @@ export default function SepetPage() {
   const [manuelKuponKodu, setManuelKuponKodu] = useState('')
   const [kuponError, setKuponError] = useState('')
   const [applyingKupon, setApplyingKupon] = useState(false)
+  const [kullanilmisKuponKodlari, setKullanilmisKuponKodlari] = useState<string[]>([])
 
   const supabase = useRef(createClient()).current
 
@@ -183,6 +184,22 @@ export default function SepetPage() {
             })
           }
         }
+
+        // Kullanıcının daha önce kullandığı kuponları çek (tekrar kullanılmasını engellemek için)
+        try {
+          const { data: usedOrders } = await supabase
+            .from('siparisler')
+            .select('kupon_kodu')
+            .eq('user_id', currentUser.id)
+            .not('kupon_kodu', 'is', null)
+            .neq('durum', 'iptal')
+            .neq('odeme_durumu', 'odeme_hatasi')
+
+          const usedCodes = (usedOrders || [])
+            .map((o: any) => o.kupon_kodu?.trim().toUpperCase())
+            .filter(Boolean)
+          setKullanilmisKuponKodlari(Array.from(new Set(usedCodes)))
+        } catch {}
       }
     })
 
@@ -260,32 +277,56 @@ export default function SepetPage() {
     }
   }, [araToplam, items.length, uygulananKupon])
 
-  const handleApplyCoupon = (kupon: any) => {
+  const handleApplyCoupon = async (kupon: any) => {
     setKuponError('')
-    const itemsForCheck = items.map(i => ({
-      id: i.id,
-      ad: i.ad,
-      kategori: i.kategori,
-      adet: i.adet,
-      fiyat: livePrice(i),
-    }))
-
-    const calc = calculateCouponDiscount(kupon, itemsForCheck, araToplam)
-    if (calc.error) {
-      setKuponError(calc.error)
+    if (!user) {
+      setKuponError('İndirim kuponu kullanabilmek için lütfen üye girişi yapınız.')
       return
     }
 
-    const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
-    if (isExpired) {
-      setKuponError('Bu kuponun süresi dolmuş.')
-      return
+    setApplyingKupon(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/kupon-dogrula', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ kod: kupon.kod })
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.valid) {
+        setKuponError(data.error || 'Bu kupon kullanılamaz.')
+        setApplyingKupon(false)
+        return
+      }
+
+      const verifiedKupon = { ...kupon, ...data.kupon }
+
+      const itemsForCheck = items.map(i => ({
+        id: i.id,
+        ad: i.ad,
+        kategori: i.kategori,
+        adet: i.adet,
+        fiyat: livePrice(i),
+      }))
+
+      const calc = calculateCouponDiscount(verifiedKupon, itemsForCheck, araToplam)
+      if (calc.error) {
+        setKuponError(calc.error)
+        setApplyingKupon(false)
+        return
+      }
+
+      setManuelKuponKodu(verifiedKupon.kod)
+      setUygulananKupon(verifiedKupon)
+    } catch {
+      setKuponError('Kupon kontrol edilirken bir bağlantı hatası oluştu.')
+    } finally {
+      setApplyingKupon(false)
     }
-    if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
-      setKuponError('Bu kuponun kullanım limiti dolmuş.')
-      return
-    }
-    setUygulananKupon(kupon)
   }
 
   const handleApplyManualCoupon = async (codeToApply?: string) => {
@@ -294,36 +335,54 @@ export default function SepetPage() {
       setKuponError('Lütfen bir kupon kodu giriniz.')
       return
     }
+    if (!user) {
+      setKuponError('İndirim kuponu kullanabilmek için lütfen üye girişi yapınız.')
+      return
+    }
+
     setApplyingKupon(true)
     setKuponError('')
 
-    let targetCoupon = kuponlar.find(x => x.kod.toUpperCase() === raw)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/kupon-dogrula', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ kod: raw })
+      })
 
-    if (!targetCoupon) {
-      try {
-        const { data: dbKupon } = await supabase
-          .from('kuponlar')
-          .select('*')
-          .ilike('kod', raw)
-          .eq('aktif', true)
-          .maybeSingle()
-
-        if (dbKupon) {
-          targetCoupon = dbKupon
-          setKuponlar(prev => [...prev.filter(p => p.id !== dbKupon.id), dbKupon])
-        }
-      } catch (e) {
-        console.error('Kupon sorgulanamadı:', e)
+      const data = await res.json()
+      if (!res.ok || !data.valid) {
+        setKuponError(data.error || 'Geçersiz veya süresi dolmuş kupon kodu.')
+        setApplyingKupon(false)
+        return
       }
-    }
 
-    if (targetCoupon) {
-      setManuelKuponKodu(targetCoupon.kod)
-      handleApplyCoupon(targetCoupon)
-    } else {
-      setKuponError('Geçersiz veya süresi dolmuş kupon kodu.')
+      const itemsForCheck = items.map(i => ({
+        id: i.id,
+        ad: i.ad,
+        kategori: i.kategori,
+        adet: i.adet,
+        fiyat: livePrice(i),
+      }))
+
+      const calc = calculateCouponDiscount(data.kupon, itemsForCheck, araToplam)
+      if (calc.error) {
+        setKuponError(calc.error)
+        setApplyingKupon(false)
+        return
+      }
+
+      setManuelKuponKodu(data.kupon.kod)
+      setUygulananKupon(data.kupon)
+    } catch {
+      setKuponError('Kupon doğrulanırken bir hata oluştu.')
+    } finally {
+      setApplyingKupon(false)
     }
-    setApplyingKupon(false)
   }
 
   // URL'den kupon parametresi ile gelindiyse ve sepet doluysa otomatik uygula
@@ -368,9 +427,13 @@ export default function SepetPage() {
 
     setBusy(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/siparis-olustur', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           user_id: user?.id ?? null,
           urunler,
@@ -544,6 +607,18 @@ export default function SepetPage() {
                   <div className="flex items-center gap-2 font-display font-bold text-xs tracking-widest uppercase text-slate-600 mb-3">
                     <Ticket size={16} /> İndirim Kuponu
                   </div>
+
+                  {!user && (
+                    <div className="mb-3.5 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs font-body text-amber-900">
+                      <div className="flex items-center gap-2">
+                        <UserIcon size={15} className="text-amber-700 shrink-0" />
+                        <span>Kupon kullanabilmek için <strong>üye girişi</strong> yapmanız gerekmektedir.</span>
+                      </div>
+                      <Link href="/uye/giris?next=/sepet" className="font-bold underline text-brand-red ml-2 shrink-0 hover:text-red-700 transition-colors">
+                        Giriş Yap
+                      </Link>
+                    </div>
+                  )}
                   
                   {/* Manuel Giriş */}
                   <div className="flex gap-2 mb-4">
@@ -624,16 +699,23 @@ export default function SepetPage() {
                         Hesabınıza Tanımlı Özel Kuponlar
                       </div>
                       {tanimliKuponlar.filter(k => (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim)).map(k => {
+                        const isAlreadyUsed = kullanilmisKuponKodlari.includes(k.kod.toUpperCase())
                         const check = calculateCouponDiscount(k, itemsWithLivePrice, araToplam)
-                        const canUse = !check.error
+                        const canUse = !check.error && !isAlreadyUsed && !!user
                         return (
                           <div key={'tanimli-' + k.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${canUse ? 'bg-purple-50/70 border-purple-200' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
                             <div>
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-display font-black text-xs text-purple-900 tracking-wider">{k.kod}</span>
-                                <span className="bg-purple-200 text-purple-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                  Hesabıma Özel
-                                </span>
+                                {isAlreadyUsed ? (
+                                  <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    ✓ Kullanıldı
+                                  </span>
+                                ) : (
+                                  <span className="bg-purple-200 text-purple-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    Hesabıma Özel
+                                  </span>
+                                )}
                                 {k.kategori ? (
                                   <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                                     🏷️ {k.kategori}
@@ -652,9 +734,14 @@ export default function SepetPage() {
                                   Min. Sepet: {k.min_tutar.toLocaleString('tr-TR')} ₺
                                 </div>
                               )}
-                              {!canUse && check.error && (
+                              {!canUse && check.error && !isAlreadyUsed && (
                                 <div className="text-[9px] text-red-500 font-body mt-0.5">
                                   {check.error}
+                                </div>
+                              )}
+                              {isAlreadyUsed && (
+                                <div className="text-[9px] text-slate-500 font-body mt-0.5 font-medium">
+                                  Bu kupon hesabınız tarafından daha önce kullanıldı.
                                 </div>
                               )}
                             </div>
@@ -666,7 +753,7 @@ export default function SepetPage() {
                                 canUse ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                               }`}
                             >
-                              Uygula
+                              {isAlreadyUsed ? 'Kullanıldı' : 'Uygula'}
                             </button>
                           </div>
                         )
@@ -676,8 +763,9 @@ export default function SepetPage() {
 
                   {/* Genel Aktif Kupon Önerileri */}
                   {!uygulananKupon && kuponlar.filter(k => !k.ozel_mi && !tanimliKuponlar.some(tk => tk.id === k.id) && (!k.gecerlilik_tarihi || new Date(k.gecerlilik_tarihi).getTime() > Date.now()) && (!k.max_kullanim || k.kullanim_sayisi < k.max_kullanim)).map(k => {
+                    const isAlreadyUsed = kullanilmisKuponKodlari.includes(k.kod.toUpperCase())
                     const check = calculateCouponDiscount(k, itemsWithLivePrice, araToplam)
-                    const canUse = !check.error
+                    const canUse = !check.error && !isAlreadyUsed && !!user
                     return (
                       <div key={k.id} className={`flex items-center justify-between border p-3 rounded-lg mb-2 transition-all ${
                         canUse ? 'bg-white border-slate-200 shadow-sm group hover:border-brand-red/30' : 'bg-slate-50 border-slate-200 opacity-60'
@@ -685,6 +773,11 @@ export default function SepetPage() {
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-display font-black text-xs text-brand-red tracking-wider">{k.kod}</span>
+                            {isAlreadyUsed && (
+                              <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                ✓ Kullanıldı
+                              </span>
+                            )}
                             {k.kategori ? (
                               <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                                 🏷️ {k.kategori}
@@ -703,9 +796,14 @@ export default function SepetPage() {
                               Min. Tutar: {k.min_tutar.toLocaleString('tr-TR')} ₺
                             </div>
                           )}
-                          {!canUse && check.error && (
+                          {!canUse && check.error && !isAlreadyUsed && (
                             <div className="text-[9px] text-red-500 font-body mt-0.5">
                               {check.error}
+                            </div>
+                          )}
+                          {isAlreadyUsed && (
+                            <div className="text-[9px] text-slate-500 font-body mt-0.5 font-medium">
+                              Bu kupon hesabınız tarafından daha önce kullanıldı.
                             </div>
                           )}
                         </div>
@@ -719,7 +817,7 @@ export default function SepetPage() {
                               : 'text-slate-400 bg-slate-200 cursor-not-allowed'
                           }`}
                         >
-                          Uygula
+                          {isAlreadyUsed ? 'Kullanıldı' : 'Uygula'}
                         </button>
                       </div>
                     )

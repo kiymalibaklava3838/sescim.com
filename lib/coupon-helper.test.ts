@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchesCategory, calculateCouponDiscount, normalizeCategoryText } from './coupon-helper'
+import { matchesCategory, calculateCouponDiscount, normalizeCategoryText, isCouponAlreadyUsedByUser } from './coupon-helper'
 
 describe('coupon-helper', () => {
   describe('normalizeCategoryText', () => {
@@ -118,6 +118,94 @@ describe('coupon-helper', () => {
       const res = calculateCouponDiscount(kupon, items, 14000)
       expect(res.discount).toBe(0)
       expect(res.error).toContain('en az 20.000 ₺')
+    })
+  })
+
+  describe('isCouponAlreadyUsedByUser', () => {
+    it('returns false if userId and email are missing', async () => {
+      const db = {}
+      const used = await isCouponAlreadyUsedByUser(db, { couponCode: 'SESCIM5' })
+      expect(used).toBe(false)
+    })
+
+    it('returns true if coupon was previously recorded in siparisler', async () => {
+      const fakeDb = {
+        from: (table: string) => {
+          if (table === 'kupon_kullanimlari') {
+            return {
+              select: () => ({
+                ilike: () => ({
+                  neq: () => ({
+                    eq: () => Promise.resolve({ data: [] })
+                  })
+                })
+              })
+            }
+          }
+          if (table === 'siparisler') {
+            return {
+              select: () => ({
+                ilike: () => ({
+                  neq: () => ({
+                    neq: () => ({
+                      or: () => ({
+                        limit: () => Promise.resolve({ data: [{ id: 'order-1' }] })
+                      })
+                    })
+                  })
+                })
+              })
+            }
+          }
+          return {}
+        }
+      }
+      const used = await isCouponAlreadyUsedByUser(fakeDb, {
+        userId: 'user-123',
+        email: 'ahmet@sescim.com',
+        couponCode: 'SESCIM5'
+      })
+      expect(used).toBe(true)
+    })
+
+    it('returns false if no prior orders found with this coupon', async () => {
+      const fakeDb = {
+        from: (table: string) => {
+          if (table === 'kupon_kullanimlari') {
+            return {
+              select: () => ({
+                ilike: () => ({
+                  neq: () => ({
+                    eq: () => Promise.resolve({ data: [] })
+                  })
+                })
+              })
+            }
+          }
+          if (table === 'siparisler') {
+            return {
+              select: () => ({
+                ilike: () => ({
+                  neq: () => ({
+                    neq: () => ({
+                      or: () => ({
+                        limit: () => Promise.resolve({ data: [] })
+                      })
+                    })
+                  })
+                })
+              })
+            }
+          }
+          return {}
+        }
+      }
+      const used = await isCouponAlreadyUsedByUser(fakeDb, {
+        userId: 'user-123',
+        email: 'ahmet@sescim.com',
+        couponCode: 'NEWCOUPON'
+      })
+      expect(used).toBe(false)
     })
   })
 })

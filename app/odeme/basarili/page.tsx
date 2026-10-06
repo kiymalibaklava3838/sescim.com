@@ -79,8 +79,8 @@ function OdemeBasariliContent() {
           <p className="font-body text-slate-500 text-xs uppercase font-medium tracking-wider">
             Sipariş takibi ve teknik destek için:
           </p>
-          <a href="tel:+903522316915" className="font-display font-black text-lg text-brand-red mt-1 block hover:underline">
-            +90 352 231 69 15
+          <a href="tel:+908503053870" className="font-display font-black text-lg text-brand-red mt-1 block hover:underline">
+            0850 305 38 70
           </a>
         </div>
 

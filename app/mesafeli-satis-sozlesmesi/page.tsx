@@ -33,7 +33,7 @@ export default function MesafeliSatisSozlesmesi() {
                   <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Unvan: Mustafa Akdağ - Akdağ Elektronik (Satış Platformu: sescim.com)</li>
                   <li className="flex gap-2"><FileText size={13} className="text-brand-red shrink-0 mt-0.5" />Vergi Dairesi &amp; No: Erciyes Vergi Dairesi / 0200327808</li>
                   <li className="flex gap-2"><MapPin size={13} className="text-brand-red shrink-0 mt-0.5" />Adres: Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</li>
-                  <li className="flex gap-2"><Phone size={13} className="text-brand-red shrink-0 mt-0.5" />Telefon: +90 352 231 69 15</li>
+                  <li className="flex gap-2"><Phone size={13} className="text-brand-red shrink-0 mt-0.5" />Telefon: 0850 305 38 70</li>
                   <li className="flex gap-2"><Mail size={13} className="text-brand-red shrink-0 mt-0.5" />E-posta: info@sescim.com</li>
                   <li className="flex gap-2 text-xs text-slate-500 pt-1 border-t border-slate-200/60">sescim.com alan adı üzerinden gerçekleştirilen tüm satış ve faturalandırma işlemleri Mustafa Akdağ - Akdağ Elektronik güvencesiyle yürütülmektedir.</li>
                 </ul>

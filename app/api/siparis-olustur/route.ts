@@ -6,7 +6,7 @@ import { sendEmail } from '@/lib/send-email'
 import { siparisOlusturSchema } from '@/lib/api-schemas'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
-import { calculateCouponDiscount } from '@/lib/coupon-helper'
+import { calculateCouponDiscount, isCouponAlreadyUsedByUser } from '@/lib/coupon-helper'
 import { calculateShippingFee } from '@/lib/shipping'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { getSiteUrl } from '@/lib/site-url'
@@ -213,54 +213,20 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    let hesaplanan = serverAraToplam
-    let appliedDiscount = 0
-    const cleanKuponKodu = kupon_kodu ? kupon_kodu.trim().toUpperCase() : null
-
-    if (cleanKuponKodu) {
-      const { data: kupon, error: kErr } = await db.from('kuponlar').select('*').ilike('kod', cleanKuponKodu).eq('aktif', true).maybeSingle()
-      if (kErr || !kupon) {
-        return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kupon' }, { status: 400 })
-      }
-      
-      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
-      if (isExpired) return NextResponse.json({ error: 'Kuponun süresi dolmuş' }, { status: 400 })
-      
-      if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
-        return NextResponse.json({ error: 'Kupon kullanım limiti dolmuş' }, { status: 400 })
-      }
-
-      // Kategoriye ve minimum tutara göre doğrulanmış indirim tutarını hesapla
-      const discountResult = calculateCouponDiscount(kupon, verifiedUrunler, serverAraToplam)
-      if (discountResult.error) {
-        return NextResponse.json({ error: discountResult.error }, { status: 400 })
-      }
-
-      appliedDiscount = discountResult.discount
-      hesaplanan = Math.max(0, serverAraToplam - appliedDiscount)
+    // 3. Kullanıcı Kimlik Doğrulaması (Token veya Parametre)
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.replace('Bearer ', '').trim()
+    let authUser: any = null
+    if (token) {
+      try {
+        const { data: aData, error: aErr } = await db.auth.getUser(token)
+        if (!aErr && aData?.user) {
+          authUser = aData.user
+        }
+      } catch {}
     }
 
-    const serverKargoUcreti = calculateShippingFee(hesaplanan)
-    const serverGenelToplam = hesaplanan + serverKargoUcreti
-
-    if (Math.abs(serverGenelToplam - toplam_tutar) > 2) {
-      return NextResponse.json({ 
-        error: 'Tutar doğrulanamadı. Sepetinizdeki ürün fiyatları veya kurlar güncellenmiş olabilir.',
-        guncel_tutar: serverGenelToplam
-      }, { status: 400 })
-    }
-
-    let derlenmisFaturaAdresi = teslimat_adresi || ''
-    if (fatura_tipi === 'kurumsal') {
-      derlenmisFaturaAdresi = `[Kurumsal Fatura] Firma: ${firma_unvani || '-'} | VD: ${vergi_dairesi || '-'} | VN: ${vergi_no || '-'} | Adres: ${teslimat_adresi || ''}`
-    }
-
-    let compiledNotlar = notlar || ''
-    const ekNot = `[Kurlar: USD=${dolarKuru}, EUR=${euroKuru}] [IP: ${ip}]`
-    compiledNotlar = compiledNotlar ? `${compiledNotlar} | ${ekNot}` : ekNot
-
-    // user_id'nin profiles tablosunda yer aldığından emin ol (foreign key hatasını önlemek için)
-    let validUserId = user_id || null
+    let validUserId = authUser?.id || user_id || null
     if (validUserId) {
       try {
         const { data: existingProfile } = await db
@@ -291,10 +257,85 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let hesaplanan = serverAraToplam
+    let appliedDiscount = 0
+    let validatedKuponId: string | null = null
+    const cleanKuponKodu = kupon_kodu ? kupon_kodu.trim().toUpperCase() : null
+
+    if (cleanKuponKodu) {
+      // 1. KURAL: İndirim kuponu kullanabilmek için üye girişi ZORUNLUDUR!
+      if (!validUserId) {
+        return NextResponse.json({
+          error: 'İndirim kuponu kullanabilmek için üye girişi yapmanız gerekmektedir. Lütfen giriş yapınız veya kupon kodunu kaldırınız.'
+        }, { status: 401 })
+      }
+
+      const { data: kupon, error: kErr } = await db.from('kuponlar').select('*').ilike('kod', cleanKuponKodu).eq('aktif', true).maybeSingle()
+      if (kErr || !kupon) {
+        return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kupon' }, { status: 400 })
+      }
+      
+      const isExpired = kupon.gecerlilik_tarihi && new Date(kupon.gecerlilik_tarihi).getTime() < Date.now()
+      if (isExpired) return NextResponse.json({ error: 'Kuponun süresi dolmuş' }, { status: 400 })
+      
+      if (kupon.max_kullanim && kupon.kullanim_sayisi >= kupon.max_kullanim) {
+        return NextResponse.json({ error: 'Kupon kullanım limiti dolmuş' }, { status: 400 })
+      }
+
+      // 2. KURAL: Kupon hesap başına YALNIZCA 1 KEZ kullanılabilir!
+      const alreadyUsed = await isCouponAlreadyUsedByUser(db, {
+        userId: validUserId,
+        email: email,
+        couponCode: cleanKuponKodu,
+      })
+      if (alreadyUsed) {
+        return NextResponse.json({
+          error: `"${cleanKuponKodu}" kupon kodu bu hesap tarafından daha önce kullanılmıştır. Her kupon hesap başına yalnızca 1 kez kullanılabilir.`
+        }, { status: 400 })
+      }
+
+      validatedKuponId = kupon.id
+
+      // Kategoriye ve minimum tutara göre doğrulanmış indirim tutarını hesapla
+      const discountResult = calculateCouponDiscount(kupon, verifiedUrunler, serverAraToplam)
+      if (discountResult.error) {
+        return NextResponse.json({ error: discountResult.error }, { status: 400 })
+      }
+
+      appliedDiscount = discountResult.discount
+      hesaplanan = Math.max(0, serverAraToplam - appliedDiscount)
+    }
+
+    const serverKargoUcreti = calculateShippingFee(hesaplanan)
+    const serverGenelToplam = hesaplanan + serverKargoUcreti
+
+    if (Math.abs(serverGenelToplam - toplam_tutar) > 2) {
+      return NextResponse.json({ 
+        error: 'Tutar doğrulanamadı. Sepetinizdeki ürün fiyatları veya kurlar güncellenmiş olabilir.',
+        guncel_tutar: serverGenelToplam
+      }, { status: 400 })
+    }
+
+    let derlenmisFaturaAdresi = teslimat_adresi || ''
+    if (fatura_tipi === 'kurumsal') {
+      derlenmisFaturaAdresi = `[Kurumsal Fatura] Firma: ${firma_unvani || '-'} | VD: ${vergi_dairesi || '-'} | VN: ${vergi_no || '-'} | Adres: ${teslimat_adresi || ''}`
+    }
+
+    let compiledNotlar = notlar || ''
+    const ekNot = `[Kurlar: USD=${dolarKuru}, EUR=${euroKuru}] [IP: ${ip}]`
+    compiledNotlar = compiledNotlar ? `${compiledNotlar} | ${ekNot}` : ekNot
+
     const isKart = (odeme_tipi === 'kredi_karti' || odeme_tipi === 'kart')
 
     const insertPayload: any = {
       user_id: validUserId,
+      urunler: verifiedUrunler.map(u => ({
+        id: u.urun_id,
+        ad: u.ad,
+        fiyat: u.fiyat,
+        adet: u.adet,
+        fotograf: u.fotograf || null
+      })),
       toplam_tutar: serverGenelToplam,
       ad_soyad: ad_soyad || 'Müşteri',
       email: email,
@@ -430,8 +471,8 @@ export async function POST(req: NextRequest) {
             max_installment: '0',
             user_name: ad_soyad || 'Müşteri',
             user_phone: telefon || '',
-            merchant_ok_url: `${siteUrl}/odeme/basarili`,
-            merchant_fail_url: `${siteUrl}/odeme/hata`,
+            merchant_ok_url: `${siteUrl}/odeme/basarili?siparis_no=${siparis.siparis_no}`,
+            merchant_fail_url: `${siteUrl}/odeme/hata?siparis_no=${siparis.siparis_no}`,
             timeout_limit: '30',
             currency: 'TL',
             test_mode,
@@ -468,24 +509,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Kupon kullanım sayısını artır
-    if (cleanKuponKodu) {
-      const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: cleanKuponKodu })
-      if (rpcErr) {
-        const { data: kData } = await db.from('kuponlar').select('id, kullanim_sayisi').ilike('kod', cleanKuponKodu).maybeSingle()
-        if (kData) {
-          await db.from('kuponlar').update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 }).eq('id', kData.id)
+    // Kupon kullanımını kaydet ve kilitle
+    if (cleanKuponKodu && validUserId && siparis?.id) {
+      try {
+        await db.from('kupon_kullanimlari').insert({
+          kupon_id: validatedKuponId,
+          kupon_kodu: cleanKuponKodu,
+          user_id: validUserId,
+          siparis_id: siparis.id,
+          email: email.trim().toLowerCase(),
+          durum: isKart ? 'beklemede' : 'onaylandi',
+        })
+      } catch (kkErr: any) {
+        console.warn('[siparis-olustur] kupon_kullanimlari insert uyarısı:', kkErr?.message)
+      }
+
+      // Havale siparişlerinde kupon kullanım sayısını anında artır
+      // Kart siparişlerinde ise sayaç PayTR callback onayı anında kesinleştirilir
+      if (!isKart) {
+        const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: cleanKuponKodu })
+        if (rpcErr) {
+          const { data: kData } = await db.from('kuponlar').select('id, kullanim_sayisi').ilike('kod', cleanKuponKodu).maybeSingle()
+          if (kData) {
+            await db.from('kuponlar').update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 }).eq('id', kData.id)
+          }
         }
       }
 
-      if (user_id) {
-        try {
-          await db.from('kullanici_kuponlari').update({
-            kullanildi: true,
-            kullanilma_tarihi: new Date().toISOString(),
-          }).eq('user_id', user_id).ilike('kupon_kodu', cleanKuponKodu)
-        } catch {}
-      }
+      try {
+        await db.from('kullanici_kuponlari').update({
+          kullanildi: true,
+          kullanilma_tarihi: new Date().toISOString(),
+        }).eq('user_id', validUserId).ilike('kupon_kodu', cleanKuponKodu)
+      } catch {}
     }
 
     const emailData = {

@@ -61,7 +61,7 @@ export default function IptalVeIade() {
                 <Phone size={16} className="text-brand-red shrink-0 mt-0.5" />
                 <div>
                   <div className="font-display font-bold text-xs uppercase text-slate-800 mb-1">Telefon</div>
-                  <div className="text-slate-500">+90 352 231 69 15</div>
+                  <div className="text-slate-500">0850 305 38 70</div>
                 </div>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-start gap-3">
@@ -144,7 +144,7 @@ export default function IptalVeIade() {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-2 font-body text-slate-700 text-sm">
               <p><strong>Alıcı / Firma:</strong> Mustafa Akdağ - Akdağ Elektronik (Sescim.com İade Birimi)</p>
               <p><strong>Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</p>
-              <p><strong>Telefon:</strong> +90 352 231 69 15 (Pzt - Cmt: 09:00 - 19:00)</p>
+              <p><strong>Telefon:</strong> 0850 305 38 70 (Pzt - Cmt: 09:00 - 19:00)</p>
               <p><strong>E-posta:</strong> info@sescim.com</p>
               <p><strong>Vergi Dairesi &amp; No:</strong> Erciyes Vergi Dairesi / 0200327808</p>
               <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">

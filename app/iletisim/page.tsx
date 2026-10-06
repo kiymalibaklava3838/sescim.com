@@ -1,17 +1,17 @@
 import { Metadata } from 'next'
-import { MapPin, Phone, Mail, Clock, ShieldCheck } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, ShieldCheck, MessageCircle } from 'lucide-react'
 import IletisimForm from '@/components/IletisimForm'
 import { getSiteUrl } from '@/lib/site-url'
 
 export const metadata: Metadata = {
   title: 'İletişim & Müşteri Hizmetleri',
-  description: 'Sescim müşteri hizmetleri telefonu: +90 352 231 69 15, Kayseri merkez mağaza adresi, e-posta ve iletişim formu. Uzman ses ve ışık ekibimize hemen ulaşın.',
+  description: 'Sescim müşteri hizmetleri telefonu: 0850 305 38 70, Kayseri merkez mağaza adresi, e-posta ve iletişim formu. Uzman ses ve ışık ekibimize hemen ulaşın.',
   alternates: {
     canonical: `${getSiteUrl()}/iletisim`,
   },
   openGraph: {
     title: 'İletişim & Müşteri Hizmetleri | Sescim',
-    description: 'Sescim müşteri hizmetleri, telefon: +90 352 231 69 15, Kayseri merkez mağaza adresi ve iletişim kanalları.',
+    description: 'Sescim müşteri hizmetleri, telefon: 0850 305 38 70, Kayseri merkez mağaza adresi ve iletişim kanalları.',
     url: `${getSiteUrl()}/iletisim`,
     siteName: 'Sescim',
     locale: 'tr_TR',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'İletişim & Müşteri Hizmetleri | Sescim',
-    description: 'Sescim müşteri hizmetleri, telefon: +90 352 231 69 15, Kayseri merkez mağaza adresi.',
+    description: 'Sescim müşteri hizmetleri, telefon: 0850 305 38 70, Kayseri merkez mağaza adresi.',
     images: [`${getSiteUrl()}/logo.png`],
   },
 }
@@ -58,7 +58,7 @@ export default function IletisimPage() {
       '@type': 'Organization',
       name: 'Sescim',
       legalName: 'Mustafa Akdağ - Akdağ Elektronik',
-      telephone: '+90-352-231-69-15',
+      telephone: '+90-850-305-38-70',
       email: 'info@sescim.com',
       address: {
         '@type': 'PostalAddress',
@@ -122,11 +122,31 @@ export default function IletisimPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-lg mb-1">Müşteri Destek Telefonu</h3>
-                    <a href="tel:+903522316915" className="text-slate-200 hover:text-white font-mono font-semibold transition-colors">
-                      +90 352 231 69 15
+                    <a href="tel:+908503053870" className="text-slate-200 hover:text-white font-mono font-semibold transition-colors">
+                      0850 305 38 70
                     </a>
                     <p className="text-slate-400 text-xs mt-1 flex items-center gap-1">
                       <Clock size={12} className="text-amber-400" /> Pazartesi - Cumartesi: 09:00 - 19:00
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <MessageCircle className="text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-lg mb-1">WhatsApp Danışma Hattı</h3>
+                    <a
+                      href="https://wa.me/908503053870"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 font-mono font-semibold transition-colors"
+                    >
+                      0850 305 38 70
+                    </a>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Resmi Sescim WhatsApp Business
                     </p>
                   </div>
                 </div>

@@ -106,11 +106,12 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
 
   const loadBekleyenSiparis = async () => {
     // Sadece admin aksiyonu gerektiren gerçek siparişleri say (onaylanan veya hazırlananlar)
-    // Ödeme bekleyen kart denemeleri asılsız bildirim üretmez
+    // Ödeme hatası alan veya iptal edilenler asla bildirim rozeti üretmez
     const { count } = await supabase
       .from('siparisler')
       .select('*', { count: 'exact', head: true })
       .in('durum', ['onaylandi', 'hazirlaniyor'])
+      .neq('odeme_durumu', 'odeme_hatasi')
     setBekleyenSiparis(count || 0)
   }
 

@@ -122,7 +122,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
           
           {product.fiyat_sorunuz ? (
             <a
-              href={`https://wa.me/905323934370?text=${shareText}`}
+              href={`https://wa.me/908503053870?text=${shareText}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-11 px-5 rounded-xl font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md active:scale-95"
@@ -151,7 +151,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
 
               {/* WhatsApp Danışma */}
               <a
-                href={`https://wa.me/905323934370?text=${shareText}`}
+                href={`https://wa.me/908503053870?text=${shareText}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-11 h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 transition-colors shadow-xs"

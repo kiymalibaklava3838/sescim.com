@@ -122,7 +122,7 @@ export default function ProposalPageClient({ proposal: p }: { proposal: Proposal
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><MapPin size={9} /> Cumhuriyet Mh. Sur Cd. No: 17/A Melikgazi / KAYSERİ</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Phone size={9} /> (352) 231 69 15 — (532) 393 43 70</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Phone size={9} /> 0850 305 38 70</div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Globe size={9} /> akdagelektronik.com</div>
               </>
             )}

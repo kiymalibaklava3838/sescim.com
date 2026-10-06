@@ -431,7 +431,7 @@ export default async function UrunDetayPage({ params }: Props) {
               {isFiyatSorunuz ? (
                 <div className="space-y-3">
                   <a
-                    href={`https://wa.me/905323934370?text=${encodeURIComponent(
+                    href={`https://wa.me/908503053870?text=${encodeURIComponent(
                       `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün Linki: ${getSiteUrl()}/urun/${product.slug}`
                     )}`}
                     target="_blank"
@@ -446,7 +446,7 @@ export default async function UrunDetayPage({ params }: Props) {
 
                   <div className="grid grid-cols-2 gap-3">
                     <a
-                      href="tel:+903522316915"
+                      href="tel:+908503053870"
                       className="btn-outline text-xs justify-center py-2.5 rounded-xl"
                     >
                       <Phone size={13} />
@@ -529,7 +529,7 @@ export default async function UrunDetayPage({ params }: Props) {
 
               {/* Ses Uzmanına Danış (WhatsApp) */}
               <a
-                href={`https://wa.me/905323934370?text=${encodeURIComponent(
+                href={`https://wa.me/908503053870?text=${encodeURIComponent(
                   `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü hakkında teknik danışmanlık almak istiyorum.\nÜrün Linki: ${getSiteUrl()}/urun/${product.slug}`
                 )}`}
                 target="_blank"
@@ -543,7 +543,7 @@ export default async function UrunDetayPage({ params }: Props) {
               </a>
               
               <div className="grid grid-cols-2 gap-3">
-                <a href="tel:+903522316915"
+                <a href="tel:+908503053870"
                   className="btn-outline text-xs justify-center py-2.5 rounded-xl">
                   <Phone size={13} />
                   Hızlı Arama

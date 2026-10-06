@@ -387,11 +387,11 @@ function SiparisTakipContent() {
                     Siparişiniz veya teslimat sürecinizle ilgili sorularınız için müşteri temsilcimizle görüşebilirsiniz.
                   </p>
                   <a
-                    href="tel:+903522316915"
+                    href="tel:+908503053870"
                     className="w-full py-2.5 px-4 bg-brand-red hover:bg-red-700 text-white rounded-xl text-xs font-display font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-sm"
                   >
                     <Phone size={14} />
-                    +90 352 231 69 15
+                    0850 305 38 70
                   </a>
                 </div>
               </div>

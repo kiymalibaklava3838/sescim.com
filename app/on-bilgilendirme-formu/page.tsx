@@ -32,7 +32,7 @@ export default function OnBilgilendirmeFormu() {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-2">
               <p><strong>Ticari Unvan:</strong> Mustafa Akdağ - Akdağ Elektronik (Satış Platformu: sescim.com)</p>
               <p className="flex items-center gap-2"><MapPin size={15} className="text-brand-red shrink-0" /><strong>Fiziksel Adres:</strong> Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri</p>
-              <p className="flex items-center gap-2"><Phone size={15} className="text-brand-red shrink-0" /><strong>Telefon:</strong> +90 352 231 69 15 (Pzt - Cmt: 09:00 - 19:00)</p>
+              <p className="flex items-center gap-2"><Phone size={15} className="text-brand-red shrink-0" /><strong>Telefon:</strong> 0850 305 38 70 (Pzt - Cmt: 09:00 - 19:00)</p>
               <p className="flex items-center gap-2"><Mail size={15} className="text-brand-red shrink-0" /><strong>E-posta:</strong> info@sescim.com</p>
               <p><strong>Vergi Dairesi &amp; No:</strong> Erciyes Vergi Dairesi / 0200327808</p>
             </div>
@@ -69,7 +69,7 @@ export default function OnBilgilendirmeFormu() {
               ALICI, mal teslimine ilişkin sözleşmelerde ürünün kendisine veya gösterdiği adresteki kişi/kuruluşa teslim tarihinden itibaren <strong>14 (on dört) gün</strong> içerisinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin cayma hakkını kullanabilir.
             </p>
             <p className="mb-3">
-              Cayma hakkının kullanılması için bu süre içinde SATICI'ya e-posta (<a href="mailto:info@sescim.com" className="text-brand-red underline">info@sescim.com</a>) veya telefon (+90 352 231 69 15) ile açık bildirimde bulunulması ve ürünün ambalajının, kutusunun, aksesuarlarının ve varsa garanti belgelerinin eksiksiz ve hasarsız olması gerekmektedir.
+              Cayma hakkının kullanılması için bu süre içinde SATICI'ya e-posta (<a href="mailto:info@sescim.com" className="text-brand-red underline">info@sescim.com</a>) veya telefon (0850 305 38 70) ile açık bildirimde bulunulması ve ürünün ambalajının, kutusunun, aksesuarlarının ve varsa garanti belgelerinin eksiksiz ve hasarsız olması gerekmektedir.
             </p>
             <p className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
               <strong>İade Gönderim Adresi:</strong> Mustafa Akdağ - Akdağ Elektronik (Sescim.com İade Birimi), Cumhuriyet Mah. Sur Cad. No:17/A, Melikgazi / Kayseri

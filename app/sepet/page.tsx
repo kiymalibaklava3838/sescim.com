@@ -142,6 +142,11 @@ export default function SepetPage() {
         if (prof) {
           setAdSoyad(prev => prev || `${prof.ad} ${prof.soyad}`.trim())
           setTelefon(prev => prev || prof.telefon || '')
+        } else if (currentUser.user_metadata) {
+          const metaName = currentUser.user_metadata.full_name || currentUser.user_metadata.name || ''
+          const metaPhone = currentUser.user_metadata.phone || ''
+          if (metaName) setAdSoyad(prev => prev || metaName.trim())
+          if (metaPhone) setTelefon(prev => prev || metaPhone.trim())
         }
 
         // Adresleri Çek

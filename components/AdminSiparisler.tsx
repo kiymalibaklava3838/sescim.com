@@ -96,7 +96,6 @@ export default function AdminSiparisler() {
   const supabase = useRef(createClient()).current
 
   useEffect(() => {
-    loadSiparisler(0)
     loadBasitKargoBalance()
 
     const channel = supabase
@@ -108,7 +107,7 @@ export default function AdminSiparisler() {
           const yeni = payload.new
           // Sadece ödemesi tamamlanmış veya durumu onaylanmış gerçek siparişlerde listeyi otomatik tazele
           if (yeni && (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi')) {
-            loadSiparisler(0)
+            loadSiparisler(0, false, search, filterDurum)
           }
         }
       )
@@ -119,13 +118,27 @@ export default function AdminSiparisler() {
     }
   }, [])
 
-  const loadSiparisler = async (p: number, append = false) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadSiparisler(0, false, search, filterDurum)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, filterDurum])
+
+  const loadSiparisler = async (p: number, append = false, currentSearch = search, currentFilter = filterDurum) => {
     if (append) setLoadingMore(true)
-    else setLoading(true)
+    else if (p === 0 && siparisler.length === 0) setLoading(true)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`/api/admin/siparisler?page=${p}&limit=${PAGE_SIZE}`, {
+      const params = new URLSearchParams({
+        page: p.toString(),
+        limit: PAGE_SIZE.toString(),
+      })
+      if (currentSearch.trim()) params.set('search', currentSearch.trim())
+      if (currentFilter && currentFilter !== 'hepsi') params.set('durum', currentFilter)
+
+      const res = await fetch(`/api/admin/siparisler?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token || ''}`
         }
@@ -141,10 +154,24 @@ export default function AdminSiparisler() {
         // Fallback: direct Supabase query
         const from = p * PAGE_SIZE
         const to = from + PAGE_SIZE - 1
-        const { data } = await supabase
+        let q = supabase
           .from('siparisler')
-          .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti')
+          .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti, dekont_url')
           .neq('durum', 'odeme_bekliyor')
+
+        if (currentFilter && currentFilter !== 'hepsi') {
+          if (currentFilter === 'dekontlu') {
+            q = q.or('dekont_url.not.is.null,notlar.ilike.%Dekont yüklendi%')
+          } else {
+            q = q.eq('durum', currentFilter)
+          }
+        }
+        if (currentSearch.trim()) {
+          const clean = currentSearch.trim().replace(/[%_,]/g, '')
+          q = q.or(`siparis_no.ilike.%${clean}%,ad_soyad.ilike.%${clean}%,email.ilike.%${clean}%,telefon.ilike.%${clean}%`)
+        }
+
+        const { data } = await q
           .order('created_at', { ascending: false })
           .range(from, to)
 
@@ -354,8 +381,7 @@ export default function AdminSiparisler() {
   }
 
   const filtered = siparisler.filter(s => {
-    const dUrl = getDekontUrl(s)
-    const durumMatch = filterDurum === 'hepsi' || s.durum === filterDurum || (filterDurum === 'dekontlu' && !!dUrl)
+    const durumMatch = filterDurum === 'hepsi' || s.durum === filterDurum
     const searchMatch = !search ||
       s.siparis_no?.toLowerCase().includes(search.toLowerCase()) ||
       s.ad_soyad?.toLowerCase().includes(search.toLowerCase()) ||
@@ -422,7 +448,6 @@ export default function AdminSiparisler() {
         <div className="flex gap-1.5 flex-wrap">
           {[
             { id: 'hepsi', label: 'Tümü' },
-            { id: 'dekontlu', label: 'Dekontlu' },
             ...Object.entries(DURUM_CONFIG).map(([id, c]) => ({ id, label: c.label })),
           ].map(f => (
             <button key={f.id} onClick={() => setFilterDurum(f.id)}
@@ -868,7 +893,7 @@ export default function AdminSiparisler() {
       {hasMore && (
         <div className="mt-8 flex justify-center">
           <button
-            onClick={() => loadSiparisler(page + 1, true)}
+            onClick={() => loadSiparisler(page + 1, true, search, filterDurum)}
             disabled={loadingMore}
             className="btn-outline text-xs py-3 px-10 min-w-[200px] justify-center"
           >

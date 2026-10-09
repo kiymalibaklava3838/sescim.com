@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // 2. Sipariş sahiplik kontrolü — dekont bildirimi sadece siparişin sahibi tarafından yapılabilir
     const { data: siparis } = await db
       .from('siparisler')
-      .select('email, user_id')
+      .select('email, user_id, notlar')
       .eq('id', siparis_id)
       .single()
 
@@ -42,6 +42,19 @@ export async function POST(req: NextRequest) {
     if (siparis.user_id !== user.id) {
       return NextResponse.json({ error: 'Bu siparişe erişim yetkiniz yok' }, { status: 403 })
     }
+
+    // Siparişi sunucu tarafında güvenli şekilde güncelle (dekont_url ekle ve notları ezmeden ekle)
+    const dekontNote = `[Sistem: Dekont yüklendi - ${dekont_url}] ${new Date().toLocaleString('tr-TR')}`
+    const updatedNotes = siparis.notlar ? `${siparis.notlar}\n${dekontNote}` : dekontNote
+
+    await db
+      .from('siparisler')
+      .update({
+        dekont_url: dekont_url,
+        notlar: updatedNotes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', siparis_id)
 
     const musteriEmail = siparis.email
 

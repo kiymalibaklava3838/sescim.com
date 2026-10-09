@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
 
     const { data: siparis, error: siparisErr } = await db
       .from('siparisler')
-      .select('id, siparis_no, email, ad_soyad, telefon, toplam_tutar, durum, odeme_durumu, notlar, stok_dusuldu, onay_maili_gonderildi, odeme_hata_maili_gonderildi, kupon_kodu')
+      .select('id, siparis_no, user_id, email, ad_soyad, telefon, toplam_tutar, durum, odeme_durumu, notlar, stok_dusuldu, onay_maili_gonderildi, odeme_hata_maili_gonderildi, kupon_kodu')
       .in('siparis_no', [merchant_oid, hyphenatedOid])
       .maybeSingle()
 
@@ -299,12 +299,12 @@ export async function POST(req: NextRequest) {
       }
 
       // ───────────────────────────────────────────────────────────────────────
-      // 7. ÖDEME DURUMUNU SAHİPLENME (NULL-Safe & İptal Korunmalı Claim)
+      // 7. ÖDEME DURUMUNU SAHİPLENME (Atomik Claim — Yarış Korumalı)
       // ───────────────────────────────────────────────────────────────────────
       const isAlreadyPaid = siparis.odeme_durumu === 'odendi'
 
       if (!isAlreadyPaid) {
-        const { error: claimErr } = await db
+        const { data: claimRows, error: claimErr } = await db
           .from('siparisler')
           .update({
             odeme_durumu: 'odendi',
@@ -314,10 +314,18 @@ export async function POST(req: NextRequest) {
           .eq('id', siparis.id)
           .neq('durum', 'iptal') // Admin tam bu sırada iptal ettiyse ezilmesin
           .or('odeme_durumu.is.null,odeme_durumu.neq.odendi')
+          .select('id')
 
         if (claimErr) {
           console.error('[paytr-callback] Sipariş onay güncellenirken DB hatası:', claimErr.message)
           return new NextResponse('DB_UPDATE_ERROR', { status: 500, headers: { 'Content-Type': 'text/plain' } })
+        }
+
+        // KRİTİK: Eğer güncellenen satır 0 ise, başka bir eş zamanlı webhook bu ödemeyi
+        // zaten sahiplendi demektir. Stok, kupon ve e-posta işlemlerini TEKRARLAMADAN çık.
+        if (!claimRows || claimRows.length === 0) {
+          console.log('[paytr-callback] Ödeme zaten başka bir webhook tarafından işlendi, atlanıyor:', merchant_oid)
+          return new NextResponse('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } })
         }
       }
 
@@ -471,15 +479,44 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8.3. KUPON KULLANIMINI KESİNLEŞTİR
+      // 8.3. KUPON KULLANIMINI KESİNLEŞTİR (Ödeme Başarılı)
       if (siparis.kupon_kodu) {
         try {
+          const cleanKodu = siparis.kupon_kodu.trim().toUpperCase()
+
+          // 1. kupon_kullanimlari durumunu onaylandi yap
           await db
             .from('kupon_kullanimlari')
             .update({ durum: 'onaylandi' })
             .eq('siparis_id', siparis.id)
 
-          await db.rpc('increment_kupon_kullanim', { p_kod: siparis.kupon_kodu.trim().toUpperCase() })
+          // 2. kuponlar tablosundaki genel kullanim_sayisi sayacını +1 artır
+          const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: cleanKodu })
+          if (rpcErr) {
+            const { data: kData } = await db
+              .from('kuponlar')
+              .select('id, kullanim_sayisi')
+              .ilike('kod', cleanKodu)
+              .maybeSingle()
+            if (kData) {
+              await db
+                .from('kuponlar')
+                .update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 })
+                .eq('id', kData.id)
+            }
+          }
+
+          // 3. Kullanıcının profilindeki cüzdan kuponunu 'kullanildi = true' yap
+          if (siparis.user_id) {
+            await db
+              .from('kullanici_kuponlari')
+              .update({
+                kullanildi: true,
+                kullanilma_tarihi: new Date().toISOString(),
+              })
+              .eq('user_id', siparis.user_id)
+              .ilike('kupon_kodu', cleanKodu)
+          }
         } catch (kErr: any) {
           console.warn('[paytr-callback] Kupon onaylama uyarısı:', kErr?.message)
         }
@@ -519,11 +556,20 @@ export async function POST(req: NextRequest) {
       // Başarısız ödemede kullanıcının beklemedeki kuponunu serbest bırak (tekrar deneyebilsin)
       if (siparis.kupon_kodu) {
         try {
+          const cleanKodu = siparis.kupon_kodu.trim().toUpperCase()
           await db
             .from('kupon_kullanimlari')
             .delete()
             .eq('siparis_id', siparis.id)
             .eq('durum', 'beklemede')
+
+          if (siparis.user_id) {
+            await db
+              .from('kullanici_kuponlari')
+              .update({ kullanildi: false, kullanilma_tarihi: null })
+              .eq('user_id', siparis.user_id)
+              .ilike('kupon_kodu', cleanKodu)
+          }
         } catch {}
       }
 

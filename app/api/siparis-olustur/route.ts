@@ -325,8 +325,6 @@ export async function POST(req: NextRequest) {
     const ekNot = `[Kurlar: USD=${dolarKuru}, EUR=${euroKuru}] [IP: ${ip}]`
     compiledNotlar = compiledNotlar ? `${compiledNotlar} | ${ekNot}` : ekNot
 
-    const isKart = (odeme_tipi === 'kredi_karti' || odeme_tipi === 'kart')
-
     const insertPayload: any = {
       user_id: validUserId,
       urunler: verifiedUrunler.map(u => ({
@@ -341,11 +339,9 @@ export async function POST(req: NextRequest) {
       email: email,
       telefon: telefon || '',
       notlar: compiledNotlar,
-      odeme_tipi: odeme_tipi || 'kart',
-      odeme_durumu: isKart ? 'odeme_bekliyor' : 'beklemede',
-      // Kart ödemelerinde PayTR onayı gelene kadar durum 'odeme_bekliyor' yapılır.
-      // Bu sayede ödeme yapılmadığı sürece admine veya müşteriye sipariş düştü bildirimi gitmez.
-      durum: isKart ? 'odeme_bekliyor' : 'beklemede',
+      odeme_tipi: 'kart',
+      odeme_durumu: 'odeme_bekliyor',
+      durum: 'odeme_bekliyor',
       teslimat_adresi: teslimat_adresi || null,
       fatura_adresi: derlenmisFaturaAdresi || null,
       kupon_kodu: cleanKuponKodu || null,
@@ -409,175 +405,106 @@ export async function POST(req: NextRequest) {
       console.error('[siparis-olustur] siparis_kalemleri ekleme hatası:', kErr)
     }
 
-    // Kart siparişlerinde PayTR token'ını anında burada üretip tek yanıtta döndür (Gecikmeyi önler)
+    // PayTR token'ını anında burada üretip tek yanıtta döndür (Gecikmeyi önler)
     let paytrToken: string | null = null
-    if (isKart) {
-      try {
-        const PAYTR_MERCHANT_ID = process.env.PAYTR_MERCHANT_ID
-        const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY
-        const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT
+    try {
+      const PAYTR_MERCHANT_ID = process.env.PAYTR_MERCHANT_ID
+      const PAYTR_MERCHANT_KEY = process.env.PAYTR_MERCHANT_KEY
+      const PAYTR_MERCHANT_SALT = process.env.PAYTR_MERCHANT_SALT
 
-        if (PAYTR_MERCHANT_ID && PAYTR_MERCHANT_KEY && PAYTR_MERCHANT_SALT) {
-          const tutarKurus = Math.round(serverGenelToplam * 100).toString()
-          const itemsSum = verifiedUrunler.reduce((sum, u) => sum + (Number(u.fiyat || 0) * Number(u.adet || 1)), 0)
+      if (PAYTR_MERCHANT_ID && PAYTR_MERCHANT_KEY && PAYTR_MERCHANT_SALT) {
+        const tutarKurus = Math.round(serverGenelToplam * 100).toString()
+        const itemsSum = verifiedUrunler.reduce((sum, u) => sum + (Number(u.fiyat || 0) * Number(u.adet || 1)), 0)
 
-          let basketArray: [string, string, number][] = []
-          if (Math.abs(itemsSum - serverGenelToplam) < 0.05) {
-            basketArray = verifiedUrunler.map((u) => [
-              String(u.ad || 'Ürün').slice(0, 100).replace(/[^\w\s\-\.\,\(\)çğıöşüÇĞİÖŞÜ]/gi, ''),
-              Number(u.fiyat).toFixed(2),
-              Number(u.adet || 1)
-            ])
-          } else {
-            const ozet = verifiedUrunler.map((u) => `${u.ad} (x${u.adet})`).join(', ').slice(0, 90)
-            basketArray = [
-              [`${ozet || 'Sipariş Bedeli'}`, serverGenelToplam.toFixed(2), 1]
-            ]
-          }
-
-          const sepetIcerik = JSON.stringify(basketArray)
-          const sepetBase64 = Buffer.from(sepetIcerik).toString('base64')
-          const test_mode = process.env.PAYTR_TEST_MODE === '1' ? '1' : '0'
-          const merchant_oid = siparis.siparis_no.replace(/[^a-zA-Z0-9]/g, '')
-          const siteUrl = getSiteUrl()
-
-          const hashStr = [
-            PAYTR_MERCHANT_ID,
-            ip,
-            merchant_oid,
-            email,
-            tutarKurus,
-            sepetBase64,
-            '0', // no_installment
-            '0', // max_installment
-            'TL',
-            test_mode,
-            PAYTR_MERCHANT_SALT,
-          ].join('')
-
-          const tokenSig = crypto.createHmac('sha256', PAYTR_MERCHANT_KEY).update(hashStr).digest('base64')
-
-          const params = new URLSearchParams({
-            merchant_id: PAYTR_MERCHANT_ID,
-            user_ip: ip,
-            merchant_oid,
-            email,
-            payment_amount: tutarKurus,
-            paytr_token: tokenSig,
-            user_basket: sepetBase64,
-            user_address: teslimat_adresi || 'Türkiye',
-            debug_on: '1',
-            no_installment: '0',
-            max_installment: '0',
-            user_name: ad_soyad || 'Müşteri',
-            user_phone: telefon || '',
-            merchant_ok_url: `${siteUrl}/odeme/basarili?siparis_no=${siparis.siparis_no}`,
-            merchant_fail_url: `${siteUrl}/odeme/hata?siparis_no=${siparis.siparis_no}`,
-            timeout_limit: '30',
-            currency: 'TL',
-            test_mode,
-            lang: 'tr',
-          })
-
-          const paytrRes = await fetch('https://www.paytr.com/odeme/api/get-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString(),
-          })
-
-          const paytrData = await paytrRes.json()
-          if (paytrData.status === 'success') {
-            paytrToken = paytrData.token
-          } else {
-            console.error('[siparis-olustur] PayTR get-token hatası:', paytrData.reason)
-          }
+        let basketArray: [string, string, number][] = []
+        if (Math.abs(itemsSum - serverGenelToplam) < 0.05) {
+          basketArray = verifiedUrunler.map((u) => [
+            String(u.ad || 'Ürün').slice(0, 100).replace(/[^\w\s\-\.\,\(\)çğıöşüÇĞİÖŞÜ]/gi, ''),
+            Number(u.fiyat).toFixed(2),
+            Number(u.adet || 1)
+          ])
+        } else {
+          const ozet = verifiedUrunler.map((u) => `${u.ad} (x${u.adet})`).join(', ').slice(0, 90)
+          basketArray = [
+            [`${ozet || 'Sipariş Bedeli'}`, serverGenelToplam.toFixed(2), 1]
+          ]
         }
-      } catch (paytrErr) {
-        console.error('[siparis-olustur] PayTR bağlantı hatası:', paytrErr)
+
+        const sepetIcerik = JSON.stringify(basketArray)
+        const sepetBase64 = Buffer.from(sepetIcerik).toString('base64')
+        const test_mode = process.env.PAYTR_TEST_MODE === '1' ? '1' : '0'
+        const merchant_oid = siparis.siparis_no.replace(/[^a-zA-Z0-9]/g, '')
+        const siteUrl = getSiteUrl()
+
+        const hashStr = [
+          PAYTR_MERCHANT_ID,
+          ip,
+          merchant_oid,
+          email,
+          tutarKurus,
+          sepetBase64,
+          '0', // no_installment
+          '0', // max_installment
+          'TL',
+          test_mode,
+          PAYTR_MERCHANT_SALT,
+        ].join('')
+
+        const tokenSig = crypto.createHmac('sha256', PAYTR_MERCHANT_KEY).update(hashStr).digest('base64')
+
+        const params = new URLSearchParams({
+          merchant_id: PAYTR_MERCHANT_ID,
+          user_ip: ip,
+          merchant_oid,
+          email,
+          payment_amount: tutarKurus,
+          paytr_token: tokenSig,
+          user_basket: sepetBase64,
+          user_address: teslimat_adresi || 'Türkiye',
+          debug_on: '1',
+          no_installment: '0',
+          max_installment: '0',
+          user_name: ad_soyad || 'Müşteri',
+          user_phone: telefon || '',
+          merchant_ok_url: `${siteUrl}/odeme/basarili?siparis_no=${siparis.siparis_no}`,
+          merchant_fail_url: `${siteUrl}/odeme/hata?siparis_no=${siparis.siparis_no}`,
+          timeout_limit: '30',
+          currency: 'TL',
+          test_mode,
+          lang: 'tr',
+        })
+
+        const paytrRes = await fetch('https://www.paytr.com/odeme/api/get-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString(),
+        })
+
+        const paytrData = await paytrRes.json()
+        if (paytrData.status === 'success') {
+          paytrToken = paytrData.token
+        } else {
+          console.error('[siparis-olustur] PayTR get-token hatası:', paytrData.reason)
+        }
       }
+    } catch (paytrErr) {
+      console.error('[siparis-olustur] PayTR bağlantı hatası:', paytrErr)
     }
 
-    // Havale siparişlerinde stok hemen rezerve edilir (Yalnızca Sescim DB güncellenir, Akdağ DB salt-okunurdur)
-    // Kart siparişlerinde ise stok PayTR ödeme onayı geldiğinde (paytr-callback) düşülür.
-    if (!isKart) {
-      for (const item of urunler) {
-        if (!item.urun_id) continue
-        const dbProd = dbProducts.find((p) => p.id === item.urun_id || p.slug === item.urun_id)
-        if (!dbProd) continue
-
-        await deductSescimStock(db, dbProd, item.adet)
-      }
-    }
-
-    // Kupon kullanımını kaydet ve kilitle
+    // Kupon kullanımını 'beklemede' olarak kaydet ve kilitle
+    // PayTR callback onayı (paytr-callback) geldiğinde kupon kullanımı kesinleştirilir
     if (cleanKuponKodu && validUserId && siparis?.id) {
       try {
-        await db.from('kupon_kullanimlari').insert({
+        await db.from('kupon_kullanimlari').upsert({
           kupon_id: validatedKuponId,
           kupon_kodu: cleanKuponKodu,
           user_id: validUserId,
           siparis_id: siparis.id,
           email: email.trim().toLowerCase(),
-          durum: isKart ? 'beklemede' : 'onaylandi',
-        })
+          durum: 'beklemede',
+        }, { onConflict: 'user_id, kupon_kodu' })
       } catch (kkErr: any) {
-        console.warn('[siparis-olustur] kupon_kullanimlari insert uyarısı:', kkErr?.message)
-      }
-
-      // Havale siparişlerinde kupon kullanım sayısını anında artır
-      // Kart siparişlerinde ise sayaç PayTR callback onayı anında kesinleştirilir
-      if (!isKart) {
-        const { error: rpcErr } = await db.rpc('increment_kupon_kullanim', { p_kod: cleanKuponKodu })
-        if (rpcErr) {
-          const { data: kData } = await db.from('kuponlar').select('id, kullanim_sayisi').ilike('kod', cleanKuponKodu).maybeSingle()
-          if (kData) {
-            await db.from('kuponlar').update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 }).eq('id', kData.id)
-          }
-        }
-      }
-
-      try {
-        await db.from('kullanici_kuponlari').update({
-          kullanildi: true,
-          kullanilma_tarihi: new Date().toISOString(),
-        }).eq('user_id', validUserId).ilike('kupon_kodu', cleanKuponKodu)
-      } catch {}
-    }
-
-    const emailData = {
-      siparis_no: siparis.siparis_no,
-      ad_soyad: ad_soyad || 'Müşteri',
-      email,
-      telefon: telefon || '',
-      urunler: urunler.map((u) => ({
-        ...u,
-        fotograf: u.fotograf ?? undefined,
-      })),
-      toplam_tutar,
-      odeme_tipi: odeme_tipi || 'havale',
-      notlar: notlar ?? undefined,
-    }
-
-    // E-postalar: YALNIZCA Havale siparişlerinde hemen gider.
-    // Kredi kartı siparişlerinde ise ödeme ALINMADAN müşteriye veya admine ASLA bildirim gitmez;
-    // kart ödemesi PayTR tarafından onaylandığı an (paytr-callback) iki tarafa da onay maili gönderilir.
-    let emailError: string | undefined
-    if (!isKart) {
-      try {
-        await sendEmail(
-          email,
-          `Siparişiniz Alındı — ${siparis.siparis_no} | sescim.com`,
-          musterionayHTML(emailData)
-        )
-        const adminEmail = process.env.ADMIN_EMAIL || 'info@sescim.com'
-        await sendEmail(
-          adminEmail,
-          `🔔 Yeni Havale Siparişi: ${siparis.siparis_no} — ${toplam_tutar.toLocaleString('tr-TR')} ₺`,
-          adminBildirimHTML(emailData)
-        )
-      } catch (mailErr) {
-        emailError = (mailErr as Error).message
-        console.error('[siparis-olustur] E-posta gönderilemedi, sipariş oluşturuldu:', emailError)
+        console.warn('[siparis-olustur] kupon_kullanimlari upsert uyarısı:', kkErr?.message)
       }
     }
 
@@ -586,7 +513,6 @@ export async function POST(req: NextRequest) {
       siparis_no: siparis.siparis_no,
       id: siparis.id,
       paytr_token: paytrToken,
-      ...(emailError ? { email_error: 'E-posta gönderilemedi, siparişiniz kaydedildi.' } : {}),
     })
   } catch (e) {
     console.error('Sipariş oluşturma hatası:', e)

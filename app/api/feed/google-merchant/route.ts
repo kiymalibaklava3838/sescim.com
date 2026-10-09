@@ -29,12 +29,31 @@ export async function GET() {
     const supabase = await createAkdagServerClient()
     const kur = await getKur()
 
-    // 1. Hem Akdağ hem Sescim veritabanındaki ürünleri çek (Hibrit)
+    // 1. Hem Akdağ hem Sescim veritabanındaki ürünleri ve flaş indirimleri çek (Hibrit)
     const sescimDb = await createServerSupabaseClient()
-    const [akdagRes, sescimRes] = await Promise.all([
+    const [akdagRes, sescimRes, flashRes] = await Promise.all([
       supabase.from('urunler').select('id, slug, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu').limit(10000),
-      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] })
+      sescimDb ? sescimDb.from('urunler').select('id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, model_kodu, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif').limit(5000) : Promise.resolve({ data: [] }),
+      sescimDb ? sescimDb.from('flas_indirimler').select('urun_id, baslangic_tarihi, bitis_tarihi, aktif').eq('aktif', true) : Promise.resolve({ data: [] })
     ])
+
+    const flashMap = new Map<string, { startIso: string; endIso: string }>()
+    if (flashRes && (flashRes as any).data) {
+      ;(flashRes as any).data.forEach((f: any) => {
+        if (f.urun_id && f.baslangic_tarihi && f.bitis_tarihi) {
+          const now = Date.now()
+          const start = new Date(f.baslangic_tarihi).getTime()
+          const end = new Date(f.bitis_tarihi).getTime()
+          if (now >= start && now <= end) {
+            try {
+              const startIso = new Date(f.baslangic_tarihi).toISOString().replace('.000Z', '+03:00')
+              const endIso = new Date(f.bitis_tarihi).toISOString().replace('.000Z', '+03:00')
+              flashMap.set(f.urun_id, { startIso, endIso })
+            } catch {}
+          }
+        }
+      })
+    }
 
     const sProducts = (sescimRes.data || []).map((p: any) => ({
       ...p,
@@ -43,10 +62,21 @@ export async function GET() {
     }))
     const aProducts = akdagRes.data || []
 
-    // Deduplicate by id
+    // Deduplicate by id (Akdağ master catalog first)
     const productMap = new Map<string, any>()
-    sProducts.forEach((p: any) => productMap.set(p.id, p))
-    aProducts.forEach((p: any) => { if (!productMap.has(p.id)) productMap.set(p.id, p) })
+    aProducts.forEach((p: any) => productMap.set(p.id, p))
+    sProducts.forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
     const products = Array.from(productMap.values())
 
     // 2. Sescim fiyatlandırmasını eşle
@@ -126,6 +156,10 @@ export async function GET() {
       if (hasDiscount) {
         xml += `      <g:price>${normalPriceTL.toFixed(2)} TRY</g:price>\n`
         xml += `      <g:sale_price>${discountedPriceTL.toFixed(2)} TRY</g:sale_price>\n`
+        const flash = flashMap.get(p.id)
+        if (flash) {
+          xml += `      <g:sale_price_effective_date>${flash.startIso}/${flash.endIso}</g:sale_price_effective_date>\n`
+        }
       } else {
         xml += `      <g:price>${finalPriceTL.toFixed(2)} TRY</g:price>\n`
       }

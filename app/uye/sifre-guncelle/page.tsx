@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -41,7 +41,12 @@ export default function SifreGuncellePage() {
         router.push('/hesabim')
       }, 2500)
     } catch (err: any) {
-      setError(err.message || 'Şifre güncellenirken bir hata oluştu.')
+      const msg = err.message || ''
+      if (msg.toLowerCase().includes('session') || msg.toLowerCase().includes('not logged in')) {
+        setError('Oturum bulunamadı veya bağlantının süresi dolmuş. Lütfen yeniden şifre sıfırlama bağlantısı isteyin.')
+      } else {
+        setError(msg || 'Şifre güncellenirken bir hata oluştu.')
+      }
     } finally {
       setLoading(false)
     }

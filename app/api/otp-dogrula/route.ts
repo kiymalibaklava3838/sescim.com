@@ -11,9 +11,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, token } = await req.json()
+    const cleanToken = (token || '').toString().trim()
 
-    if (!email || !token || token.length !== 8) {
-      return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 })
+    if (!email || !cleanToken || cleanToken.length < 6 || cleanToken.length > 10) {
+      return NextResponse.json({ error: 'Geçersiz doğrulama kodu formatı.' }, { status: 400 })
     }
 
     const supabase = createClient(

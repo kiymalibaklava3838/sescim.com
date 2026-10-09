@@ -289,15 +289,34 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
       sq ? sq : Promise.resolve({ data: [], count: 0 })
     ])
 
+    const aData = akdagRes.data || []
     const sData = (sescimRes.data || []).map((p: any) => ({
       ...p,
       sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
       sescim_aktif: p.sescim_aktif !== false
     }))
-    const aData = akdagRes.data || []
 
-    const combined = [...sData, ...aData]
-    const totalCount = (sescimRes.count || 0) + (akdagRes.count || 0)
+    // Akdağ veritabanındaki ürünler ana katalogdur ve gerçek fiziksel stoğu taşır
+    const productMap = new Map<string, any>()
+    aData.forEach((p: any) => productMap.set(p.id, p))
+
+    // Sescim'deki ürünler: Eğer Akdağ'da zaten varsa, Akdağ'ın gerçek stoğunu ve bilgilerini KORU!
+    // Yalnızca Sescim'e özel fiyatlandırmayı üzerine bindir. Akdağ'da hiç yoksa (Sescim özel ürünü) listeye ekle.
+    sData.forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
+
+    const combined = Array.from(productMap.values())
+    const totalCount = combined.length
     const paged = combined.slice(from, to + 1)
 
     return { data: paged, count: totalCount }

@@ -160,37 +160,73 @@ export default function HesabimPage() {
   const accessTokenRef = useRef<string | null>(null)
 
   useEffect(() => {
+    let active = true
+
+    // Güvenlik zaman aşımı: Ne olursa olsun spinner en geç 3.5 saniye sonra kapatılır
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoading(false)
+    }, 3500)
+
     loadUserAndData()
+
+    // Oturum değişikliklerini dinle
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      if (session?.user && active) {
+        loadUserAndData(session)
+      }
+    })
+
+    return () => {
+      active = false
+      clearTimeout(fallbackTimer)
+      subscription.unsubscribe()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadUserAndData = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) {
-      router.push('/uye')
-      return
-    }
-
-    setUser(session.user)
-    accessTokenRef.current = session.access_token
-
-    let loadedOrders = false
+  const loadUserAndData = async (existingSession?: any) => {
     try {
-      const res = await fetch('/api/hesabim/siparisler', {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      })
-      if (res.ok) {
-        const json = await res.json()
-        if (json.siparisler) {
-          setSiparisler(json.siparisler)
-          loadedOrders = true
+      let session = existingSession
+      if (!session) {
+        const { data } = await supabase.auth.getSession()
+        session = data.session
+      }
+
+      if (!session?.user) {
+        const { data: userData } = await supabase.auth.getUser()
+        if (userData?.user) {
+          session = { user: userData.user, access_token: '' }
         }
       }
-    } catch (e) {
-      console.warn('API siparisler yuklenemedi, fallback yapiliyor:', e)
-    }
 
-    if (!loadedOrders) {
+      if (!session?.user) {
+        setLoading(false)
+        router.push('/uye')
+        return
+      }
+
+      setUser(session.user)
+      if (session.access_token) {
+        accessTokenRef.current = session.access_token
+      }
+
+    // Paralel veri yükleme: Siparişler, Adresler, Profil, Yorumlar ve Kuponlar eş zamanlı çekilir
+    const ordersPromise = (async () => {
+      try {
+        const res = await fetch('/api/hesabim/siparisler', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        })
+        if (res.ok) {
+          const json = await res.json()
+          if (json.siparisler) {
+            setSiparisler(json.siparisler)
+            return
+          }
+        }
+      } catch (e) {
+        console.warn('API siparisler yuklenemedi, fallback yapiliyor:', e)
+      }
+
       const { data: orders } = await supabase
         .from('siparisler')
         .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
@@ -213,123 +249,155 @@ export default function HesabimPage() {
       } else {
         setSiparisler([])
       }
-    }
+    })()
 
-    const { data: addresses } = await supabase
-      .from('kullanici_adresleri')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('id', { ascending: false })
-      
-    setAdresler(addresses || [])
-
-    const { data: profilData } = await supabase
-      .from('uye_profiller')
-      .select('id, user_id, ad, soyad, telefon')
-      .eq('user_id', session.user.id)
-      .maybeSingle()
-
-    if (profilData) {
-      setProfil(profilData)
-      setAd(profilData.ad || '')
-      setSoyad(profilData.soyad || '')
-      setTelefon(profilData.telefon || '')
-    }
-
-    // Yorumları Çek
-    try {
-      const { data: reviews } = await supabase
-        .from('urun_yorumlari')
-        .select('id, urun_id, puan, yorum, onaylandi, created_at')
+    const addressPromise = (async () => {
+      const { data: addresses } = await supabase
+        .from('kullanici_adresleri')
+        .select('*')
         .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        
+      setAdresler(addresses || [])
+    })()
 
-      if (reviews && reviews.length > 0) {
-        const urunIds = Array.from(new Set(reviews.map((r: any) => r.urun_id).filter(Boolean)))
-        const urunlerMap = new Map<string, any>()
-        try {
-          const { createAkdagBrowserClient } = await import('@/lib/supabase-akdag')
-          const akdagClient = createAkdagBrowserClient()
-          const { data: aUrunler } = await akdagClient
-            .from('urunler')
-            .select('id, ad, slug, fotograflar')
-            .in('id', urunIds)
-          ;(aUrunler || []).forEach((u: any) => urunlerMap.set(u.id, u))
-        } catch {}
+    const profilePromise = (async () => {
+      const { data: profilData } = await supabase
+        .from('uye_profiller')
+        .select('id, user_id, ad, soyad, telefon')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
 
-        const formattedReviews = reviews.map((r: any) => {
-          const u = urunlerMap.get(r.urun_id)
-          return {
-            id: r.id,
-            urun_id: r.urun_id,
-            puan: r.puan,
-            yorum: r.yorum,
-            durum: r.onaylandi ? 'onaylandi' : 'bekliyor',
-            created_at: r.created_at,
-            urun: {
-              ad: u?.ad || 'Ürün',
-              slug: u?.slug || r.urun_id,
-              fotograflar: u?.fotograflar || []
-            }
-          }
-        })
-        setDegerlendirmeler(formattedReviews as any)
+      if (profilData) {
+        setProfil(profilData)
+        setAd(profilData.ad || '')
+        setSoyad(profilData.soyad || '')
+        setTelefon(profilData.telefon || '')
       } else {
+        // user_metadata fallback (Yeni kayıt ve Google OAuth kullanıcıları için)
+        const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || ''
+        const parts = metaName.trim().split(/\s+/)
+        const metaSoyad = parts.length > 1 ? parts.pop() || '' : ''
+        const metaAd = parts.join(' ') || metaName
+        const metaPhone = session.user.user_metadata?.phone || ''
+
+        if (metaAd) setAd(metaAd)
+        if (metaSoyad) setSoyad(metaSoyad)
+        if (metaPhone) setTelefon(metaPhone)
+
+        // Otomatik uye_profiller kaydı oluştur (self-healing)
+        if (metaAd || metaPhone) {
+          try {
+            const { data: newP } = await supabase
+              .from('uye_profiller')
+              .insert({ user_id: session.user.id, ad: metaAd, soyad: metaSoyad, telefon: metaPhone })
+              .select('id, user_id, ad, soyad, telefon')
+              .maybeSingle()
+            if (newP) setProfil(newP)
+          } catch {}
+        }
+      }
+    })()
+
+    const reviewsPromise = (async () => {
+      try {
+        const { data: reviews } = await supabase
+          .from('urun_yorumlari')
+          .select('id, urun_id, puan, yorum, onaylandi, created_at')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (reviews && reviews.length > 0) {
+          const urunIds = Array.from(new Set(reviews.map((r: any) => r.urun_id).filter(Boolean)))
+          const urunlerMap = new Map<string, any>()
+          if (urunIds.length > 0) {
+            try {
+              const { createAkdagBrowserClient } = await import('@/lib/supabase-akdag')
+              const akdagClient = createAkdagBrowserClient()
+              const { data: aUrunler } = await akdagClient
+                .from('urunler')
+                .select('id, ad, slug, fotograflar')
+                .in('id', urunIds)
+              ;(aUrunler || []).forEach((u: any) => urunlerMap.set(u.id, u))
+            } catch {}
+          }
+
+          const formattedReviews = reviews.map((r: any) => {
+            const u = urunlerMap.get(r.urun_id)
+            return {
+              id: r.id,
+              urun_id: r.urun_id,
+              puan: r.puan,
+              yorum: r.yorum,
+              durum: r.onaylandi ? 'onaylandi' : 'bekliyor',
+              created_at: r.created_at,
+              urun: {
+                ad: u?.ad || 'Ürün',
+                slug: u?.slug || r.urun_id,
+                fotograflar: u?.fotograflar || []
+              }
+            }
+          })
+          setDegerlendirmeler(formattedReviews as any)
+        } else {
+          setDegerlendirmeler([])
+        }
+      } catch {
         setDegerlendirmeler([])
       }
-    } catch {
-      setDegerlendirmeler([])
-    }
+    })()
 
-    // Kuponları ve Kullanıcıya Tanımlı Kuponları Çek
-    let savedCodes: string[] = []
-    try {
-      const { data: userCoupons } = await supabase
-        .from('kullanici_kuponlari')
-        .select('kupon_kodu')
-        .eq('user_id', session.user.id)
-      if (userCoupons && userCoupons.length > 0) {
-        savedCodes = userCoupons.map((uc: any) => uc.kupon_kodu)
+    const couponsPromise = (async () => {
+      let savedCodes: string[] = []
+      try {
+        const { data: userCoupons } = await supabase
+          .from('kullanici_kuponlari')
+          .select('kupon_kodu')
+          .eq('user_id', session.user.id)
+        if (userCoupons && userCoupons.length > 0) {
+          savedCodes = userCoupons.map((uc: any) => uc.kupon_kodu)
+        }
+      } catch {}
+
+      try {
+        const localSaved = JSON.parse(localStorage.getItem(`sescim_user_coupons_${session.user.id}`) || '[]')
+        if (Array.isArray(localSaved)) {
+          savedCodes = Array.from(new Set([...savedCodes, ...localSaved]))
+        }
+      } catch {}
+
+      setTanimliKuponKodlari(savedCodes)
+
+      const { data: coupons } = await supabase
+        .from('kuponlar')
+        .select('*')
+        .eq('aktif', true)
+        .order('created_at', { ascending: false })
+        
+      if (coupons) {
+        const formatted = coupons
+          .filter((c: any) => {
+            if (c.ozel_mi === true) {
+              return savedCodes.includes(c.kod)
+            }
+            return true
+          })
+          .map((c: any) => ({
+            ...c,
+            kaynak: savedCodes.includes(c.kod) ? ('tanimli' as const) : ('genel' as const),
+          }))
+        setKuponlar(formatted)
+      } else {
+        setKuponlar([])
       }
-    } catch {
-      // Tablo henüz yoksa localStorage devrede
+    })()
+
+      await Promise.allSettled([ordersPromise, addressPromise, profilePromise, reviewsPromise, couponsPromise])
+    } catch (err) {
+      console.error('Hesabim veri yukleme hatasi:', err)
+    } finally {
+      setLoading(false)
     }
-
-    try {
-      const localSaved = JSON.parse(localStorage.getItem(`sescim_user_coupons_${session.user.id}`) || '[]')
-      if (Array.isArray(localSaved)) {
-        savedCodes = Array.from(new Set([...savedCodes, ...localSaved]))
-      }
-    } catch {}
-
-    setTanimliKuponKodlari(savedCodes)
-
-    // Tüm aktif kuponları çek
-    const { data: coupons } = await supabase
-      .from('kuponlar')
-      .select('*')
-      .eq('aktif', true)
-      .order('created_at', { ascending: false })
-      
-    if (coupons) {
-      const formatted = coupons
-        .filter((c: any) => {
-          // Eğer özel/gizli kuponsa, sadece kullanıcının tanımladıkları arasındaysa göster
-          if (c.ozel_mi === true) {
-            return savedCodes.includes(c.kod)
-          }
-          return true
-        })
-        .map((c: any) => ({
-          ...c,
-          kaynak: savedCodes.includes(c.kod) ? ('tanimli' as const) : ('genel' as const),
-        }))
-      setKuponlar(formatted)
-    } else {
-      setKuponlar([])
-    }
-
-    setLoading(false)
   }
 
   const handleKuponTanimla = async (e: React.FormEvent) => {
@@ -593,16 +661,7 @@ export default function HesabimPage() {
         .from('siparis-dekontlari')
         .getPublicUrl(filePath)
 
-      const { error: updateError } = await supabase
-        .from('siparisler')
-        .update({ 
-          notlar: `[Sistem: Dekont yüklendi - ${publicUrl}] ${new Date().toLocaleString('tr-TR')}` 
-        })
-        .eq('id', siparisId)
-
-      if (updateError) throw updateError
-
-      await fetch('/api/dekont-bildirim', {
+      const res = await fetch('/api/dekont-bildirim', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -614,7 +673,12 @@ export default function HesabimPage() {
           dekont_url: publicUrl,
           ad_soyad: user?.user_metadata?.full_name || user?.email
         })
-      }).catch(err => console.error('Bildirim hatası:', err))
+      })
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson?.error || 'Dekont bildirimi gönderilemedi')
+      }
 
       await loadUserAndData()
     } catch (err: any) {
@@ -727,8 +791,6 @@ export default function HesabimPage() {
                       const durum = DURUM_MAP[s.durum] || DURUM_MAP.beklemede
                       const DurumIcon = durum.icon
                       const urunAdedi = Array.isArray(s.urunler) ? s.urunler.reduce((sum, u) => sum + u.adet, 0) : 0
-                      const isHavale = s.odeme_tipi === 'havale'
-                      const needsReceipt = isHavale && !s.dekont_url && s.odeme_durumu !== 'odendi'
 
                       return (
                         <div key={s.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-slate-300 transition-colors">
@@ -885,23 +947,6 @@ export default function HesabimPage() {
 
                               <div className="mt-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-t border-slate-100 pt-6">
                                 <div className="flex gap-4 w-full md:w-auto">
-                                  {needsReceipt && (
-                                    <div className="w-full md:w-auto">
-                                      <label className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-brand-red/30 bg-brand-red/5 text-brand-red font-display font-bold text-xs cursor-pointer hover:bg-brand-red hover:text-white transition-all ${uploadingId === s.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {uploadingId === s.id ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                                        {uploadingId === s.id ? 'YÜKLENİYOR...' : 'DEKONT YÜKLE'}
-                                        <input 
-                                          type="file" 
-                                          className="hidden" 
-                                          accept="image/*,.pdf" 
-                                          onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) handleReceiptUpload(s.id, file)
-                                          }}
-                                        />
-                                      </label>
-                                    </div>
-                                  )}
 
                                   {s.dekont_url && (
                                     <div className="flex items-center gap-2 text-emerald-600 text-xs font-display font-bold px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">

@@ -9,55 +9,62 @@ import { isQuoteOnlyProduct } from './distributor-rules'
  */
 export const getProduct = unstable_cache(
   async (id: string) => {
-    // 1. Önce Sescim Supabase'de ara (Sescim'e özel eklenmiş ürünler)
-    try {
-      const sescimDb = await createServerSupabaseClient()
-      if (sescimDb) {
-        const sescimRes = await sescimDb.from('urunler')
-          .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
-          .eq('id', id)
-          .maybeSingle()
+    let productData: any = null
 
-        if (sescimRes.data) {
-          let prod: any = { ...sescimRes.data }
-          try {
-            const { getSescimPricing } = await import('./sescim-pricing')
-            const pricing = await getSescimPricing(prod.id)
-            if (pricing) {
-              prod = { ...prod, ...pricing }
-            }
-          } catch (e) {}
-          prod.fiyat_sorunuz = isQuoteOnlyProduct({ marka: prod.marka, fiyat_sorunuz: prod.fiyat_sorunuz })
-          const { sanitizeProductForClient } = await import('./pricing-engine')
-          return { data: sanitizeProductForClient(prod), error: null }
-        }
+    // 1. Akdağ Supabase ana ürün kataloğudur — öncelikle Akdağ'dan çek
+    try {
+      const akdagDb = await createAkdagServerClient()
+      const { data: akdagProduct } = await akdagDb
+        .from('urunler')
+        .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (akdagProduct) {
+        productData = akdagProduct
       }
     } catch (e) {
-      console.error('Error querying Sescim DB for product', id, e)
+      console.error('Akdağ DB query error for product id', id, e)
     }
 
-    // 2. Sescim'de yoksa Akdağ Supabase'den çek
-    const supabase = await createAkdagServerClient()
-    const result = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, created_at, updated_at')
-      .eq('id', id)
-      .single()
-
-    if (result.data) {
+    // 2. Akdağ'da bulunamadıysa, Sescim'e özel bağımsız eklenmiş bir ürün mü diye bak
+    if (!productData) {
       try {
-        const { getSescimPricing } = await import('./sescim-pricing')
-        const pricing = await getSescimPricing(result.data.id)
-        if (pricing) {
-          result.data = { ...result.data, ...pricing }
+        const sescimDb = await createServerSupabaseClient()
+        if (sescimDb) {
+          const { data: sescimProduct } = await sescimDb
+            .from('urunler')
+            .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
+            .eq('id', id)
+            .maybeSingle()
+
+          if (sescimProduct) {
+            productData = sescimProduct
+          }
         }
       } catch (e) {
-        console.error('Sescim pricing fetch failed for product', id, e)
+        console.error('Sescim DB query error for product id', id, e)
       }
-      ;(result.data as any).fiyat_sorunuz = isQuoteOnlyProduct({ marka: result.data.marka, fiyat_sorunuz: (result.data as any).fiyat_sorunuz })
-      const { sanitizeProductForClient } = await import('./pricing-engine')
-      result.data = sanitizeProductForClient(result.data)
     }
-    return result
+
+    if (!productData) {
+      return { data: null, error: { message: 'Ürün bulunamadı' } }
+    }
+
+    // 3. Sescim fiyatlarını ve Sescim'e özel stok varsa onu giydir
+    try {
+      const { getSescimPricing } = await import('./sescim-pricing')
+      const pricing = await getSescimPricing(productData.id)
+      if (pricing) {
+        productData = { ...productData, ...pricing }
+      }
+    } catch (e) {
+      console.error('Sescim pricing fetch failed for product', id, e)
+    }
+
+    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, fiyat_sorunuz: productData.fiyat_sorunuz })
+    const { sanitizeProductForClient } = await import('./pricing-engine')
+    return { data: sanitizeProductForClient(productData), error: null }
   },
   ['product-detail'],
   { revalidate: 3600, tags: ['products'] }
@@ -67,56 +74,62 @@ export const getProductBySlug = unstable_cache(
   async (slug: string) => {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
     const queryColumn = isUUID ? 'id' : 'slug'
+    let productData: any = null
 
-    // 1. Önce Sescim Supabase'de ara (Sescim'e özel eklenmiş ürünler)
+    // 1. Akdağ Supabase ana ürün kataloğudur — öncelikle Akdağ'dan çek
     try {
-      const sescimDb = await createServerSupabaseClient()
-      if (sescimDb) {
-        const sescimRes = await sescimDb.from('urunler')
-          .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
-          .eq(queryColumn, slug)
-          .maybeSingle()
+      const akdagDb = await createAkdagServerClient()
+      const { data: akdagProduct } = await akdagDb
+        .from('urunler')
+        .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
+        .eq(queryColumn, slug)
+        .maybeSingle()
 
-        if (sescimRes.data) {
-          let prod: any = { ...sescimRes.data }
-          try {
-            const { getSescimPricing } = await import('./sescim-pricing')
-            const pricing = await getSescimPricing(prod.id)
-            if (pricing) {
-              prod = { ...prod, ...pricing }
-            }
-          } catch (e) {}
-          prod.fiyat_sorunuz = isQuoteOnlyProduct({ marka: prod.marka, fiyat_sorunuz: prod.fiyat_sorunuz })
-          const { sanitizeProductForClient } = await import('./pricing-engine')
-          return { data: sanitizeProductForClient(prod), error: null }
-        }
+      if (akdagProduct) {
+        productData = akdagProduct
       }
     } catch (e) {
-      console.error('Error querying Sescim DB for product slug', slug, e)
+      console.error('Akdağ DB query error for product slug', slug, e)
     }
 
-    // 2. Sescim'de yoksa Akdağ Supabase'den çek
-    const supabase = await createAkdagServerClient()
-    const result = await supabase.from('urunler')
-      .select('id, ad, aciklama, kategori, alt_kategori, urun_tipi, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, fiyat_guncelleme, slug, created_at, updated_at')
-      .eq(queryColumn, slug)
-      .single()
-
-    if (result.data) {
+    // 2. Akdağ'da bulunamadıysa, Sescim'e özel bağımsız eklenmiş bir ürün mü diye bak
+    if (!productData) {
       try {
-        const { getSescimPricing } = await import('./sescim-pricing')
-        const pricing = await getSescimPricing(result.data.id)
-        if (pricing) {
-          result.data = { ...result.data, ...pricing }
+        const sescimDb = await createServerSupabaseClient()
+        if (sescimDb) {
+          const { data: sescimProduct } = await sescimDb
+            .from('urunler')
+            .select('id, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, slug, is_featured, created_at')
+            .eq(queryColumn, slug)
+            .maybeSingle()
+
+          if (sescimProduct) {
+            productData = sescimProduct
+          }
         }
       } catch (e) {
-        console.error('Sescim pricing fetch failed for product slug', slug, e)
+        console.error('Sescim DB query error for product slug', slug, e)
       }
-      ;(result.data as any).fiyat_sorunuz = isQuoteOnlyProduct({ marka: result.data.marka, fiyat_sorunuz: (result.data as any).fiyat_sorunuz })
-      const { sanitizeProductForClient } = await import('./pricing-engine')
-      result.data = sanitizeProductForClient(result.data)
     }
-    return result
+
+    if (!productData) {
+      return { data: null, error: { message: 'Ürün bulunamadı' } }
+    }
+
+    // 3. Sescim fiyatlarını ve Sescim'e özel stok varsa onu giydir
+    try {
+      const { getSescimPricing } = await import('./sescim-pricing')
+      const pricing = await getSescimPricing(productData.id)
+      if (pricing) {
+        productData = { ...productData, ...pricing }
+      }
+    } catch (e) {
+      console.error('Sescim pricing fetch failed for product slug', slug, e)
+    }
+
+    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, fiyat_sorunuz: productData.fiyat_sorunuz })
+    const { sanitizeProductForClient } = await import('./pricing-engine')
+    return { data: sanitizeProductForClient(productData), error: null }
   },
   ['product-detail-slug'],
   { revalidate: 3600, tags: ['products'] }

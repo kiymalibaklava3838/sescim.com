@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function DailyDealsTimer({ targetDate }: Props) {
-  const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null)
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null)
 
   useEffect(() => {
     const calculateTime = () => {
@@ -22,11 +22,12 @@ export default function DailyDealsTimer({ targetDate }: Props) {
       }
 
       const diff = Math.max(0, target - Date.now())
-      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
       const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
-      setTimeLeft({ hours, minutes, seconds })
+      setTimeLeft({ days, hours, minutes, seconds })
     }
 
     calculateTime()
@@ -52,6 +53,14 @@ export default function DailyDealsTimer({ targetDate }: Props) {
         <span className="hidden sm:inline">Kalan Süre:</span>
       </div>
       <div className="flex items-center gap-1 font-mono font-bold text-xs tracking-wider">
+        {timeLeft.days > 0 && (
+          <>
+            <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded text-[11px] font-display uppercase tracking-wider font-extrabold">
+              {timeLeft.days} Gün
+            </span>
+            <span className="text-slate-500">:</span>
+          </>
+        )}
         <span className="bg-slate-800 px-1.5 py-0.5 rounded text-white">{formatNumber(timeLeft.hours)}</span>
         <span className="text-slate-500">:</span>
         <span className="bg-slate-800 px-1.5 py-0.5 rounded text-white">{formatNumber(timeLeft.minutes)}</span>

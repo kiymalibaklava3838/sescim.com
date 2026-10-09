@@ -123,7 +123,7 @@ export async function updateOrderStatus(
   // 1. Mevcut sipariş verilerini oku
   const { data: siparis, error: getErr } = await db
     .from('siparisler')
-    .select('id, siparis_no, email, ad_soyad, durum, odeme_durumu, kargo_takip_no, kargo_firmasi, notlar')
+    .select('id, siparis_no, user_id, kupon_kodu, email, ad_soyad, durum, odeme_durumu, kargo_takip_no, kargo_firmasi, notlar')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -189,11 +189,80 @@ export async function updateOrderStatus(
           await restoreSescimStock(db, item.urun_id, item.adet)
         }
       }
+
+      // Kupon kullanımını iade et (Kullanıcı tekrar kullanabilsin, sayaç -1 düşsün)
+      if (siparis.kupon_kodu) {
+        try {
+          const cleanKodu = siparis.kupon_kodu.trim().toUpperCase()
+          // 1. kupon_kullanimlari kaydını iptal yap
+          await db
+            .from('kupon_kullanimlari')
+            .update({ durum: 'iptal' })
+            .eq('siparis_id', orderId)
+
+          // 2. kuponlar genel kullanım sayacını 1 azalt (en az 0)
+          const { data: kData } = await db
+            .from('kuponlar')
+            .select('id, kullanim_sayisi')
+            .ilike('kod', cleanKodu)
+            .maybeSingle()
+          if (kData && (kData.kullanim_sayisi || 0) > 0) {
+            await db
+              .from('kuponlar')
+              .update({ kullanim_sayisi: Math.max(0, (kData.kullanim_sayisi || 0) - 1) })
+              .eq('id', kData.id)
+          }
+
+          // 3. Kullanıcı cüzdanındaki kuponu tekrar kullanılabilir yap
+          if (siparis.user_id) {
+            await db
+              .from('kullanici_kuponlari')
+              .update({ kullanildi: false, kullanilma_tarihi: null })
+              .eq('user_id', siparis.user_id)
+              .ilike('kupon_kodu', cleanKodu)
+          }
+        } catch (kErr: any) {
+          console.warn('[updateOrderStatus] Kupon iade uyarısı:', kErr?.message)
+        }
+      }
     } else if (oldStatus === 'iptal' && newStatus !== 'iptal') {
       // İptal edilen sipariş tekrar aktif ediliyor -> stokları düş
       for (const item of items) {
         if (item.urun_id && item.adet) {
           await deductSescimStock(db, { id: item.urun_id }, item.adet)
+        }
+      }
+
+      // Kupon kullanımını tekrar onayla
+      if (siparis.kupon_kodu) {
+        try {
+          const cleanKodu = siparis.kupon_kodu.trim().toUpperCase()
+          await db
+            .from('kupon_kullanimlari')
+            .update({ durum: 'onaylandi' })
+            .eq('siparis_id', orderId)
+
+          const { data: kData } = await db
+            .from('kuponlar')
+            .select('id, kullanim_sayisi')
+            .ilike('kod', cleanKodu)
+            .maybeSingle()
+          if (kData) {
+            await db
+              .from('kuponlar')
+              .update({ kullanim_sayisi: (kData.kullanim_sayisi || 0) + 1 })
+              .eq('id', kData.id)
+          }
+
+          if (siparis.user_id) {
+            await db
+              .from('kullanici_kuponlari')
+              .update({ kullanildi: true, kullanilma_tarihi: new Date().toISOString() })
+              .eq('user_id', siparis.user_id)
+              .ilike('kupon_kodu', cleanKodu)
+          }
+        } catch (kErr: any) {
+          console.warn('[updateOrderStatus] Kupon yeniden onaylama uyarısı:', kErr?.message)
         }
       }
     }

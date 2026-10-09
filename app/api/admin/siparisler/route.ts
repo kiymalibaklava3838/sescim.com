@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const page = Math.max(0, parseInt(searchParams.get('page') || '0'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
+    const search = (searchParams.get('search') || '').trim()
+    const durum = (searchParams.get('durum') || '').trim()
     const from = page * limit
     const to = from + limit - 1
 
@@ -42,10 +44,21 @@ export async function GET(req: NextRequest) {
     const akdagDb = akdagAdmin()
 
     // 1. Siparişleri ve sipariş kalemlerini (ürünlerini) birlikte çek
-    const { data: siparisler, error: sErr } = await db
+    let query = db
       .from('siparisler')
       .select('*, siparis_kalemleri(*)')
       .neq('durum', 'odeme_bekliyor')
+
+    if (durum && durum !== 'hepsi') {
+      query = query.eq('durum', durum)
+    }
+
+    if (search) {
+      const cleanSearch = search.replace(/[%_,]/g, '')
+      query = query.or(`siparis_no.ilike.%${cleanSearch}%,ad_soyad.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%,telefon.ilike.%${cleanSearch}%`)
+    }
+
+    const { data: siparisler, error: sErr } = await query
       .order('created_at', { ascending: false })
       .range(from, to)
 

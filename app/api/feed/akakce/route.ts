@@ -30,8 +30,19 @@ export async function GET() {
     const aProducts = akdagRes.data || []
 
     const productMap = new Map<string, any>()
-    sProducts.forEach((p: any) => productMap.set(p.id, p))
-    aProducts.forEach((p: any) => { if (!productMap.has(p.id)) productMap.set(p.id, p) })
+    aProducts.forEach((p: any) => productMap.set(p.id, p))
+    sProducts.forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
     const products = Array.from(productMap.values())
 
     const urunIds = products.map((p: any) => p.id)

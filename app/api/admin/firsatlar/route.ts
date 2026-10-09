@@ -60,6 +60,11 @@ async function verifyAdmin(req: NextRequest, db: any) {
 async function ensureMirrorProduct(db: any, product: any) {
   if (!product || !product.id) return
 
+  const stokAdedi = typeof product.stok_adedi === 'number'
+    ? product.stok_adedi
+    : (parseInt(product.stok_adedi) || 0)
+  const stokDurumu = product.stok_durumu || (stokAdedi > 0 ? 'stokta' : 'tukendi')
+
   const { data: existing } = await db
     .from('urunler')
     .select('id')
@@ -77,7 +82,8 @@ async function ensureMirrorProduct(db: any, product: any) {
       marka: product.marka || null,
       model_kodu: product.model_kodu || null,
       slug: product.slug || null,
-      stok_durumu: product.stok_durumu || 'stokta',
+      stok_adedi: stokAdedi,
+      stok_durumu: stokDurumu,
       aktif: true,
       sescim_aktif: true
     }
@@ -86,6 +92,19 @@ async function ensureMirrorProduct(db: any, product: any) {
     if (mirrorErr) {
       console.warn('Mirror product creation warning:', mirrorErr.message)
     }
+  } else {
+    // Mevcut ayna kaydının stok ve durumunu da güncelle
+    try {
+      await db
+        .from('urunler')
+        .update({
+          stok_adedi: stokAdedi,
+          stok_durumu: stokDurumu,
+          fiyat: Number(product.fiyat) || undefined,
+          slug: product.slug || undefined,
+        })
+        .eq('id', product.id)
+    } catch {}
   }
 }
 
@@ -94,6 +113,7 @@ function triggerCacheRevalidation(slug?: string) {
     revalidatePath('/')
     revalidatePath('/firsatlar')
     revalidatePath('/outlet')
+    revalidatePath('/api/feed/google-merchant')
     if (slug) {
       revalidatePath(`/urun/${slug}`)
     }

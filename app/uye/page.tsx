@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { User } from '@supabase/supabase-js'
-import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, User as UserIcon, Phone } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, User as UserIcon, Phone, CheckCircle2 } from 'lucide-react'
 
 export default function UyePage() {
   const router = useRouter()
@@ -28,7 +28,6 @@ export default function UyePage() {
   const [regTel, setRegTel] = useState('')
   const [regPass, setRegPass] = useState('')
   const [regError, setRegError] = useState('')
-  const [regSuccess, setRegSuccess] = useState(false)
   const [regSubmitting, setRegSubmitting] = useState(false)
 
   const supabase = useRef(createClient()).current
@@ -61,13 +60,42 @@ export default function UyePage() {
     if (!loading && user) router.push('/hesabim')
   }, [user, loading, router])
 
+  const translateAuthError = (msg: string): string => {
+    if (!msg) return 'Bir hata oluştu. Lütfen tekrar deneyin.'
+    const lower = msg.toLowerCase()
+    if (lower.includes('user already registered') || lower.includes('already exists')) {
+      return 'Bu e-posta adresiyle kayıtlı bir hesap zaten var. Lütfen giriş yapın veya şifrenizi sıfırlayın.'
+    }
+    if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
+      return 'E-posta adresi veya şifre hatalı. Lütfen kontrol edip tekrar deneyin.'
+    }
+    if (lower.includes('password should be at least')) {
+      return 'Şifreniz en az 6 karakter olmalıdır.'
+    }
+    if (lower.includes('invalid email') || lower.includes('unable to validate email')) {
+      return 'Lütfen geçerli bir e-posta adresi girin.'
+    }
+    if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('over_email_send_rate_limit')) {
+      return 'Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.'
+    }
+    if (lower.includes('email not confirmed')) {
+      return 'E-posta adresiniz henüz doğrulanmamış. Lütfen gelen kutunuzdaki onay linkine tıklayın.'
+    }
+    return msg
+  }
+
   const handleGiris = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail || !password) {
+      setError('Lütfen tüm alanları doldurun.')
+      return
+    }
     setSubmitting(true)
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: err } = await supabase.auth.signInWithPassword({ email: cleanEmail, password })
     if (err) {
-      setError('E-posta veya şifre hatalı. Lütfen tekrar deneyin.')
+      setError(translateAuthError(err.message))
     } else {
       router.push('/hesabim')
     }
@@ -77,27 +105,62 @@ export default function UyePage() {
   const handleKayit = async (e: React.FormEvent) => {
     e.preventDefault()
     setRegError('')
-    if (!regAd || !regSoyad || !regEmail || !regPass) { setRegError('Lütfen tüm alanları doldurun.'); return }
-    if (regPass.length < 6) { setRegError('Şifre en az 6 karakter olmalıdır.'); return }
-    setRegSubmitting(true)
-    const origin = typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
-      ? window.location.origin
-      : 'https://www.sescim.com'
+    const cleanAd = regAd.trim()
+    const cleanSoyad = regSoyad.trim()
+    const cleanEmail = regEmail.trim().toLowerCase()
+    const cleanTel = regTel.trim()
 
-    const { error: err } = await supabase.auth.signUp({
-      email: regEmail,
-      password: regPass,
-      options: {
-        data: { full_name: `${regAd} ${regSoyad}`, phone: regTel },
-        emailRedirectTo: `${origin}/auth/callback?next=/hesabim`,
-      }
-    })
-    if (err) {
-      setRegError(err.message || 'Kayıt sırasında bir hata oluştu.')
-    } else {
-      setRegSuccess(true)
+    if (!cleanAd || !cleanSoyad || !cleanEmail || !regPass) {
+      setRegError('Lütfen tüm zorunlu alanları doldurun.')
+      return
     }
-    setRegSubmitting(false)
+    if (regPass.length < 6) {
+      setRegError('Şifre en az 6 karakter olmalıdır.')
+      return
+    }
+    setRegSubmitting(true)
+
+    try {
+      // 1. Sunucu API'si üzerinden doğrudan e-postası onaylı üyelik oluştur
+      const res = await fetch('/api/auth/kayit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad: cleanAd,
+          soyad: cleanSoyad,
+          email: cleanEmail,
+          telefon: cleanTel,
+          password: regPass,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setRegError(translateAuthError(data.error || 'Kayıt sırasında bir hata oluştu.'))
+        setRegSubmitting(false)
+        return
+      }
+
+      // 2. Anında onaylı hesap açıldı, istemcide oturumu başlat
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: regPass,
+      })
+
+      if (loginErr) {
+        setTab('giris')
+        setEmail(cleanEmail)
+        setPassword(regPass)
+        setError('Hesabınız oluşturuldu. Lütfen şifrenizle giriş yapın.')
+      } else {
+        router.push('/hesabim')
+      }
+    } catch (err: any) {
+      setRegError(err.message || 'Kayıt işlemi sırasında bir hata oluştu.')
+    } finally {
+      setRegSubmitting(false)
+    }
   }
 
   if (loading || user) {
@@ -175,7 +238,7 @@ export default function UyePage() {
               )}
             </button>
             <button
-              onClick={() => { setTab('kayit'); setRegError(''); setRegSuccess(false) }}
+              onClick={() => { setTab('kayit'); setRegError('') }}
               className={`flex-1 py-4 text-sm font-semibold transition-all duration-300 relative ${
                 tab === 'kayit' 
                   ? 'text-brand-red' 
@@ -280,18 +343,7 @@ export default function UyePage() {
 
             {/* Register Form */}
             {tab === 'kayit' && (
-              regSuccess ? (
-                <div className="text-center py-10 animate-in fade-in zoom-in-95 duration-500">
-                  <div className="w-20 h-20 bg-green-50 border border-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                    <Mail size={32} className="text-green-500" />
-                  </div>
-                  <h3 className="text-2xl font-display font-bold text-slate-800 mb-3">Kayıt Başarılı!</h3>
-                  <p className="text-slate-500 font-body leading-relaxed max-w-sm mx-auto">
-                    Hesabınız oluşturuldu. E-posta adresinize gönderilen doğrulama bağlantısına tıklayarak giriş yapabilirsiniz.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleKayit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <form onSubmit={handleKayit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
@@ -403,7 +455,6 @@ export default function UyePage() {
                     {regSubmitting ? <Loader2 size={20} className="animate-spin" /> : 'ÜCRETSİZ ÜYE OL'}
                   </button>
                 </form>
-              )
             )}
           </div>
         </div>

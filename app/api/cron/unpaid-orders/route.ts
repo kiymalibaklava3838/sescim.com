@@ -40,7 +40,7 @@ async function handleCancelUnpaidOrders(req: NextRequest) {
     // 24 saatten eski, tamamlanmamış kart siparişlerini bul
     const { data: expiredOrders, error: fetchErr } = await db
       .from('siparisler')
-      .select('id, siparis_no, notlar, created_at')
+      .select('id, siparis_no, user_id, kupon_kodu, notlar, created_at')
       .in('odeme_durumu', ['odeme_bekliyor', 'odeme_hatasi'])
       .in('durum', ['odeme_bekliyor', 'beklemede'])
       .lt('created_at', twentyFourHoursAgo)
@@ -74,6 +74,25 @@ async function handleCancelUnpaidOrders(req: NextRequest) {
 
       if (!updErr) {
         canceledCount++
+
+        // Kilitlenmiş kuponları serbest bırak (Terk edilmiş checkout'larda kupon rehinede kalmasın)
+        if (order.kupon_kodu) {
+          try {
+            await db
+              .from('kupon_kullanimlari')
+              .delete()
+              .eq('siparis_id', order.id)
+              .eq('durum', 'beklemede')
+
+            if (order.user_id) {
+              await db
+                .from('kullanici_kuponlari')
+                .update({ kullanildi: false, kullanilma_tarihi: null })
+                .eq('user_id', order.user_id)
+                .ilike('kupon_kodu', order.kupon_kodu.trim().toUpperCase())
+            }
+          } catch {}
+        }
       }
     }
 

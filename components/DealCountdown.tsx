@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function DealCountdown({ targetDate, title = "Günün Fırsatları Bitişine Kalan:" }: Props) {
-  const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null)
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null)
 
   useEffect(() => {
     const calculateTime = () => {
@@ -23,11 +23,12 @@ export default function DealCountdown({ targetDate, title = "Günün Fırsatlar�
       }
 
       const diff = Math.max(0, target - Date.now())
-      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
       const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
-      setTimeLeft({ hours, minutes, seconds })
+      setTimeLeft({ days, hours, minutes, seconds })
     }
 
     calculateTime()
@@ -57,22 +58,33 @@ export default function DealCountdown({ targetDate, title = "Günün Fırsatlar�
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-3 min-w-[64px] border border-white/10">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+          {timeLeft.days > 0 && (
+            <>
+              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md rounded-xl p-2.5 sm:p-3 min-w-[56px] sm:min-w-[64px] border border-amber-400/40 shadow-inner">
+                <span className="font-display font-black text-2xl sm:text-3xl text-amber-300 tracking-wider">
+                  {timeLeft.days}
+                </span>
+                <span className="text-[9px] font-display font-bold uppercase tracking-widest text-amber-200/90 mt-0.5">Gün</span>
+              </div>
+              <span className="font-display font-black text-xl sm:text-2xl text-white/60 -mt-3">:</span>
+            </>
+          )}
+          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-2.5 sm:p-3 min-w-[56px] sm:min-w-[64px] border border-white/10">
             <span className="font-display font-black text-2xl sm:text-3xl text-white tracking-wider">
               {formatNumber(timeLeft.hours)}
             </span>
             <span className="text-[9px] font-display font-bold uppercase tracking-widest text-white/70 mt-0.5">Saat</span>
           </div>
-          <span className="font-display font-black text-2xl text-white/60 -mt-3">:</span>
-          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-3 min-w-[64px] border border-white/10">
+          <span className="font-display font-black text-xl sm:text-2xl text-white/60 -mt-3">:</span>
+          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-2.5 sm:p-3 min-w-[56px] sm:min-w-[64px] border border-white/10">
             <span className="font-display font-black text-2xl sm:text-3xl text-white tracking-wider">
               {formatNumber(timeLeft.minutes)}
             </span>
             <span className="text-[9px] font-display font-bold uppercase tracking-widest text-white/70 mt-0.5">Dakika</span>
           </div>
-          <span className="font-display font-black text-2xl text-white/60 -mt-3">:</span>
-          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-3 min-w-[64px] border border-white/10">
+          <span className="font-display font-black text-xl sm:text-2xl text-white/60 -mt-3">:</span>
+          <div className="flex flex-col items-center bg-black/30 backdrop-blur-md rounded-xl p-2.5 sm:p-3 min-w-[56px] sm:min-w-[64px] border border-white/10">
             <span className="font-display font-black text-2xl sm:text-3xl text-amber-300 tracking-wider animate-pulse">
               {formatNumber(timeLeft.seconds)}
             </span>

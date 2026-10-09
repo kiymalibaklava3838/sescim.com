@@ -44,10 +44,21 @@ export default async function AramaPage({
     }))
     const aData = akdagRes.data || []
 
-    // Deduplicate by product id
+    // Deduplicate by product id (Akdağ master catalog first)
     const productMap = new Map<string, any>()
-    sData.forEach((p: any) => productMap.set(p.id, p))
-    aData.forEach((p: any) => { if (!productMap.has(p.id)) productMap.set(p.id, p) })
+    aData.forEach((p: any) => productMap.set(p.id, p))
+    sData.forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
     const combined = Array.from(productMap.values())
       
     if (combined && combined.length > 0) {

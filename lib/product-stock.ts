@@ -138,56 +138,59 @@ export async function deductSescimStock(
 ) {
   if (!sescimDb || !product?.id || adet <= 0) return
 
-  try {
-    // 1. Varsa atomik PostgreSQL fonksiyonu ile tek işlemde düş
-    const { error: rpcErr } = await sescimDb.rpc('deduct_sescim_stock', {
-      p_urun_id: product.id,
-      p_adet: adet
-    })
+  // 1. Varsa atomik PostgreSQL fonksiyonu ile tek işlemde düş
+  const { error: rpcErr } = await sescimDb.rpc('deduct_sescim_stock', {
+    p_urun_id: product.id,
+    p_adet: adet
+  })
 
-    if (!rpcErr) {
-      return
-    }
+  if (!rpcErr) {
+    return
+  }
 
-    // 2. RPC yoksa manuel okuma ve yazma ile devam et
-    const { data: sf } = await sescimDb
-      .from('sescim_fiyatlar')
-      .select('urun_id, sescim_stok, sescim_stok_durumu')
-      .eq('urun_id', product.id)
-      .maybeSingle()
+  // 2. RPC yoksa manuel okuma ve yazma ile devam et
+  const { data: sf, error: sfErr } = await sescimDb
+    .from('sescim_fiyatlar')
+    .select('urun_id, sescim_stok, sescim_stok_durumu')
+    .eq('urun_id', product.id)
+    .maybeSingle()
 
-    let mevcutStok: number
-    if (sf && sf.sescim_stok !== null && sf.sescim_stok !== undefined) {
-      mevcutStok = Number(sf.sescim_stok)
+  if (sfErr) {
+    throw new Error(`[deductSescimStock] sescim_fiyatlar okunamadı: ${sfErr.message}`)
+  }
+
+  let mevcutStok: number
+  if (sf && sf.sescim_stok !== null && sf.sescim_stok !== undefined) {
+    mevcutStok = Number(sf.sescim_stok)
+  } else if (typeof product.stok_adedi === 'number' && product.stok_adedi > 0) {
+    // Sescim'e özel stok daha önce girilmemişse, başlangıç Akdağ stoğundan alınır
+    mevcutStok = product.stok_adedi
+  } else {
+    // Stok bilgisi yoksa, stok düşmeden sessizce çık (havadan stok üretmeye gerek yok)
+    console.warn(`[deductSescimStock] Ürün ${product.id} için stok bilgisi bulunamadı, atlanıyor.`)
+    return
+  }
+
+  const yeniStok = Math.max(0, mevcutStok - adet)
+  const yeniDurum = yeniStok <= 0 ? 'tukendi' : (sf?.sescim_stok_durumu === 'tukendi' ? 'stokta' : (sf?.sescim_stok_durumu || 'stokta'))
+
+  const payload: any = {
+    urun_id: product.id,
+    sescim_stok: yeniStok,
+    sescim_stok_durumu: yeniDurum,
+    updated_at: new Date().toISOString()
+  }
+
+  const { error } = await sescimDb
+    .from('sescim_fiyatlar')
+    .upsert(payload, { onConflict: 'urun_id' })
+
+  if (error) {
+    if (error.code === 'PGRST204') {
+      console.warn('[deductSescimStock] sescim_stok kolonu bulunamadı, migration çalıştırın.')
     } else {
-      // Sescim'e özel stok daha önce girilmemişse, başlangıç Akdağ stoğundan alınır
-      mevcutStok = typeof product.stok_adedi === 'number' ? product.stok_adedi : 10
+      throw new Error(`[deductSescimStock] DB yazma hatası: ${error.message}`)
     }
-
-    const yeniStok = Math.max(0, mevcutStok - adet)
-    const yeniDurum = yeniStok <= 0 ? 'tukendi' : (sf?.sescim_stok_durumu === 'tukendi' ? 'stokta' : (sf?.sescim_stok_durumu || 'stokta'))
-
-    const payload: any = {
-      urun_id: product.id,
-      sescim_stok: yeniStok,
-      sescim_stok_durumu: yeniDurum,
-      updated_at: new Date().toISOString()
-    }
-
-    const { error } = await sescimDb
-      .from('sescim_fiyatlar')
-      .upsert(payload, { onConflict: 'urun_id' })
-
-    if (error) {
-      // Eğer henüz sescim_stok kolonu migration yapılmamışsa sessizce logla
-      if (error.code === 'PGRST204') {
-        console.warn('[deductSescimStock] sescim_stok kolonu bulunamadı, migration çalıştırın.')
-      } else {
-        console.error('[deductSescimStock] Hata:', error)
-      }
-    }
-  } catch (err) {
-    console.error('[deductSescimStock] Beklenmeyen istisna:', err)
   }
 }
 

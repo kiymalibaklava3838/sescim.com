@@ -52,6 +52,11 @@ export async function POST(req: NextRequest) {
       .eq('id', product.id)
       .maybeSingle()
 
+    const stokAdedi = typeof product.stok_adedi === 'number'
+      ? product.stok_adedi
+      : (parseInt(product.stok_adedi) || 0)
+    const stokDurumu = product.stok_durumu || (stokAdedi > 0 ? 'stokta' : 'tukendi')
+
     if (!existing) {
       const { error: mirrorErr } = await db.from('urunler').insert({
         id: product.id,
@@ -62,7 +67,8 @@ export async function POST(req: NextRequest) {
         fotograflar: Array.isArray(product.fotograflar) ? product.fotograflar : [],
         fiyat: product.fiyat ?? 0,
         para_birimi: product.para_birimi || 'TRY',
-        stok_durumu: product.stok_durumu || 'stokta',
+        stok_adedi: stokAdedi,
+        stok_durumu: stokDurumu,
         marka: product.marka || null,
         slug: product.slug || product.id,
       })
@@ -70,6 +76,13 @@ export async function POST(req: NextRequest) {
       if (mirrorErr) {
         console.warn('Sescim urunler tablosuna ayna kayıt oluşturulurken hata:', mirrorErr.message)
       }
+    } else {
+      try {
+        await db.from('urunler').update({
+          stok_adedi: stokAdedi,
+          stok_durumu: stokDurumu,
+        }).eq('id', product.id)
+      } catch {}
     }
 
     // 3. ozel_urunler tablosuna ekle

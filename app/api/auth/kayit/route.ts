@@ -75,6 +75,17 @@ export async function POST(req: NextRequest) {
         soyad: cleanSoyad,
         telefon: cleanTel,
       })
+
+      // Geriye dönük uyumluluk için profiles tablosuna da kaydet
+      try {
+        await supabaseAdmin.from('profiles').upsert({
+          id: newUser.user.id,
+          ad: cleanAd,
+          soyad: cleanSoyad,
+          telefon: cleanTel,
+          rol: 'user',
+        })
+      } catch {}
     } catch (profErr) {
       console.warn('Profile creation non-fatal warning:', profErr)
     }

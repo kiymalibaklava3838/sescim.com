@@ -60,17 +60,19 @@ export default function AdminCampaignManager() {
   const loadUyeler = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/admin/uyeler', {
+      const res = await fetch(`/api/admin/uyeler?_t=${Date.now()}`, {
+        cache: 'no-store',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'Cache-Control': 'no-cache',
         }
       })
       if (res.ok) {
         const data = await res.json()
-        const fetchedUyeler = data.users.map((u: any) => ({
+        const fetchedUyeler = (data.users || []).map((u: any) => ({
           id: u.id,
           email: u.email,
-          ad_soyad: u.user_metadata?.full_name || u.email
+          ad_soyad: u.ad_soyad || u.user_metadata?.full_name || u.email
         }))
         setUyeler(fetchedUyeler)
       }

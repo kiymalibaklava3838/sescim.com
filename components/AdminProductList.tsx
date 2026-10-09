@@ -121,20 +121,27 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       }
       const { data: akdagData } = await akdagQuery.order('created_at', { ascending: false })
 
-      const mappedSescim: Product[] = (sescimData || []).map((p: any) => ({
-        ...p,
-        kaynak: 'sescim',
-        sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
-        sescim_aktif: p.sescim_aktif !== false
-      }))
+      // Akdağ ürünlerinin ID kümesi
+      const akdagIdSet = new Set((akdagData || []).map((p: any) => p.id))
+
+      // Yalnızca Akdağ ortak kataloğunda bulunmayan, gerçekten bağımsız Sescim ürünleri 'sescim' kaynaklıdır.
+      // Akdağ'da bulunan ürünler (flaş indirim veya ayna kaydı olsa dahi) her zaman asıl kaynak olarak Akdağ kabul edilir.
+      const uniqueSescim: Product[] = (sescimData || [])
+        .filter((p: any) => !akdagIdSet.has(p.id))
+        .map((p: any) => ({
+          ...p,
+          kaynak: 'sescim',
+          sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+          sescim_aktif: p.sescim_aktif !== false
+        }))
 
       const mappedAkdag: Product[] = (akdagData || []).map((p: any) => ({
         ...p,
         kaynak: 'akdag'
       }))
 
-      // Sescim'e ait ürünler listenin başında
-      const allCombined = [...mappedSescim, ...mappedAkdag]
+      // Bağımsız Sescim ürünleri + Akdağ ortak kataloğu
+      const allCombined = [...uniqueSescim, ...mappedAkdag]
       
       const missingPhotos = allCombined.filter(p => !p.fotograflar || p.fotograflar.length === 0)
       setNoPhotoCount(missingPhotos.length)

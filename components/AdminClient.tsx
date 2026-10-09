@@ -240,7 +240,7 @@ export default function AdminClient({ onSuccess }: AdminClientProps) {
 
         {activeTab === 'ilham_setleri' && <AdminIlhamSetleri supabase={supabase} />}
         {activeTab === 'pro_tercih' && <AdminProTercih supabase={supabase} />}
-        {activeTab === 'uyeler' && <AdminUyeYonetim />}
+        {activeTab === 'uyeler' && <AdminUyeYonetim supabaseClient={supabase} />}
         {activeTab === 'kupon' && <AdminKuponYonetim />}
         {activeTab === 'kampanya' && <AdminCampaignManager />}
         {activeTab === 'banner' && <AdminBanners supabase={supabase} />}

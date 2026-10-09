@@ -230,30 +230,36 @@ export async function POST(req: NextRequest) {
     if (validUserId) {
       try {
         const { data: existingProfile } = await db
-          .from('profiles')
-          .select('id')
-          .eq('id', validUserId)
+          .from('uye_profiller')
+          .select('id, user_id')
+          .eq('user_id', validUserId)
           .maybeSingle()
 
         if (!existingProfile) {
           const parts = (ad_soyad || '').trim().split(' ')
           const ad = parts[0] || 'Müşteri'
           const soyad = parts.slice(1).join(' ') || ''
-          const { error: upsertErr } = await db.from('profiles').upsert({
-            id: validUserId,
+          
+          await db.from('uye_profiller').upsert({
+            user_id: validUserId,
             ad,
             soyad,
             telefon: telefon || null,
-            rol: 'user'
           })
-          if (upsertErr) {
-            console.warn('[siparis-olustur] profiles upsert başarısız, user_id null yapılıyor:', upsertErr.message)
-            validUserId = null
-          }
+
+          // Geriye dönük uyumluluk için profiles tablosuna da yaz
+          try {
+            await db.from('profiles').upsert({
+              id: validUserId,
+              ad,
+              soyad,
+              telefon: telefon || null,
+              rol: 'user'
+            })
+          } catch {}
         }
       } catch (pErr) {
-        console.warn('[siparis-olustur] profil kontrol hatası, user_id null yapılıyor:', pErr)
-        validUserId = null
+        console.warn('[siparis-olustur] profil kontrol hatası:', pErr)
       }
     }
 

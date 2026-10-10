@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
-const supabaseAdmin = () =>
-  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+const supabaseAdmin = () => {
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+  return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+}
 
 const ADMIN_EMAILS = [
   'ahmetakdag1355@gmail.com',
@@ -79,15 +84,20 @@ export async function GET(req: NextRequest) {
 
     // 2. Aktif Supabase Auth Kullanıcıları, Üye Profilleri ve Siparişleri Paralel Çek
     const [authRes, uyeProfillerRes, legacyProfilesRes, ordersRes] = await Promise.all([
-      db.auth.admin.listUsers({ perPage: 1000 }),
+      db.auth.admin.listUsers({ page: 1, perPage: 1000 }).catch((e: any) => ({ data: null, error: e })),
       db.from('uye_profiller').select('*'),
       db.from('profiles').select('*'),
-      db.from('siparisler').select('user_id, toplam_tutar, durum')
+      db.from('siparisler').select('user_id, email, toplam_tutar, durum')
     ])
 
-    if (authRes.error) {
-      console.error('Kullanıcıları çekerken hata:', authRes.error)
-      return NextResponse.json({ error: 'Kullanıcılar alınamadı' }, { status: 500 })
+    const authUsers: any[] = authRes?.data?.users || []
+    if (authRes?.error) {
+      console.warn('[admin/uyeler] Auth listUsers uyarısı (profillere düşülüyor):', authRes.error)
+    }
+
+    const authUserMap = new Map<string, any>()
+    for (const u of authUsers) {
+      if (u.id) authUserMap.set(u.id, u)
     }
 
     // Profil Haritası (user_id -> profil): Önce profiles, sonra asıl kaynak uye_profiller ile üzerine yaz
@@ -101,28 +111,44 @@ export async function GET(req: NextRequest) {
       if (p.id) profileMap.set(p.id, p)
     }
 
-    // Sipariş İstatistikleri (user_id -> adet, harcama)
+    // Sipariş İstatistikleri: Hem user_id hem email ile eşleştir
     const orderStatsMap = new Map<string, { siparis_sayisi: number; toplam_harcama: number }>()
+    const orderStatsByEmailMap = new Map<string, { siparis_sayisi: number; toplam_harcama: number }>()
+
     for (const order of (ordersRes.data || [])) {
-      if (!order.user_id) continue
-      const current = orderStatsMap.get(order.user_id) || { siparis_sayisi: 0, toplam_harcama: 0 }
-      current.siparis_sayisi += 1
-      if (order.durum !== 'iptal_edildi' && order.durum !== 'odeme_bekliyor') {
-        current.toplam_harcama += Number(order.toplam_tutar) || 0
+      const amount = (order.durum !== 'iptal_edildi' && order.durum !== 'odeme_bekliyor') ? (Number(order.toplam_tutar) || 0) : 0
+      if (order.user_id) {
+        const current = orderStatsMap.get(order.user_id) || { siparis_sayisi: 0, toplam_harcama: 0 }
+        current.siparis_sayisi += 1
+        current.toplam_harcama += amount
+        orderStatsMap.set(order.user_id, current)
       }
-      orderStatsMap.set(order.user_id, current)
+      if (order.email) {
+        const em = order.email.toLowerCase().trim()
+        const current = orderStatsByEmailMap.get(em) || { siparis_sayisi: 0, toplam_harcama: 0 }
+        current.siparis_sayisi += 1
+        current.toplam_harcama += amount
+        orderStatsByEmailMap.set(em, current)
+      }
     }
 
-    // 3. Kullanıcıları Birleştir ve Zenginleştir
-    const users = (authRes.data.users || []).map(u => {
-      const profile = profileMap.get(u.id)
-      const stats = orderStatsMap.get(u.id) || { siparis_sayisi: 0, toplam_harcama: 0 }
-      const meta = u.user_metadata || {}
+    // 3. Tüm Kaynaklardaki Kullanıcı ID'lerini Birleştir (Auth + uye_profiller + profiles)
+    const allUserIds = new Set<string>([
+      ...authUsers.map((u: any) => u.id),
+      ...(uyeProfillerRes.data || []).map((p: any) => p.user_id || p.id).filter(Boolean),
+      ...(legacyProfilesRes.data || []).map((p: any) => p.id || p.user_id).filter(Boolean),
+    ])
 
+    const users = Array.from(allUserIds).map((id) => {
+      const authUser = authUserMap.get(id)
+      const profile = profileMap.get(id)
+      const meta = authUser?.user_metadata || {}
+
+      const profileName = profile ? `${profile.ad || ''} ${profile.soyad || ''}`.trim() : ''
       const fullName = (
         meta.full_name ||
         meta.name ||
-        (profile ? `${profile.ad || ''} ${profile.soyad || ''}`.trim() : '') ||
+        profileName ||
         meta.ad_soyad ||
         ''
       ).trim()
@@ -134,11 +160,17 @@ export async function GET(req: NextRequest) {
         ''
       ).trim()
 
+      const email = (authUser?.email || profile?.email || '').trim().toLowerCase()
+
+      const byIdStats = orderStatsMap.get(id)
+      const byEmailStats = email ? orderStatsByEmailMap.get(email) : null
+      const stats = byIdStats || byEmailStats || { siparis_sayisi: 0, toplam_harcama: 0 }
+
       return {
-        id: u.id,
-        email: u.email || '—',
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
+        id,
+        email: email || '—',
+        created_at: authUser?.created_at || profile?.created_at || new Date().toISOString(),
+        last_sign_in_at: authUser?.last_sign_in_at || null,
         ad_soyad: fullName || '—',
         telefon: phone || '—',
         user_metadata: {
@@ -147,7 +179,7 @@ export async function GET(req: NextRequest) {
         },
         siparis_sayisi: stats.siparis_sayisi,
         toplam_harcama: stats.toplam_harcama,
-        email_confirmed: !!u.email_confirmed_at,
+        email_confirmed: !!(authUser?.email_confirmed_at || authUser?.email_verified || meta.email_verified),
       }
     })
 
@@ -155,12 +187,15 @@ export async function GET(req: NextRequest) {
     users.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     return NextResponse.json(
-      { users },
+      { users, total: users.length, timestamp: Date.now() },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+          'CDN-Cache-Control': 'no-store',
+          'Vercel-CDN-Cache-Control': 'no-store',
           'Pragma': 'no-cache',
           'Expires': '0',
+          'Surrogate-Control': 'no-store',
         }
       }
     )

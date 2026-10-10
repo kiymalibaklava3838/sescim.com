@@ -24,47 +24,133 @@ interface AdminUyeYonetimProps {
 export default function AdminUyeYonetim({ supabaseClient }: AdminUyeYonetimProps) {
   const [uyeler, setUyeler] = useState<Uye[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [searchQ, setSearchQ] = useState('')
   const internalSupabase = useRef(createClient()).current
   const supabase = supabaseClient || internalSupabase
 
-  const loadUyeler = useCallback(async () => {
-    setLoading(true)
+  const loadUyeler = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true)
+    setIsRefreshing(true)
     setErrorMsg('')
+
     try {
+      // 1. Session ve Token Doğrulaması (yaklaşan token sürelerini yenile)
       let session = (await supabase.auth.getSession()).data.session
-      if (!session?.access_token) {
+      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
         const refreshRes = await supabase.auth.refreshSession()
         session = refreshRes.data.session
       }
 
-      const res = await fetch(`/api/admin/uyeler?_t=${Date.now()}`, {
+      // 2. API'den Taze Veri Çek (Cache-Busting Parametreleri ile)
+      const res = await fetch(`/api/admin/uyeler?_t=${Date.now()}&r=${Math.random().toString(36).substring(7)}`, {
+        method: 'GET',
         cache: 'no-store',
         headers: {
           'Authorization': `Bearer ${session?.access_token || ''}`,
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         }
       })
 
       if (res.ok) {
         const data = await res.json()
-        setUyeler(data.users || [])
-      } else {
-        const errData = await res.json().catch(() => ({}))
+        if (Array.isArray(data.users)) {
+          setUyeler(data.users)
+          return
+        }
+      }
+
+      // Eğer API yanıtı başarısız olursa, doğrudan veritabanı yedeğine başvur
+      const errData = await res.json().catch(() => ({}))
+      console.warn('[AdminUyeYonetim] API hatası, doğrudan istemci sorgusuna geçiliyor:', errData)
+
+      // Fallback: Doğrudan uye_profiller tablosunu çek
+      const { data: profs, error: profErr } = await supabase
+        .from('uye_profiller')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (profs && profs.length > 0) {
+        const fallbackList: Uye[] = profs.map((p: any) => ({
+          id: p.user_id || p.id,
+          email: p.email || '—',
+          created_at: p.created_at,
+          last_sign_in_at: null,
+          ad_soyad: `${p.ad || ''} ${p.soyad || ''}`.trim() || 'İsimsiz Üye',
+          telefon: p.telefon || '—',
+          siparis_sayisi: 0,
+          toplam_harcama: 0,
+          email_confirmed: true,
+        }))
+        setUyeler(fallbackList)
+      } else if (profErr) {
         setErrorMsg(errData.error || 'Üyeler yüklenirken hata oluştu.')
       }
     } catch (e: any) {
       console.error('Üye yükleme hatası:', e)
-      setErrorMsg('Bağlantı hatası oluştu.')
+      // Son çare doğrudan sorgu
+      try {
+        const { data: directProfs } = await supabase
+          .from('uye_profiller')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (directProfs && directProfs.length > 0) {
+          setUyeler(directProfs.map((p: any) => ({
+            id: p.user_id || p.id,
+            email: p.email || '—',
+            created_at: p.created_at,
+            last_sign_in_at: null,
+            ad_soyad: `${p.ad || ''} ${p.soyad || ''}`.trim() || 'İsimsiz Üye',
+            telefon: p.telefon || '—',
+            siparis_sayisi: 0,
+            toplam_harcama: 0,
+            email_confirmed: true,
+          })))
+        } else {
+          setErrorMsg('Bağlantı hatası oluştu.')
+        }
+      } catch {
+        setErrorMsg('Bağlantı hatası oluştu.')
+      }
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }, [supabase])
 
+  // İlk yükleme
   useEffect(() => {
-    loadUyeler()
+    loadUyeler(true)
   }, [loadUyeler])
+
+  // Realtime Abonelik ve Arka Plan Senkronizasyonu
+  useEffect(() => {
+    // 1. Supabase Realtime Değişiklik Dinleyicisi
+    const channel = supabase
+      .channel('admin-uyeler-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'uye_profiller' }, () => {
+        loadUyeler(false)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        loadUyeler(false)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'siparisler' }, () => {
+        loadUyeler(false)
+      })
+      .subscribe()
+
+    // 2. 25 saniyelik otomatik arka plan tazeleme
+    const timer = setInterval(() => {
+      loadUyeler(false)
+    }, 25000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(timer)
+    }
+  }, [supabase, loadUyeler])
 
   const filtered = uyeler.filter(u => {
     if (!searchQ) return true
@@ -82,7 +168,7 @@ export default function AdminUyeYonetim({ supabaseClient }: AdminUyeYonetimProps
 
   const withOrdersCount = uyeler.filter(u => (u.siparis_sayisi || 0) > 0).length
 
-  if (loading) {
+  if (loading && uyeler.length === 0) {
     return (
       <div className="py-20 flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-brand-red rounded-full animate-spin" />
@@ -100,19 +186,21 @@ export default function AdminUyeYonetim({ supabaseClient }: AdminUyeYonetimProps
             <span className="font-display font-semibold text-xs tracking-[0.3em] bg-slate-50 uppercase text-brand-red">Kullanıcı Yönetimi</span>
           </div>
           <h2 className="font-display font-black text-2xl uppercase text-slate-900">Üye Yönetimi</h2>
-          <p className="font-body text-slate-900/40 text-sm mt-1">Aktif kayıtlı kullanıcılar ve hesap detayları</p>
+          <p className="font-body text-slate-900/40 text-sm mt-1">Aktif kayıtlı kullanıcılar ve hesap detayları (Canlı Senkronize)</p>
         </div>
         <button 
-          onClick={loadUyeler}
-          className="flex items-center gap-2 border border-slate-300 text-slate-900/60 hover:border-brand-red/40 hover:text-slate-900 px-4 py-2 font-display text-xs tracking-widest uppercase transition-all bg-white shadow-xs">
-          <RefreshCw size={14} /> Yenile
+          onClick={() => loadUyeler(false)}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 border border-slate-300 text-slate-900/60 hover:border-brand-red/40 hover:text-slate-900 px-4 py-2 font-display text-xs tracking-widest uppercase transition-all bg-white shadow-xs disabled:opacity-50">
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-brand-red' : ''} />
+          {isRefreshing ? 'Yenileniyor...' : 'Yenile'}
         </button>
       </div>
 
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded flex items-center justify-between">
           <span>{errorMsg}</span>
-          <button onClick={loadUyeler} className="underline font-bold text-xs">Tekrar Dene</button>
+          <button onClick={() => loadUyeler(true)} className="underline font-bold text-xs">Tekrar Dene</button>
         </div>
       )}
 

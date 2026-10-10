@@ -9,6 +9,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getTopAffinityCategory, getRecentlyViewed } from '@/lib/personalized-discover'
 import { formatFiyat, dovizToTL, type KurData, DEFAULT_KUR } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
+import { resolveStock } from '@/lib/product-stock'
 
 interface Product {
   id: string
@@ -20,6 +21,11 @@ interface Product {
   fiyat?: number
   indirimli_fiyat?: number
   para_birimi?: string
+  stok_durumu?: string | null
+  stok_adedi?: number | null
+  kritik_stok?: number | null
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
 }
 
 export default function PersonalizedRecommendationsSection() {
@@ -188,11 +194,25 @@ export default function PersonalizedRecommendationsSection() {
                 {/* Bilgiler */}
                 <div className="p-3.5 flex flex-col flex-1 justify-between bg-white">
                   <div>
-                    {product.marka && (
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block truncate mb-1">
-                        {product.marka}
-                      </span>
-                    )}
+                    {(() => {
+                      const stockInfo = resolveStock(product)
+                      return (
+                        <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[105px]">
+                            {product.marka || product.kategori}
+                          </span>
+                          {stockInfo.isTukendi ? (
+                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-semibold">Tükendi</span>
+                          ) : stockInfo.isSipariseGore ? (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-semibold">Siparişe Göre</span>
+                          ) : stockInfo.isKritik ? (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-semibold">Son {stockInfo.adet} Adet</span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-semibold">Stokta</span>
+                          )}
+                        </div>
+                      )
+                    })()}
                     <Link
                       href={`/urun/${product.slug || product.id}`}
                       className="font-display font-bold text-xs sm:text-sm text-slate-800 group-hover:text-brand-red transition-colors line-clamp-2 leading-snug"

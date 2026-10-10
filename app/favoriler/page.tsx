@@ -8,6 +8,7 @@ import { getFavorites, toggleFavorite, type SavedProduct } from '@/lib/product-l
 import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { addToCart } from '@/lib/cart'
+import { resolveStock } from '@/lib/product-stock'
 
 export default function FavorilerPage() {
   const [items, setItems] = useState<SavedProduct[]>([])
@@ -150,7 +151,7 @@ export default function FavorilerPage() {
                         >
                           <MessageSquareText size={14} /> Fiyat Teklifi Al
                         </Link>
-                      ) : x.fiyat && x.stok_durumu !== 'tukendi' ? (
+                      ) : x.fiyat && resolveStock(x).canOrder ? (
                         <button
                           type="button"
                           onClick={() => handleAddToCart(x)}
@@ -170,7 +171,11 @@ export default function FavorilerPage() {
                             </>
                           )}
                         </button>
-                      ) : null}
+                      ) : (
+                        <div className="w-full py-2 px-3 rounded-xl text-xs font-display font-bold uppercase tracking-wider text-center text-slate-400 bg-slate-100">
+                          Tükendi
+                        </div>
+                      )}
 
                       <div className="flex gap-2">
                         <Link

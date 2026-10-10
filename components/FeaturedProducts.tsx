@@ -47,7 +47,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     sQuery ? sQuery : Promise.resolve({ data: [] })
   ])
 
-  let data = [
+  const rawMerged = [
     ...(sescimRes.data || []).map((p: any) => ({
       ...p,
       sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
@@ -55,6 +55,14 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     })),
     ...(akdagRes.data || [])
   ]
+
+  const pDedupMap = new Map<string, any>()
+  for (const item of rawMerged) {
+    if (item.id && !pDedupMap.has(item.id)) {
+      pDedupMap.set(item.id, item)
+    }
+  }
+  let data = Array.from(pDedupMap.values())
 
   // Eğer özel olarak öne çıkarılan ürün işaretlenmemişse, boş kalmaması için popüler ürünleri göster
   if (data.length === 0 && filterByFeatured) {
@@ -147,12 +155,14 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                   
                   <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
                     <span className="font-medium truncate max-w-[110px]">{product.kategori}</span>
-                    {stockInfo.status === 'stokta' ? (
-                      <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
-                    ) : stockInfo.status === 'siparise_gore' ? (
-                      <span className="text-amber-600 font-semibold text-[11px] bg-amber-50 px-1.5 py-0.5 rounded">Siparişe Göre</span>
-                    ) : (
+                    {stockInfo.isTukendi ? (
                       <span className="text-slate-400 font-semibold text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">Tükendi</span>
+                    ) : stockInfo.isSipariseGore ? (
+                      <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 px-1.5 py-0.5 rounded">Siparişe Göre</span>
+                    ) : stockInfo.isKritik ? (
+                      <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Son {stockInfo.adet} Adet</span>
+                    ) : (
+                      <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
                     )}
                   </div>
                   

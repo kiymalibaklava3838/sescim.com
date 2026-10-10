@@ -32,6 +32,8 @@ export interface ResolvedStock {
 export function resolveStock(product: {
   stok_durumu?: string | null
   stok_adedi?: number | null
+  stok_miktari?: number | null
+  stok?: number | null
   kritik_stok?: number | null
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null
@@ -69,7 +71,8 @@ export function resolveStock(product: {
     }
   } else {
     // Sescim'e özel stok girilmemiş -> Akdağ ortak stoğu geçerlidir
-    adet = product.stok_adedi !== null && product.stok_adedi !== undefined ? Number(product.stok_adedi) : null
+    const rawAdet = product.stok_adedi ?? (product as any).stok_miktari ?? (product as any).stok
+    adet = rawAdet !== null && rawAdet !== undefined ? Number(rawAdet) : null
 
     if (isAkdagTukendi) {
       durum = 'tukendi'

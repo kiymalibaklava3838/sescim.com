@@ -1,5 +1,6 @@
 import { getProTercihProducts } from '@/lib/pro-tercih'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
+import { resolveStock } from '@/lib/product-stock'
 import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
 import { ArrowRight, Award, Headphones, Package, Sparkles } from 'lucide-react'
@@ -94,20 +95,35 @@ export default async function ProTercihSection() {
 
                   {/* İçerik */}
                   <div className="p-4 flex flex-col flex-1 border-t border-slate-700/50">
-                    {/* Marka & Kategori */}
-                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                      <span className="font-semibold text-amber-400 tracking-wide uppercase">
-                        {product.marka || 'REFERANS'}
-                      </span>
-                      {product.stok_durumu === 'tukendi' ? (
-                        <span className="text-slate-500 text-[11px]">Tükendi</span>
-                      ) : (
-                        <span className="text-emerald-400 text-[11px] font-medium flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Stokta
-                        </span>
-                      )}
-                    </div>
+                    {/* Marka & Kategori & Stok Durumu */}
+                    {(() => {
+                      const stockInfo = resolveStock(product)
+                      return (
+                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                          <span className="font-semibold text-amber-400 tracking-wide uppercase truncate max-w-[120px]">
+                            {product.marka || 'REFERANS'}
+                          </span>
+                          {stockInfo.isTukendi ? (
+                            <span className="text-slate-500 text-[11px] font-medium">Tükendi</span>
+                          ) : stockInfo.isSipariseGore ? (
+                            <span className="text-amber-400 text-[11px] font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              Siparişe Göre
+                            </span>
+                          ) : stockInfo.isKritik ? (
+                            <span className="text-amber-400 text-[11px] font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              Son {stockInfo.adet} Adet
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400 text-[11px] font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              Stokta
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* Ürün Adı */}
                     <Link

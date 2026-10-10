@@ -102,6 +102,8 @@ export async function getProTercihProducts(): Promise<any[]> {
                 sescim_fiyat: pricing.sescim_fiyat,
                 sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
                 sescim_aktif: pricing.sescim_aktif,
+                sescim_stok: pricing.sescim_stok ?? null,
+                sescim_stok_durumu: pricing.sescim_stok_durumu ?? null,
                 fiyat_sorunuz: isQuoteOnlyProduct({
                   marka: p.marka,
                   fiyat_sorunuz: pricing.fiyat_sorunuz ?? false
@@ -111,6 +113,8 @@ export async function getProTercihProducts(): Promise<any[]> {
             return {
               ...p,
               sescim_aktif: true,
+              sescim_stok: null,
+              sescim_stok_durumu: null,
               fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
             }
           })

@@ -14,6 +14,7 @@ import { getKurClient } from '@/lib/kur-client'
 import { getRecentlyViewed, ViewedProductItem } from '@/lib/personalized-discover'
 import { NEW_KATEGORI_HIYERARSI } from '@/lib/categories'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 const categoryIcons: Record<string, any> = {
   'Ses Sistemleri': Speaker,
@@ -69,12 +70,15 @@ export default function DiscoverCuratedSections({
     const oldPriceTL = rawOldPrice ? dovizToTL(rawOldPrice, pb, kur) : null
     const isQuoteOnly = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
 
-    // Stok Mikro Bilgisi
+    // Stok Mikro Bilgisi (Merkezi Stok Motoru ile Hatasız Hesaplama)
+    const resolvedStock = resolveStock(product)
     let stockInfo = { text: 'Stokta', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
-    if (product.kritik_stok && product.stok_adedi > 0 && product.stok_adedi <= 3) {
-      stockInfo = { text: `Son ${product.stok_adedi} Adet`, color: 'text-amber-700 bg-amber-50 border-amber-200' }
-    } else if (product.stok_durumu === 'siparise_gore') {
+    if (resolvedStock.isTukendi) {
+      stockInfo = { text: 'Tükendi', color: 'text-slate-400 bg-slate-100 border-slate-200' }
+    } else if (resolvedStock.isSipariseGore) {
       stockInfo = { text: 'Siparişe Göre', color: 'text-blue-700 bg-blue-50 border-blue-200' }
+    } else if (resolvedStock.isKritik) {
+      stockInfo = { text: `Son ${resolvedStock.adet} Adet`, color: 'text-amber-700 bg-amber-50 border-amber-200' }
     }
 
     return (

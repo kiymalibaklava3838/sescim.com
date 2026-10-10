@@ -26,7 +26,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number]
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   beklemede: ['onaylandi', 'hazirlaniyor', 'iptal'],
-  onaylandi: ['hazirlaniyor', 'kargolandi', 'iptal'],
+  onaylandi: ['hazirlaniyor', 'kargolandi', 'teslim_edildi', 'iptal'],
   hazirlaniyor: ['kargolandi', 'iptal'],
   kargolandi: ['teslim_edildi', 'iptal'],
   teslim_edildi: ['iptal'],

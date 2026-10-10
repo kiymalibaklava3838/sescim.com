@@ -47,10 +47,19 @@ interface Siparis {
 }
 
 const DURUM_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  onaylandi:     { label: 'Onaylandı',     color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',   icon: CheckCircle },
-  hazirlaniyor:  { label: 'Hazırlanıyor',  color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', icon: Package },
-  teslim_edildi: { label: 'Teslim Edildi', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: Truck },
-  iptal:         { label: 'İptal',         color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle },
+  beklemede:     { label: 'Beklemede',     color: 'text-amber-500',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock },
+  onaylandi:     { label: 'Onaylandı',     color: 'text-blue-500',   bg: 'bg-blue-500/10 border-blue-500/20',   icon: CheckCircle },
+  hazirlaniyor:  { label: 'Hazırlanıyor',  color: 'text-purple-500', bg: 'bg-purple-500/10 border-purple-500/20', icon: Package },
+  kargolandi:    { label: 'Kargolandı',    color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20', icon: Truck },
+  teslim_edildi: { label: 'Teslim Edildi', color: 'text-green-600',  bg: 'bg-green-500/10 border-green-500/20', icon: CheckCircle },
+  iptal:         { label: 'İptal',         color: 'text-red-500',    bg: 'bg-red-500/10 border-red-500/20',     icon: XCircle },
+}
+
+const DEFAULT_STATUS_CONFIG = {
+  label: 'İşleniyor',
+  color: 'text-slate-500',
+  bg: 'bg-slate-100 border-slate-200',
+  icon: Package,
 }
 
 const ODEME_TIPI: Record<string, string> = {
@@ -94,6 +103,13 @@ export default function AdminSiparisler() {
   const [sendingBasitKargo, setSendingBasitKargo] = useState<Record<string, boolean>>({})
   const [basitKargoBalance, setBasitKargoBalance] = useState<number | null>(null)
   const supabase = useRef(createClient()).current
+  const searchRef = useRef(search)
+  const filterDurumRef = useRef(filterDurum)
+
+  useEffect(() => {
+    searchRef.current = search
+    filterDurumRef.current = filterDurum
+  }, [search, filterDurum])
 
   useEffect(() => {
     loadBasitKargoBalance()
@@ -105,15 +121,23 @@ export default function AdminSiparisler() {
         { event: '*', schema: 'public', table: 'siparisler' },
         (payload: any) => {
           const yeni = payload.new
-          // Sadece ödemesi tamamlanmış veya durumu onaylanmış gerçek siparişlerde listeyi otomatik tazele
-          if (yeni && (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi')) {
-            loadSiparisler(0, false, search, filterDurum)
+          // Ödeme bekleyen taslaklar dışındaki gerçek siparişlerde (yeni ödenen, kargolanan, güncellenen) listeyi anında tazele
+          if (!yeni || yeni.durum !== 'odeme_bekliyor') {
+            loadSiparisler(0, false, searchRef.current, filterDurumRef.current)
           }
         }
       )
       .subscribe()
 
+    // Yedek otomatik yenileme (Realtime bağlantı kesintilerine karşı her 20 saniyede bir sessiz kontrol)
+    const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        loadSiparisler(0, false, searchRef.current, filterDurumRef.current)
+      }
+    }, 20000)
+
     return () => {
+      clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
   }, [])
@@ -156,7 +180,7 @@ export default function AdminSiparisler() {
         const to = from + PAGE_SIZE - 1
         let q = supabase
           .from('siparisler')
-          .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti, dekont_url')
+          .select('id, siparis_no, ad_soyad, email, telefon, toplam_tutar, durum, odeme_tipi, odeme_durumu, notlar, kargo_takip_no, teslimat_adresi, fatura_adresi, created_at, kupon_kodu, indirim_tutari, kargo_ucreti, dekont_url, urunler')
           .neq('durum', 'odeme_bekliyor')
 
         if (currentFilter && currentFilter !== 'hepsi') {
@@ -476,7 +500,7 @@ export default function AdminSiparisler() {
 
       <div className="space-y-1">
         {filtered.map(siparis => {
-          const cfg = DURUM_CONFIG[siparis.durum] || DURUM_CONFIG.beklemede
+          const cfg = DURUM_CONFIG[siparis.durum] || DURUM_CONFIG.beklemede || DEFAULT_STATUS_CONFIG
           const Icon = cfg.icon
           const expanded = expandedId === siparis.id
 

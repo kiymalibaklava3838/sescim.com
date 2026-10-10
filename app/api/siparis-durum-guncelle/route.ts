@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       kargo_takip_no: kargo_takip_no !== undefined ? String(kargo_takip_no).trim() : undefined,
       kargo_firmasi: kargo_firmasi !== undefined ? String(kargo_firmasi).trim() : undefined,
       updatedBy: adminUser.email ? `admin (${adminUser.email})` : 'admin',
+      forceTransition: true,
     })
 
     if (!result.success) {

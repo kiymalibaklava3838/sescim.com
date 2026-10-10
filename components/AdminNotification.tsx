@@ -55,6 +55,8 @@ export default function AdminNotification() {
     })
   }
 
+  const seenOrderIds = useRef<Set<string>>(new Set())
+
   const isteBildirimIzni = async () => {
     if (!('Notification' in window)) return
     const perm = await Notification.requestPermission()
@@ -67,6 +69,19 @@ export default function AdminNotification() {
       setIzinVerildi(Notification.permission === 'granted')
     }
 
+    // İlk yüklemede mevcut sipariş ID'lerini hafızaya al ki eski siparişlere ses çalmasın
+    supabase
+      .from('siparisler')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .then(({ data }: any) => {
+        if (data) {
+          data.forEach((d: any) => seenOrderIds.current.add(d.id))
+        }
+        ilkYukleme.current = false
+      })
+
     // Realtime subscription — SADECE ödemesi tamamlanmış gerçek siparişlerde tetiklenir
     const channel = supabase
       .channel('admin-siparisler')
@@ -74,36 +89,59 @@ export default function AdminNotification() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'siparisler' },
         (payload: any) => {
-          if (ilkYukleme.current) return // İlk yükleme sonrasındakileri dinle
+          if (ilkYukleme.current) return
 
           const yeni = payload.new
-          if (!yeni) return
+          if (!yeni || !yeni.id) return
 
           // Ödeme bekleyen (kullanıcının henüz satın almadığı) veya ödeme hatası alan taslaklarda ASLA bildirim çalma!
           const isOdendi = (yeni.odeme_durumu === 'odendi' || yeni.durum === 'onaylandi') && yeni.odeme_durumu !== 'odeme_hatasi' && yeni.durum !== 'iptal'
           if (!isOdendi) return
 
-          // PayTR onayı UPDATE ile geldiğinde veya doğrudan ödendi geldiğinde çal
-          if (payload.eventType === 'UPDATE') {
-            const eski = payload.old
-            if (eski && (eski.odeme_durumu === 'odendi' || eski.durum === 'onaylandi')) {
-              // Zaten daha önce ödendi olarak bildirilmiş, tekrar çalma
-              return
-            }
+          // Bu sipariş için zaten bildirim gösterildiyse (durum güncellemesi, kargo girişi vs.) tekrar çalma!
+          if (seenOrderIds.current.has(yeni.id)) {
+            return
           }
 
-          setBildirimler(prev => [yeni as Bildirim, ...prev].slice(0, 5))
+          seenOrderIds.current.add(yeni.id)
+          setBildirimler(prev => [yeni as Bildirim, ...prev.filter(b => b.id !== yeni.id)].slice(0, 5))
           playSound()
           showBrowserNotification(yeni as Bildirim)
         }
       )
       .subscribe()
 
+    // Realtime bağlantı kopması ihtimaline karşı yedek polling kontrolü
+    const pollInterval = setInterval(async () => {
+      if (ilkYukleme.current) return
+      try {
+        const { data: latest } = await supabase
+          .from('siparisler')
+          .select('id, siparis_no, ad_soyad, toplam_tutar, created_at, odeme_durumu, durum')
+          .in('durum', ['onaylandi', 'hazirlaniyor'])
+          .neq('odeme_durumu', 'odeme_hatasi')
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        if (latest) {
+          for (const s of latest) {
+            if (!seenOrderIds.current.has(s.id)) {
+              seenOrderIds.current.add(s.id)
+              setBildirimler(prev => [s as Bildirim, ...prev.filter(b => b.id !== s.id)].slice(0, 5))
+              playSound()
+              showBrowserNotification(s as Bildirim)
+            }
+          }
+        }
+      } catch {}
+    }, 25000)
+
     // 2 saniye sonra ilk yükleme bayrağını kaldır
     const t = setTimeout(() => { ilkYukleme.current = false }, 2000)
 
     return () => {
       clearTimeout(t)
+      clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
   }, [supabase])

@@ -70,9 +70,13 @@ export async function GET(req: NextRequest) {
     const orderList = siparisler || []
 
     // 2. Ürün fotoğraflarını çekmek için ID ve isim listesini hazırla
-    const allKalemler = orderList.flatMap((s: any) => s.siparis_kalemleri || [])
-    const urunIds = Array.from(new Set(allKalemler.map((k: any) => k.urun_id).filter(Boolean))) as string[]
-    const urunAdlari = Array.from(new Set(allKalemler.map((k: any) => k.urun_adi).filter(Boolean))) as string[]
+    const allKalemler = orderList.flatMap((s: any) => {
+      if (s.siparis_kalemleri && s.siparis_kalemleri.length > 0) return s.siparis_kalemleri
+      if (Array.isArray(s.urunler)) return s.urunler
+      return []
+    })
+    const urunIds = Array.from(new Set(allKalemler.map((k: any) => k.urun_id || k.id).filter(Boolean))) as string[]
+    const urunAdlari = Array.from(new Set(allKalemler.map((k: any) => k.urun_adi || k.ad).filter(Boolean))) as string[]
 
     const photoMap = new Map<string, string>()
 
@@ -99,15 +103,25 @@ export async function GET(req: NextRequest) {
       console.warn('[admin/siparisler] Error loading product photos:', photoErr)
     }
 
-    // 3. Sipariş kalemlerini Admin arayüz formatına eşle
+    // 3. Sipariş kalemlerini Admin arayüz formatına eşle (siparis_kalemleri yoksa s.urunler JSONB verisini kullan)
     const formatted = orderList.map((s: any) => {
-      const kalemler = (s.siparis_kalemleri || []).map((k: any) => ({
-        urun_id: k.urun_id || k.id,
-        ad: k.urun_adi || 'Ürün',
-        fiyat: Number(k.birim_fiyat) || 0,
-        adet: Number(k.adet) || 1,
-        fotograf: photoMap.get(k.urun_id) || photoMap.get(k.urun_adi) || '',
-      }))
+      const kalemler = (s.siparis_kalemleri && s.siparis_kalemleri.length > 0)
+        ? s.siparis_kalemleri.map((k: any) => ({
+            urun_id: k.urun_id || k.id,
+            ad: k.urun_adi || 'Ürün',
+            fiyat: Number(k.birim_fiyat) || 0,
+            adet: Number(k.adet) || 1,
+            fotograf: photoMap.get(k.urun_id) || photoMap.get(k.urun_adi) || '',
+          }))
+        : (Array.isArray(s.urunler)
+            ? s.urunler.map((u: any) => ({
+                urun_id: u.urun_id || u.id,
+                ad: u.ad || 'Ürün',
+                fiyat: Number(u.fiyat) || 0,
+                adet: Number(u.adet) || 1,
+                fotograf: u.fotograf || photoMap.get(u.urun_id || u.id) || photoMap.get(u.ad) || '',
+              }))
+            : [])
 
       return {
         ...s,

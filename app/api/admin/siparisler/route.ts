@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -11,19 +14,55 @@ const akdagAdmin = () =>
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+const ADMIN_EMAILS = [
+  'ahmetakdag1355@gmail.com',
+  'ahmetakdag1660@gmail.com',
+  'info@akdagelektronik.com.tr',
+  'info@sescim.com'
+]
+
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return false
-  const token = authHeader.replace('Bearer ', '')
+  let token = authHeader ? authHeader.replace('Bearer ', '').trim() : ''
+
+  if (!token) {
+    for (const cookie of req.cookies.getAll()) {
+      if (cookie.name.includes('auth-token') || cookie.name.includes('access-token')) {
+        try {
+          const parsed = JSON.parse(cookie.value)
+          if (Array.isArray(parsed) && parsed[0]) token = parsed[0]
+          else if (parsed.access_token) token = parsed.access_token
+        } catch {
+          token = cookie.value
+        }
+      }
+    }
+  }
+
+  if (!token) return false
+
   const db = supabaseAdmin()
   const { data: { user }, error } = await db.auth.getUser(token)
   if (error || !user) return false
+
   const { data } = await db
     .from('site_admins')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle()
-  return !!data
+
+  const isEmailAdmin = user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())
+
+  if (data || isEmailAdmin) {
+    if (!data && isEmailAdmin) {
+      try {
+        await db.from('site_admins').insert({ user_id: user.id })
+      } catch {}
+    }
+    return true
+  }
+
+  return false
 }
 
 export async function GET(req: NextRequest) {
@@ -132,6 +171,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       siparisler: formatted,
       hasMore: formatted.length === limit,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      }
     })
   } catch (e: any) {
     console.error('[admin/siparisler] Unexpected error:', e)

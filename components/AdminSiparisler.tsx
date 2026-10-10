@@ -162,9 +162,11 @@ export default function AdminSiparisler() {
       if (currentSearch.trim()) params.set('search', currentSearch.trim())
       if (currentFilter && currentFilter !== 'hepsi') params.set('durum', currentFilter)
 
-      const res = await fetch(`/api/admin/siparisler?${params.toString()}`, {
+      const res = await fetch(`/api/admin/siparisler?${params.toString()}&_t=${Date.now()}`, {
+        cache: 'no-store',
         headers: {
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
         }
       })
 

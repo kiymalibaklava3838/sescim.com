@@ -99,7 +99,17 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
     }
   }
 
-  const hasAnyText = Boolean(banner.title?.trim() || subtitle.trim() || description.trim())
+  // JSON sızıntısına karşı koruma: Ham JSON metinlerinin ekranda görünmesini engelle
+  const isLikelyJson = (val: string) => {
+    const trimmed = (val || '').trim()
+    return (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('{"') && trimmed.includes('":'))
+  }
+  let title = (banner.title || '').trim()
+  if (isLikelyJson(title)) title = ''
+  if (isLikelyJson(subtitle)) subtitle = ''
+  if (isLikelyJson(description)) description = ''
+
+  const hasAnyText = Boolean(title || subtitle || description)
 
   // Karartma varsayılanı: Belirtilmemişse metin varsa true, metin yoksa saf grafik için false
   const finalShowOverlay = showOverlay !== undefined ? showOverlay : hasAnyText
@@ -109,7 +119,7 @@ export function parseBannerContent(banner: StoreBanner): ParsedBannerSlide {
 
   return {
     id: banner.id,
-    title: banner.title || '',
+    title,
     subtitle,
     description,
     ctaText,

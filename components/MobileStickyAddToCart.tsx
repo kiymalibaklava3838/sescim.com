@@ -7,6 +7,7 @@ import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { useCartStore } from '@/store/useCartStore'
 import { resolveStock } from '@/lib/product-stock'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import InstallmentModal from './InstallmentModal'
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
     sescim_stok_durumu?: string | null
     sescim_fiyat?: number
     sescim_indirimli_fiyat?: number | null
+    marka?: string | null
     fiyat_sorunuz?: boolean
   }
 }
@@ -45,6 +47,12 @@ export default function MobileStickyAddToCart({ product }: Props) {
     return () => window.removeEventListener('cart-updated', updateCount)
   }, [])
 
+  const isFiyatSorunuz = isQuoteOnlyProduct({
+    marka: (product as any).marka,
+    ad: product.ad,
+    fiyat_sorunuz: product.fiyat_sorunuz,
+  })
+
   const pb = product.para_birimi || 'TRY'
   const rawPrice = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
   const priceTL = dovizToTL(rawPrice, pb, kur)
@@ -59,7 +67,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
   const isTukendi = !stockInfo.canOrder
 
   const handleAdd = () => {
-    if (isTukendi || product.fiyat_sorunuz) return
+    if (isTukendi || isFiyatSorunuz) return
 
     addToCart({
       id: product.id,
@@ -86,7 +94,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         
         {/* Fiyat & Taksit Alanı */}
-        {product.fiyat_sorunuz ? (
+        {isFiyatSorunuz ? (
           <div className="flex flex-col min-w-0 pr-1">
             <span className="text-[9px] font-display uppercase tracking-widest text-amber-700 font-bold leading-tight">
               DİSTRİBÜTÖR KURALI
@@ -120,7 +128,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
         {/* Butonlar Grubu */}
         <div className="flex items-center gap-2 shrink-0">
           
-          {product.fiyat_sorunuz ? (
+          {isFiyatSorunuz ? (
             <a
               href={`https://wa.me/908503053870?text=${shareText}`}
               target="_blank"

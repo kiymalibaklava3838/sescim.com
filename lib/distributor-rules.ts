@@ -27,10 +27,11 @@ export function isBrandRestricted(brand?: string | null): boolean {
 }
 
 /**
- * Bir ürünün marka veya ürün bazında "Fiyat Teklifi / Fiyat Sorunuz" kapsamında olup olmadığını döner.
+ * Bir ürünün marka, ürün adı veya ürün bazında "Fiyat Teklifi / Fiyat Sorunuz" kapsamında olup olmadığını döner.
  */
 export function isQuoteOnlyProduct(params: {
   marka?: string | null
+  ad?: string | null
   fiyat_sorunuz?: boolean | null
 }): boolean {
   // 1. Ürün düzeyinde manuel olarak 'Fiyat Sorunuz' aktif edilmişse
@@ -41,6 +42,14 @@ export function isQuoteOnlyProduct(params: {
   // 2. Marka düzeyinde distribütör yasağı varsa
   if (isBrandRestricted(params.marka)) {
     return true
+  }
+
+  // 3. Ürün başlığı içinde kısıtlı marka adı geçiyorsa (marka alanı boş/hatalı olsa dahi koruma sağlar)
+  if (params.ad) {
+    const cleanAd = params.ad.toUpperCase()
+    if (RESTRICTED_BRANDS.some((b) => cleanAd.includes(b.toUpperCase()))) {
+      return true
+    }
   }
 
   return false

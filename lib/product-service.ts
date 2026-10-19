@@ -479,22 +479,22 @@ export const getCrossSellProducts = unstable_cache(
                 sescim_aktif: pricing.sescim_aktif,
                 sescim_stok: pricing.sescim_stok,
                 sescim_stok_durumu: pricing.sescim_stok_durumu,
-                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz }),
+                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing.fiyat_sorunuz }),
               }
             }
             return {
               ...p,
               sescim_aktif: true,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }),
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: p.fiyat_sorunuz ?? false }),
             }
           })
           .filter((p) => p.sescim_aktif !== false && !p.fiyat_sorunuz && (p.sescim_fiyat || p.fiyat) > 0)
       } catch (e) {
-        return selectedProducts
+        return selectedProducts.filter((p) => !isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: p.fiyat_sorunuz }))
       }
     }
 
-    return selectedProducts
+    return selectedProducts.filter((p) => !isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: p.fiyat_sorunuz }))
   },
   ['product-cross-sell-smart'],
   { revalidate: 3600, tags: ['products'] }

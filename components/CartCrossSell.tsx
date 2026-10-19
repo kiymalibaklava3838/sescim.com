@@ -58,7 +58,7 @@ const ACCESSORIES_DB: Record<string, AccessoryItem[]> = {
     },
     {
       id: '691eb41b-1d59-4360-b44b-6f795db618e6',
-      ad: 'GOLD AUDIO NB-050 Sub Üstü Ara Sehpa',
+      ad: 'FENİX NB-050 Sub Üstü Ara Sehpa',
       kategori: 'Kablo, Stand ve Aksesuar',
       fiyat: 715,
       fotograf: 'https://csekzzsaeehakpdmzfam.supabase.co/storage/v1/object/public/urun-fotograflari/urunler/1778236707120_ecofzmlm6sn.jpg',

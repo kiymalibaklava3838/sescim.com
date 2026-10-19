@@ -102,8 +102,10 @@ export default async function UrunDetayPage({ params }: Props) {
   // Fiyat hesaplama (TL)
   const isFiyatSorunuz = isQuoteOnlyProduct({
     marka: product.marka,
+    ad: product.ad,
     fiyat_sorunuz: !!(product as any).fiyat_sorunuz
   })
+  ;(product as any).fiyat_sorunuz = isFiyatSorunuz
   const activePriceRaw = (product as any).sescim_indirimli_fiyat ?? (product as any).sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
   const priceTL = (!isFiyatSorunuz && activePriceRaw) ? dovizToTL(activePriceRaw, pb, kur) : null
 

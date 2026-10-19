@@ -199,7 +199,7 @@ export async function isCouponAlreadyUsedByUser(
   try {
     let q = db
       .from('kupon_kullanimlari')
-      .select('id, durum, siparis_id')
+      .select('id, durum, siparis_id, created_at')
       .ilike('kupon_kodu', cleanCode)
       .neq('durum', 'iptal')
 
@@ -211,9 +211,26 @@ export async function isCouponAlreadyUsedByUser(
 
     const { data: usageList } = await q
     if (usageList && usageList.length > 0) {
-      const active = excludeOrderId
-        ? usageList.filter((u: any) => u.siparis_id !== excludeOrderId)
-        : usageList
+      // 'beklemede' durumundaki kayıtları 30 dakika sonra süresi dolmuş say.
+      // PayTR iFrame açılıp ödeme yapılmadan kapatıldığında failure callback gelmez
+      // ve kupon kilitli kalırdı. Bu kontrol o sorunu çözer.
+      const PENDING_TIMEOUT_MS = 30 * 60 * 1000 // 30 dakika
+      const now = Date.now()
+
+      const active = usageList.filter((u: any) => {
+        // Mevcut sipariş hariç tut
+        if (excludeOrderId && u.siparis_id === excludeOrderId) return false
+        // Onaylanmış kayıtlar her zaman sayılır
+        if (u.durum === 'onaylandi') return true
+        // 'beklemede' kayıtlar: 30 dk geçtiyse süresi dolmuş kabul et (engelleme)
+        if (u.durum === 'beklemede') {
+          const createdAt = u.created_at ? new Date(u.created_at).getTime() : 0
+          if (now - createdAt > PENDING_TIMEOUT_MS) return false // Süresi dolmuş, engelleme
+          return true // Henüz süresi dolmamış, aktif sayıl
+        }
+        // Diğer durumlar (beklenmeyen) varsayılan olarak engeller
+        return true
+      })
       if (active.length > 0) return true
     }
   } catch {

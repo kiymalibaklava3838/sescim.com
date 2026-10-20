@@ -59,11 +59,6 @@ export default async function AramaPage({
           ...existing,
           sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
           sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
-          stok_durumu: p.stok_durumu ?? existing.stok_durumu,
-          stok_adedi: p.stok_adedi ?? existing.stok_adedi,
-          kritik_stok: p.kritik_stok ?? existing.kritik_stok,
-          sescim_stok: p.sescim_stok ?? existing.sescim_stok,
-          sescim_stok_durumu: p.sescim_stok_durumu ?? existing.sescim_stok_durumu,
         })
       }
     })

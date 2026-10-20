@@ -91,4 +91,27 @@ describe('resolveStock - Merkezi Stok Motoru Testleri', () => {
     expect(res.canOrder).toBe(false)
     expect(res.badgeLabel).toBe('Tükendi')
   })
+
+  it('Sescim özel stoğu girilmediğinde (null veya boş string) doğrudan Akdağ stoğunu baz almalıdır', () => {
+    const resNull = resolveStock({
+      stok_durumu: 'stokta',
+      stok_adedi: 8,
+      sescim_stok: null,
+      sescim_stok_durumu: null
+    })
+    expect(resNull.durum).toBe('stokta')
+    expect(resNull.adet).toBe(8)
+    expect(resNull.canOrder).toBe(true)
+
+    const resEmpty = resolveStock({
+      stok_durumu: 'siparise_gore',
+      stok_adedi: 0,
+      sescim_stok: '' as any,
+      sescim_stok_durumu: ''
+    })
+    expect(resEmpty.durum).toBe('siparise_gore')
+    expect(resEmpty.adet).toBe(0)
+    expect(resEmpty.canOrder).toBe(true)
+    expect(resEmpty.isTukendi).toBe(false)
+  })
 })

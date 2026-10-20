@@ -183,7 +183,13 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
         }))
 
-        let prods: any[] = [...sProds, ...aProds].slice(0, 6)
+        // Akdağ ana katalogdur ve fiziksel depo stoğunu taşır. Akdağ ürünleri önceliklidir:
+        const searchMap = new Map<string, any>()
+        aProds.forEach(p => searchMap.set(p.id, p))
+        sProds.forEach(p => {
+          if (!searchMap.has(p.id)) searchMap.set(p.id, p)
+        })
+        let prods: any[] = Array.from(searchMap.values()).slice(0, 6)
 
         if (prods.length > 0) {
           try {

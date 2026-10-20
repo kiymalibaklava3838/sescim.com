@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const uuidIds = urunIds.filter((id) => uuidRegex.test(id))
     const slugIds = urunIds.filter((id) => !uuidRegex.test(id))
 
-    const [akdagUuidRes, akdagSlugRes, sescimUuidRes, sescimSlugRes, sescimFiyatlarRes] = await Promise.all([
+    const [akdagUuidRes, akdagSlugRes, sescimUuidRes, sescimSlugRes] = await Promise.all([
       uuidIds.length > 0
         ? akdagDb.from('urunler').select('id, slug, ad, kategori, alt_kategori, fiyat, indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('id', uuidIds)
         : Promise.resolve({ data: [] as any[], error: null }),
@@ -103,15 +103,23 @@ export async function POST(req: NextRequest) {
       slugIds.length > 0
         ? db.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fiyat, indirimli_fiyat, sescim_fiyat, sescim_indirimli_fiyat, para_birimi, stok_durumu, stok_adedi, marka').in('slug', slugIds)
         : Promise.resolve({ data: [] as any[], error: null }),
-      db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu').in('urun_id', urunIds)
     ])
 
-    const dbProducts = [
-      ...(sescimUuidRes.data || []).map((p: any) => ({ ...p, kaynak: 'sescim' })),
-      ...(sescimSlugRes.data || []).map((p: any) => ({ ...p, kaynak: 'sescim' })),
-      ...(akdagUuidRes.data || []).map((p: any) => ({ ...p, kaynak: 'akdag' })),
-      ...(akdagSlugRes.data || []).map((p: any) => ({ ...p, kaynak: 'akdag' }))
-    ]
+    // Akdağ ana ürün kataloğudur ve fiziksel depo stoğunu taşır.
+    // Akdağ'da bulunan ürünler temel katalog ve stok için KESİNLİKLE önceliklidir:
+    const dbProductMap = new Map<string, any>()
+    ;(akdagUuidRes.data || []).forEach((p: any) => dbProductMap.set(p.id, { ...p, kaynak: 'akdag' }))
+    ;(akdagSlugRes.data || []).forEach((p: any) => dbProductMap.set(p.id, { ...p, kaynak: 'akdag' }))
+
+    // Sescim'e özel bağımsız ürünleri yalnızca Akdağ'da hiç yoksa ekle
+    ;(sescimUuidRes.data || []).forEach((p: any) => {
+      if (!dbProductMap.has(p.id)) dbProductMap.set(p.id, { ...p, kaynak: 'sescim' })
+    })
+    ;(sescimSlugRes.data || []).forEach((p: any) => {
+      if (!dbProductMap.has(p.id)) dbProductMap.set(p.id, { ...p, kaynak: 'sescim' })
+    })
+
+    const dbProducts = Array.from(dbProductMap.values())
 
     if (dbProducts.length === 0) {
       console.error('[siparis-olustur] dbProducts empty for urunIds:', urunIds, {
@@ -123,8 +131,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
+    // Sescim fiyat ve özel stok atamalarını ürünlerin gerçek UUID'leri üzerinden çek
+    const allResolvedUuids = Array.from(new Set([...dbProducts.map((p: any) => p.id), ...uuidIds]))
+    const { data: sescimFiyatlarData } = allResolvedUuids.length > 0
+      ? await db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu').in('urun_id', allResolvedUuids)
+      : { data: [] as any[] }
+
     const sescimFiyatlarMap = new Map<string, any>()
-    ;(sescimFiyatlarRes.data || []).forEach((f: any) => {
+    ;(sescimFiyatlarData || []).forEach((f: any) => {
       sescimFiyatlarMap.set(f.urun_id, f)
     })
 
@@ -333,13 +347,6 @@ export async function POST(req: NextRequest) {
 
     const insertPayload: any = {
       user_id: validUserId,
-      urunler: verifiedUrunler.map(u => ({
-        id: u.urun_id,
-        ad: u.ad,
-        fiyat: u.fiyat,
-        adet: u.adet,
-        fotograf: u.fotograf || null
-      })),
       toplam_tutar: serverGenelToplam,
       ad_soyad: ad_soyad || 'Müşteri',
       email: email,
@@ -361,6 +368,18 @@ export async function POST(req: NextRequest) {
       .select('siparis_no, id')
       .single()
 
+    // Eğer 'urunler' kolonu hatası verirse silip tekrar dene
+    if (dbErr && (dbErr.message?.includes('urunler') || dbErr.message?.includes('schema cache'))) {
+      delete insertPayload.urunler
+      const retry = await db
+        .from('siparisler')
+        .insert(insertPayload)
+        .select('siparis_no, id')
+        .single()
+      siparis = retry.data
+      dbErr = retry.error
+    }
+
     // Eğer user_id foreign key hatası verirse user_id olmadan hemen tekrar dene (sipariş asla bloke olmasın)
     if (dbErr && (dbErr.message?.includes('user_id_fkey') || dbErr.message?.includes('foreign key') || dbErr.message?.includes('profiles'))) {
       console.warn('[siparis-olustur] user_id foreign key hatası, user_id null olarak tekrar deneniyor:', dbErr.message)
@@ -377,6 +396,18 @@ export async function POST(req: NextRequest) {
     // Eğer kargo_ucreti kolonu henüz DB'de yoksa sütunsuz tekrar dene
     if (dbErr && dbErr.message?.includes('kargo_ucreti')) {
       delete insertPayload.kargo_ucreti
+      const retry = await db
+        .from('siparisler')
+        .insert(insertPayload)
+        .select('siparis_no, id')
+        .single()
+      siparis = retry.data
+      dbErr = retry.error
+    }
+
+    // Eğer siparis_no unique sequence çakışması olursa bir sonraki numarayla tekrar dene
+    if (dbErr && (dbErr.message?.includes('siparis_no_key') || dbErr.message?.includes('unique constraint'))) {
+      console.warn('[siparis-olustur] siparis_no çakışması, sequence ilerletilerek tekrar deneniyor:', dbErr.message)
       const retry = await db
         .from('siparisler')
         .insert(insertPayload)

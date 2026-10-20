@@ -38,12 +38,16 @@ export function resolveStock(product: {
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null
 }): ResolvedStock {
-  // 1. Sescim'e özel atanmış stok var mı?
-  const hasSescimStok = product.sescim_stok !== null && product.sescim_stok !== undefined
-  const sescimAdet = hasSescimStok ? Number(product.sescim_stok) : null
+  // 1. Sescim'e özel atanmış stok var mı? (null, undefined veya boş string değilse)
+  const rawSescimStok = product.sescim_stok
+  const hasSescimStok = rawSescimStok !== null && 
+                        rawSescimStok !== undefined && 
+                        rawSescimStok !== ('' as any) && 
+                        !isNaN(Number(rawSescimStok))
+  const sescimAdet = hasSescimStok ? Number(rawSescimStok) : null
 
   // 2. Ham durumları normalize et
-  const rawSescimDurum = product.sescim_stok_durumu?.toLowerCase().trim() || null
+  const rawSescimDurum = product.sescim_stok_durumu ? String(product.sescim_stok_durumu).toLowerCase().trim() : null
   const rawAkdagDurum = (product.stok_durumu || 'stokta').toLowerCase().trim()
   
   const isSescimTukendi = 
@@ -85,11 +89,11 @@ export function resolveStock(product: {
   } else if (isSescimSipariseGore) {
     durum = 'siparise_gore'
     const rawAdet = product.stok_adedi ?? (product as any).stok_miktari ?? (product as any).stok
-    adet = rawAdet !== null && rawAdet !== undefined ? Number(rawAdet) : null
+    adet = rawAdet !== null && rawAdet !== undefined && rawAdet !== '' && !isNaN(Number(rawAdet)) ? Number(rawAdet) : null
   } else {
     // Sescim'e özel stok veya durum girilmemiş -> Akdağ ortak stoğu geçerlidir
     const rawAdet = product.stok_adedi ?? (product as any).stok_miktari ?? (product as any).stok
-    adet = rawAdet !== null && rawAdet !== undefined ? Number(rawAdet) : null
+    adet = rawAdet !== null && rawAdet !== undefined && rawAdet !== '' && !isNaN(Number(rawAdet)) ? Number(rawAdet) : null
 
     if (isAkdagTukendi) {
       durum = 'tukendi'

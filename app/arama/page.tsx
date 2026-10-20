@@ -7,6 +7,9 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function generateMetadata({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }): Promise<Metadata> {
   const q = searchParams.q as string || ''
   return {
@@ -56,6 +59,11 @@ export default async function AramaPage({
           ...existing,
           sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
           sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+          stok_durumu: p.stok_durumu ?? existing.stok_durumu,
+          stok_adedi: p.stok_adedi ?? existing.stok_adedi,
+          kritik_stok: p.kritik_stok ?? existing.kritik_stok,
+          sescim_stok: p.sescim_stok ?? existing.sescim_stok,
+          sescim_stok_durumu: p.sescim_stok_durumu ?? existing.sescim_stok_durumu,
         })
       }
     })
@@ -73,7 +81,7 @@ export default async function AramaPage({
             sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
             sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
             sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
-            sescim_stok: pricing?.sescim_stok ?? p.sescim_stok ?? null,
+            sescim_stok: pricing?.sescim_stok !== undefined && pricing?.sescim_stok !== null ? pricing.sescim_stok : (p.sescim_stok ?? null),
             sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
             fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing?.fiyat_sorunuz })
           }

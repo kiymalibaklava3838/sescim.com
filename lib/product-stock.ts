@@ -46,6 +46,16 @@ export function resolveStock(product: {
   const rawSescimDurum = product.sescim_stok_durumu?.toLowerCase().trim() || null
   const rawAkdagDurum = (product.stok_durumu || 'stokta').toLowerCase().trim()
   
+  const isSescimTukendi = 
+    rawSescimDurum === 'tukendi' || 
+    rawSescimDurum === 'tükendi'
+
+  const isSescimSipariseGore = 
+    rawSescimDurum === 'siparise_gore' || 
+    rawSescimDurum === 'siparise-gore' || 
+    rawSescimDurum === 'siparişe göre' || 
+    rawSescimDurum === 'siparise gore'
+
   const isAkdagSipariseGore = 
     rawAkdagDurum === 'siparise_gore' || 
     rawAkdagDurum === 'siparise-gore' || 
@@ -59,18 +69,25 @@ export function resolveStock(product: {
   let durum: 'stokta' | 'siparise_gore' | 'tukendi' = 'stokta'
   let adet: number | null = null
 
-  if (hasSescimStok) {
-    // Sescim'e özel ayrılan stok geçerlidir
+  // Sescim admininin özel ayarı (Öncelikli kontrol)
+  if (isSescimTukendi || (hasSescimStok && sescimAdet! <= 0)) {
+    // Sescim admini tükendi olarak işaretlemiş veya kota 0 verilmiş
+    durum = 'tukendi'
+    adet = hasSescimStok ? Math.max(0, sescimAdet!) : 0
+  } else if (hasSescimStok) {
+    // Sescim'e özel ayrılan stok adedi pozitif
     adet = Math.max(0, sescimAdet!)
-    if (rawSescimDurum === 'tukendi' || rawSescimDurum === 'tükendi' || adet <= 0) {
-      durum = 'tukendi'
-    } else if (rawSescimDurum === 'siparise_gore' || rawSescimDurum === 'siparise-gore' || rawSescimDurum === 'siparişe göre') {
+    if (isSescimSipariseGore) {
       durum = 'siparise_gore'
     } else {
       durum = 'stokta'
     }
+  } else if (isSescimSipariseGore) {
+    durum = 'siparise_gore'
+    const rawAdet = product.stok_adedi ?? (product as any).stok_miktari ?? (product as any).stok
+    adet = rawAdet !== null && rawAdet !== undefined ? Number(rawAdet) : null
   } else {
-    // Sescim'e özel stok girilmemiş -> Akdağ ortak stoğu geçerlidir
+    // Sescim'e özel stok veya durum girilmemiş -> Akdağ ortak stoğu geçerlidir
     const rawAdet = product.stok_adedi ?? (product as any).stok_miktari ?? (product as any).stok
     adet = rawAdet !== null && rawAdet !== undefined ? Number(rawAdet) : null
 

@@ -58,7 +58,7 @@ export default function OnBilgilendirmeFormu() {
           <section>
             <h2 className="text-xl md:text-2xl font-display font-bold text-slate-800 mb-4">4. ÖDEME VE TESLİMAT KOŞULLARI</h2>
             <ul className="list-disc list-inside space-y-2">
-              <li><strong>Ödeme Yöntemleri:</strong> Sitemiz üzerinden PayTR altyapısı ile 3D Secure güvencesinde kredi kartı / banka kartı (tek çekim veya 12 aya varan taksit) ile ödeme yapılabilir.</li>
+              <li><strong>Ödeme Yöntemleri:</strong> Sitemiz üzerinden PayTR altyapısı ile 3D Secure güvencesinde kredi kartı / banka kartı (tek çekim veya 6 aya varan taksit) ile ödeme yapılabilir.</li>
               <li><strong>Teslimat:</strong> Sipariş konusu ürün, yasal 30 günlük süreyi aşmamak şartıyla ALICI'nın sipariş formunda belirttiği adrese anlaşmalı kargo firmaları (Yurtiçi Kargo vb.) aracılığıyla sigortalı olarak teslim edilir.</li>
             </ul>
           </section>

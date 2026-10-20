@@ -153,7 +153,7 @@ export async function generateMetadata({ params, searchParams }: Props) {
 
   const catName = category.name
   const rawTitle = `${catName} Fiyatları ve Modelleri | Peşin Fiyatına Taksit - Sescim`
-  const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, %100 orijinal distribütör garantisi, aynı gün kargo ve 12 aya varan taksit avantajıyla Sescim'de. Hemen inceleyin!`
+  const description = `En kaliteli ${catName.toLowerCase()} ekipmanları, %100 orijinal distribütör garantisi, aynı gün kargo ve 6 aya varan taksit avantajıyla Sescim'de. Hemen inceleyin!`
   const canonicalSlug = category.canonicalPath ? category.canonicalPath.join('/') : params.slug.join('/')
   const url = `${baseUrl}/urunler/${canonicalSlug}`
 

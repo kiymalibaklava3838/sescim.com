@@ -449,8 +449,8 @@ export async function POST(req: NextRequest) {
           email,
           tutarKurus,
           sepetBase64,
-          '0', // no_installment
-          '0', // max_installment
+          '0', // no_installment: 0 (taksitli satış aktif)
+          '6', // max_installment: BDDK & PayTR mağaza taksit kısıtlaması uyarınca maksimum 6 taksit
           'TL',
           test_mode,
           PAYTR_MERCHANT_SALT,
@@ -469,7 +469,7 @@ export async function POST(req: NextRequest) {
           user_address: teslimat_adresi || 'Türkiye',
           debug_on: '1',
           no_installment: '0',
-          max_installment: '0',
+          max_installment: '6',
           user_name: ad_soyad || 'Müşteri',
           user_phone: telefon || '',
           merchant_ok_url: `${siteUrl}/odeme/basarili?siparis_no=${siparis.siparis_no}`,

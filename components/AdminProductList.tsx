@@ -284,14 +284,23 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   const saveSescimStok = async (product: Product) => {
     try {
       const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
+      const targetStock = product.sescim_stok !== undefined ? product.sescim_stok : null
+      let targetDurum = product.sescim_stok_durumu || null
+      if (targetStock === 0) {
+        targetDurum = 'tukendi'
+      } else if (targetStock !== null && targetStock > 0 && targetDurum === 'tukendi') {
+        targetDurum = 'stokta'
+      }
+
       await upsertSescimPricing(product.id, {
         sescim_fiyat: product.sescim_fiyat,
         sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
         sescim_aktif: product.sescim_aktif,
         fiyat_sorunuz: product.fiyat_sorunuz,
-        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
-        sescim_stok_durumu: product.sescim_stok_durumu || null,
+        sescim_stok: targetStock,
+        sescim_stok_durumu: targetDurum,
       })
+      setProducts(prev => prev.map(p => (p.id === product.id ? { ...p, sescim_stok: targetStock, sescim_stok_durumu: targetDurum } : p)))
       setSavedStockId(product.id)
       setTimeout(() => setSavedStockId(null), 2000)
       await fetch('/api/revalidate', {
@@ -501,6 +510,12 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     const stokDurumu = editStok !== 'stokta' ? editStok : stokAdedi <= 0 ? 'tukendi' : 'stokta'
     const sescimStokAdedi =
       editSescimStok.trim() !== '' && !isNaN(parseInt(editSescimStok)) ? Math.max(0, parseInt(editSescimStok)) : null
+    let targetSescimDurum = editSescimStokDurumu || null
+    if (sescimStokAdedi === 0) {
+      targetSescimDurum = 'tukendi'
+    } else if (sescimStokAdedi !== null && sescimStokAdedi > 0 && targetSescimDurum === 'tukendi') {
+      targetSescimDurum = 'stokta'
+    }
 
     // Fotoğrafları Sescim storage bucket'ına yükle
     const yeniUrls: string[] = []
@@ -549,7 +564,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
         sescim_aktif: editProduct.sescim_aktif ?? true,
         fiyat_sorunuz: editFiyatSorunuz,
         sescim_stok: sescimStokAdedi,
-        sescim_stok_durumu: editSescimStokDurumu || null,
+        sescim_stok_durumu: targetSescimDurum,
       })
     } catch (e) {
       console.error('Failed to update sescim_fiyatlar:', e)

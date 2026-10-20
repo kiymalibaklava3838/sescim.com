@@ -2,6 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // PayTR iFrame ödeme sonrası /odeme/basarili veya /odeme/hata sayfalarına POST ile dönebilir.
+  // Next.js App Router sayfaları sadece GET kabul ettiğinden POST istekleri 303 ile GET'e çevrilir.
+  if (
+    request.method === 'POST' &&
+    (request.nextUrl.pathname.startsWith('/odeme/basarili') || request.nextUrl.pathname.startsWith('/odeme/hata'))
+  ) {
+    const redirectUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, request.url)
+    return NextResponse.redirect(redirectUrl, 303)
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -80,5 +90,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/hesabim', '/hesabim/:path*', '/uye/panel', '/uye/panel/:path*'],
+  matcher: ['/admin/:path*', '/hesabim', '/hesabim/:path*', '/uye/panel', '/uye/panel/:path*', '/odeme/basarili', '/odeme/hata'],
 }

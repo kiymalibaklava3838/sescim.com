@@ -1,7 +1,10 @@
 /**
  * PayTR / Türk Bankaları Taksit Hesaplama Motoru
  * World, Bonus, Maximum, Axess, CardFinans, Paraf, Sağlam Kart
+ * BDDK Taksit Yönetmeliği uyarınca elektronik ve ses ürünleri için maksimum 6 taksit uygulanmaktadır.
  */
+
+export const BDDK_MAX_INSTALLMENTS = 6
 
 export interface TaksitPlani {
   taksitSayisi: number
@@ -19,14 +22,12 @@ export interface BankaTaksitleri {
   taksitler: TaksitPlani[]
 }
 
-// Ortalama standart e-ticaret vade farkı oranları matrisi
+// PayTR güncel komisyon oranları (Maksimum 6 taksit kısıtlamalı)
 const DEFAULT_RATES: Record<number, number> = {
   1: 0,
-  2: 0.038,
-  3: 0.054,
-  6: 0.098,
-  9: 0.145,
-  12: 0.189,
+  2: 0.048,
+  3: 0.094,
+  6: 0.172,
 }
 
 export const BANKA_KARTLARI: { kod: string; ad: string; kart: string; renk: string }[] = [
@@ -42,7 +43,8 @@ export const BANKA_KARTLARI: { kod: string; ad: string; kart: string; renk: stri
 export function calculateInstallments(tutar: number): BankaTaksitleri[] {
   if (!tutar || tutar <= 0) return []
 
-  const taksitSecenekleri = [2, 3, 6, 9, 12]
+  // BDDK mevzuatı gereği ses ve müzik ekipmanlarında maksimum 6 taksit seçeneği sunulur
+  const taksitSecenekleri = [2, 3, 6]
 
   return BANKA_KARTLARI.map((banka) => {
     const taksitler: TaksitPlani[] = [

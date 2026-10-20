@@ -12,6 +12,7 @@ import { formatFiyat, dovizToTL, type KurData, DEFAULT_KUR } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { HIERARCHY_DATA } from '@/lib/categories'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 
 interface Product {
   id: string
@@ -28,6 +29,11 @@ interface Product {
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
   para_birimi?: string
+  stok_durumu?: string | null
+  stok_adedi?: number | null
+  kritik_stok?: number | null
+  sescim_stok?: number | null
+  sescim_stok_durumu?: string | null
 }
 
 interface FlattenedCategory {
@@ -161,7 +167,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
             .limit(6),
           sescimDb
             .from('urunler')
-            .select('id, slug, ad, kategori:kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, marka, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz')
+            .select('id, slug, ad, kategori:kategori_id, fotograflar, fiyat, indirimli_fiyat, para_birimi, marka, stok_durumu, stok_adedi, kritik_stok, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz')
             .or(`ad.ilike.%${qClean}%,marka.ilike.%${qClean}%`)
             .limit(6)
         ])
@@ -183,7 +189,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           try {
             const { data: sfData } = await sescimDb
               .from('sescim_fiyatlar')
-              .select('urun_id, sescim_fiyat, sescim_aktif, fiyat_sorunuz')
+              .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu')
               .in('urun_id', prods.map(p => p.id))
 
             if (sfData) {
@@ -196,7 +202,10 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   return {
                     ...p,
                     sescim_fiyat: s?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+                    sescim_indirimli_fiyat: s?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
                     sescim_aktif: s?.sescim_aktif ?? p.sescim_aktif ?? true,
+                    sescim_stok: s?.sescim_stok !== undefined && s?.sescim_stok !== null ? s.sescim_stok : (p.sescim_stok ?? null),
+                    sescim_stok_durumu: s?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
                     fiyat_sorunuz: quoteOnly
                   }
                 })
@@ -458,6 +467,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                     const aktifFiyat = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat ?? 0
                     const fiyatTL = dovizToTL(aktifFiyat, pb, kur)
                     const formatliFiyat = formatFiyat(fiyatTL, 'TRY')
+                    const stockInfo = resolveStock(product)
 
                     return (
                       <Link
@@ -476,13 +486,20 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                             unoptimized={true}
                             loading="eager"
                             placeholderIconSize={18}
-                            className="object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+                            className={`object-contain p-1 group-hover:scale-105 transition-transform duration-300 ${stockInfo.isTukendi ? 'opacity-60 grayscale' : ''}`}
                           />
+                          {stockInfo.isTukendi && (
+                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                              <span className="text-[8px] font-display font-black text-slate-800 uppercase tracking-tighter bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+                                Tükendi
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Ürün Bilgisi */}
                         <div className="flex-1 min-w-0">
-                          <div className="font-display font-bold text-xs sm:text-sm text-slate-800 group-hover:text-brand-red transition-colors truncate">
+                          <div className={`font-display font-bold text-xs sm:text-sm text-slate-800 group-hover:text-brand-red transition-colors truncate ${stockInfo.isTukendi ? 'text-slate-500' : ''}`}>
                             {product.ad}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 truncate">
@@ -494,16 +511,34 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                           </div>
                         </div>
 
-                        {/* Fiyat Bilgisi (Her zaman TL) */}
+                        {/* Fiyat ve Stok Bilgisi */}
                         <div className="text-right shrink-0">
-                          {product.fiyat_sorunuz ? (
+                          {stockInfo.isTukendi ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="font-display font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">
+                                Tükendi
+                              </span>
+                              {fiyatTL > 0 && !product.fiyat_sorunuz && (
+                                <span className="text-[10px] text-slate-400 line-through">
+                                  {formatliFiyat}
+                                </span>
+                              )}
+                            </div>
+                          ) : product.fiyat_sorunuz ? (
                             <span className="font-display font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px] uppercase tracking-wide whitespace-nowrap">
                               Fiyat Sorunuz
                             </span>
                           ) : (
-                            <span className="font-display font-black text-brand-red text-xs sm:text-sm whitespace-nowrap">
-                              {fiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
-                            </span>
+                            <div className="flex flex-col items-end gap-0.5">
+                              {stockInfo.isSipariseGore && (
+                                <span className="font-display font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded text-[9px] uppercase tracking-wider">
+                                  Siparişe Göre
+                                </span>
+                              )}
+                              <span className="font-display font-black text-brand-red text-xs sm:text-sm whitespace-nowrap">
+                                {fiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
+                              </span>
+                            </div>
                           )}
                         </div>
 

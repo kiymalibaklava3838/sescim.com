@@ -11,7 +11,7 @@ interface Props {
 
 export default function InstallmentTrigger({ fiyat, urunAdi }: Props) {
   const [open, setOpen] = useState(false)
-  const monthly12 = Math.round((fiyat * 1.189) / 12)
+  const monthly6 = Math.round((fiyat * 1.172) / 6)
 
   return (
     <>
@@ -29,7 +29,7 @@ export default function InstallmentTrigger({ fiyat, urunAdi }: Props) {
               Taksit Seçenekleri
             </div>
             <div className="text-[11px] text-slate-500 font-mono">
-              12 aya varan taksitle ayda <strong className="text-brand-red font-bold">{monthly12.toLocaleString('tr-TR')} ₺</strong>&apos;den başlayan fiyatlarla
+              6 aya varan taksitle ayda <strong className="text-brand-red font-bold">{monthly6.toLocaleString('tr-TR')} ₺</strong>&apos;den başlayan fiyatlarla
             </div>
           </div>
         </div>

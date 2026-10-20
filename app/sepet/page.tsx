@@ -1068,7 +1068,7 @@ export default function SepetPage() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-body mb-3">
-                    Tüm kredi kartlarına <strong>12 aya varan taksit</strong> veya tek çekim seçeneğiyle 3D Secure güvencesinde ödeme yapabilirsiniz.
+                    Tüm kredi kartlarına <strong>6 aya varan taksit</strong> veya tek çekim seçeneğiyle 3D Secure güvencesinde ödeme yapabilirsiniz.
                   </p>
                   
                   {/* Desteklenen Kart Aileleri */}

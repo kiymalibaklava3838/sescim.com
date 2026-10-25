@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
-        userAgent: ['Googlebot', 'Google-StoreBot', 'Googlebot-Image'],
+        userAgent: ['Googlebot', 'Google-StoreBot', 'Googlebot-Image', 'Bingbot', 'GPTBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot'],
         allow: ['/', '/api/feed/'],
         disallow: [
           '/admin',
@@ -52,9 +52,7 @@ export default function robots(): MetadataRoute.Robots {
           'PetalBot',
           'Bytespider',
           'Amazonbot',
-          'ClaudeBot',
           'CCBot',
-          'GPTBot',
         ],
         disallow: '/',
       },

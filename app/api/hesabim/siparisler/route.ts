@@ -16,15 +16,19 @@ const akdagAdmin = () =>
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 })
+    let token = authHeader ? authHeader.replace('Bearer ', '') : ''
+
+    const db = supabaseAdmin()
+    let user: any = null
+
+    if (token) {
+      const { data, error: userErr } = await db.auth.getUser(token)
+      if (!userErr && data?.user) {
+        user = data.user
+      }
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const db = supabaseAdmin()
-    const { data: { user }, error: userErr } = await db.auth.getUser(token)
-
-    if (userErr || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Oturum bulunamadı' }, { status: 401 })
     }
 
@@ -34,7 +38,7 @@ export async function GET(req: NextRequest) {
     const { data: orders, error: oErr } = await db
       .from('siparisler')
       .select('*, siparis_kalemleri(*)')
-      .or(`user_id.eq.${user.id},email.eq.${userEmail}`)
+      .or(`user_id.eq.${user.id},email.ilike.${userEmail}`)
       .neq('durum', 'odeme_bekliyor')
       .order('created_at', { ascending: false })
       .limit(50)

@@ -135,6 +135,60 @@ export const getProductBySlug = unstable_cache(
   { revalidate: 3600, tags: ['products'] }
 )
 
+/**
+ * Eski sistem (Wix /product-page/), arama motorları veya ChatGPT gibi yapay zeka araçlarından gelen
+ * değişmiş/eski slugları akıllıca tespit edip en uygun canlı ürünün güncel slug'ını bulur.
+ */
+export async function findClosestProductBySlug(slug: string): Promise<string | null> {
+  if (!slug || typeof slug !== 'string') return null
+
+  try {
+    const raw = decodeURIComponent(slug).toLowerCase().replace(/[-_]+/g, ' ').trim()
+    const tokens = raw.split(/\s+/).filter(t => t.length > 1 && !['ve', 'ile', 'icin', 'olan', 'adet', 'fiyati', 'urun', 'product'].includes(t))
+    if (tokens.length === 0) return null
+
+    // Sayı içeren model kodları veya en az 4 harfli ayırt edici kelimeler
+    const distinctive = tokens.filter(t => /[0-9]/.test(t) || t.length >= 4)
+    const searchTerms = distinctive.length > 0 ? distinctive : tokens
+    const primaryTerm = searchTerms[0]
+
+    const akdagDb = await createAkdagServerClient()
+    const sescimDb = await createServerSupabaseClient()
+
+    const [akdagRes, sescimRes] = await Promise.all([
+      akdagDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35),
+      sescimDb ? sescimDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35) : Promise.resolve({ data: [] })
+    ])
+
+    const candidates = [...(akdagRes.data || []), ...(sescimRes.data || [])]
+    if (candidates.length === 0) return null
+
+    let bestSlug: string | null = null
+    let highestScore = 0
+
+    for (const c of candidates) {
+      if (!c.slug) continue
+      const cTokens = (c.slug + ' ' + (c.ad || '')).toLowerCase().split(/[-_\s]+/)
+      let score = 0
+      for (const t of tokens) {
+        if (cTokens.includes(t)) {
+          // Model kodu veya rakam içeren kelimelere daha yüksek ağırlık ver
+          score += /[0-9]/.test(t) ? 3 : 1
+        }
+      }
+      if (score > highestScore && score >= 2) {
+        highestScore = score
+        bestSlug = c.slug
+      }
+    }
+
+    return bestSlug
+  } catch (err) {
+    console.error('[findClosestProductBySlug] error:', err)
+    return null
+  }
+}
+
 export const getRelatedProducts = unstable_cache(
   async (kategori: string, excludeId: string) => {
     const supabase = await createAkdagServerClient()

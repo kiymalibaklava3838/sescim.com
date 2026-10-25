@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sipariş bulunamadı' }, { status: 404 })
     }
 
-    if (siparis.user_id !== user.id) {
+    const userEmail = (user.email || '').trim().toLowerCase()
+    const siparisEmail = (siparis.email || '').trim().toLowerCase()
+    if (siparis.user_id !== user.id && (!siparisEmail || siparisEmail !== userEmail)) {
       return NextResponse.json({ error: 'Bu siparişe erişim yetkiniz yok' }, { status: 403 })
     }
 

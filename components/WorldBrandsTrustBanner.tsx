@@ -66,7 +66,6 @@ export default function WorldBrandsTrustBanner() {
               <CreditCard size={18} className="text-purple-600 shrink-0" />
               <div className="text-[11px] leading-tight">
                 <div className="font-bold text-slate-900 uppercase font-display tracking-wider">Taksit İmkanı</div>
-                <div className="text-slate-500 text-[10px]">Peşin Fiyatına</div>
               </div>
             </div>
           </div>

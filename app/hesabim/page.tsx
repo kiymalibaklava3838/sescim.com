@@ -213,14 +213,16 @@ export default function HesabimPage() {
     // Paralel veri yükleme: Siparişler, Adresler, Profil, Yorumlar ve Kuponlar eş zamanlı çekilir
     const ordersPromise = (async () => {
       try {
-        const res = await fetch('/api/hesabim/siparisler', {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        })
-        if (res.ok) {
-          const json = await res.json()
-          if (json.siparisler) {
-            setSiparisler(json.siparisler)
-            return
+        if (session?.access_token) {
+          const res = await fetch('/api/hesabim/siparisler', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          })
+          if (res.ok) {
+            const json = await res.json()
+            if (Array.isArray(json.siparisler)) {
+              setSiparisler(json.siparisler)
+              return
+            }
           }
         }
       } catch (e) {
@@ -229,20 +231,27 @@ export default function HesabimPage() {
 
       const { data: orders } = await supabase
         .from('siparisler')
-        .select('id, siparis_no, created_at, toplam_tutar, durum, kargo_takip_no, odeme_durumu, odeme_tipi, teslimat_adresi, fatura_adresi, notlar')
-        .or(`user_id.eq.${session.user.id},email.eq.${session.user.email}`)
+        .select('*, siparis_kalemleri(*)')
+        .or(`user_id.eq.${session.user.id},email.ilike.${session.user.email}`)
         .neq('durum', 'odeme_bekliyor')
         .order('created_at', { ascending: false })
-        .limit(30)
+        .limit(50)
 
       if (orders && orders.length > 0) {
         const ordersWithItems = orders.map((o: any) => {
           const dekontMatch = (o as any).notlar?.match(/Dekont yüklendi - ([^\s\]]+)/)
           const dekontUrl = (o as any).dekont_url || (dekontMatch ? dekontMatch[1] : undefined)
+          const kalemler = (o.siparis_kalemleri || []).map((k: any) => ({
+            urun_id: k.urun_id || k.id,
+            ad: k.urun_adi || 'Ürün',
+            fiyat: Number(k.birim_fiyat) || 0,
+            adet: Number(k.adet) || 1,
+            fotograf: k.fotograf || '',
+          }))
           return {
             ...o,
             dekont_url: dekontUrl,
-            urunler: [],
+            urunler: kalemler,
           }
         })
         setSiparisler(ordersWithItems as any)
@@ -925,37 +934,64 @@ export default function HesabimPage() {
 
                               <div className="font-display font-bold text-xs uppercase text-slate-500 mb-4 ml-1">Satın Alınan Ürünler</div>
                               <div className="space-y-3">
-                                {Array.isArray(s.urunler) && s.urunler.map((u, idx) => (
-                                  <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                                    <div className="w-14 h-14 bg-slate-50 rounded-lg border border-slate-100 flex-shrink-0 relative overflow-hidden">
-                                      <SafeProductImage src={u.fotograf} alt={u.ad} fill className="object-contain p-1" placeholderIconSize={20} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-display font-bold text-sm text-slate-800 truncate">{u.ad}</div>
-                                      <div className="font-body text-slate-500 text-xs mt-0.5">
-                                        {u.adet} Adet × {Number(u.fiyat).toLocaleString('tr-TR')} ₺
+                                {Array.isArray(s.urunler) && s.urunler.length > 0 ? (
+                                  s.urunler.map((u, idx) => (
+                                    <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                      <div className="w-14 h-14 bg-slate-50 rounded-lg border border-slate-100 flex-shrink-0 relative overflow-hidden">
+                                        <SafeProductImage src={u.fotograf} alt={u.ad} fill className="object-contain p-1" placeholderIconSize={20} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-display font-bold text-sm text-slate-800 truncate">{u.ad}</div>
+                                        <div className="font-body text-slate-500 text-xs mt-0.5">
+                                          {u.adet} Adet × {Number(u.fiyat).toLocaleString('tr-TR')} ₺
+                                        </div>
+                                      </div>
+                                      <div className="text-right pl-4">
+                                        <div className="font-display font-bold text-sm text-slate-800">
+                                          {(u.adet * u.fiyat).toLocaleString('tr-TR')} ₺
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="text-right pl-4">
-                                      <div className="font-display font-bold text-sm text-slate-800">
-                                        {(u.adet * u.fiyat).toLocaleString('tr-TR')} ₺
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
+                                  ))
+                                ) : (
+                                  <div className="text-xs text-slate-400 italic py-2">Ürün detay bilgisi bulunamadı.</div>
+                                )}
                               </div>
 
                               <div className="mt-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-t border-slate-100 pt-6">
                                 <div className="flex gap-4 w-full md:w-auto">
-
-                                  {s.dekont_url && (
+                                  {s.dekont_url ? (
                                     <div className="flex items-center gap-2 text-emerald-600 text-xs font-display font-bold px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                                       <CheckCircle size={16} /> Dekont Yüklendi
-                                      <a href={s.dekont_url} target="_blank" rel="noreferrer" className="ml-2 text-emerald-600 hover:text-emerald-500 transition-colors bg-white p-1 rounded-md shadow-sm border border-emerald-100">
+                                      <a href={s.dekont_url} target="_blank" rel="noreferrer" className="ml-2 text-emerald-600 hover:text-emerald-500 transition-colors bg-white p-1 rounded-md shadow-sm border border-emerald-100" title="Dekontu Aç">
                                         <FileText size={14} />
                                       </a>
                                     </div>
-                                  )}
+                                  ) : s.odeme_tipi === 'havale' && s.durum !== 'iptal' && s.durum !== 'teslim_edildi' ? (
+                                    <label className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer">
+                                      {uploadingId === s.id ? (
+                                        <>
+                                          <Loader2 size={14} className="animate-spin text-blue-600" />
+                                          <span>Yükleniyor...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Upload size={14} className="text-blue-600" />
+                                          <span>Dekont Yükle</span>
+                                        </>
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        className="hidden"
+                                        disabled={uploadingId === s.id}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0]
+                                          if (file) handleReceiptUpload(s.id, file)
+                                        }}
+                                      />
+                                    </label>
+                                  ) : null}
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
@@ -1423,7 +1459,7 @@ export default function HesabimPage() {
                     onClick={() => setKuponFiltre('tumu')}
                     className={`px-4 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-all ${
                       kuponFiltre === 'tumu'
-                        ? 'bg-slate-900 text-white shadow-sm'
+                        ? 'bg-brand-red text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -1445,7 +1481,7 @@ export default function HesabimPage() {
                     onClick={() => setKuponFiltre('genel')}
                     className={`px-4 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-wider transition-all ${
                       kuponFiltre === 'genel'
-                        ? 'bg-slate-900 text-white shadow-sm'
+                        ? 'bg-brand-red text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -1475,14 +1511,14 @@ export default function HesabimPage() {
                             : 'Şu Anda Aktif Kupon Bulunmuyor'}
                         </h4>
                         <p className="font-body text-xs text-slate-500 max-w-md mx-auto">
-                          Instagram veya diğer kampanyalardan edindiğiniz özel indirim kodunu yukarıdaki alandan tanımlayarak hesabınıza hemen ekleyebilirsiniz.
+                          Instagram sayfamızdan (<a href="https://www.instagram.com/sescimofficial" target="_blank" rel="noopener noreferrer" className="text-brand-red font-bold underline">@sescimofficial</a>) veya diğer kampanyalardan edindiğiniz indirim kodunu yukarıdaki kutucuktan tanımlayarak anında kullanabilirsiniz.
                         </p>
                       </div>
                     )
                   }
 
                   return (
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {filtered.map((kupon) => {
                         const indirimText =
                           kupon.indirim_tipi === 'yuzde'
@@ -1497,24 +1533,28 @@ export default function HesabimPage() {
                         return (
                           <div
                             key={kupon.id}
-                            className="bg-white border-2 border-slate-200 hover:border-brand-red/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                            className="bg-white border border-slate-200 hover:border-brand-red/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative group"
                           >
                             <div className="flex h-full">
                               {/* Sol Bilet Başlığı */}
-                              <div className="w-1/3 min-w-[110px] bg-gradient-to-b from-brand-red to-red-700 text-white p-4 flex flex-col justify-center items-center text-center relative border-r-2 border-dashed border-white/60">
-                                <Ticket size={24} className="opacity-80 mb-2" />
-                                <div className="font-display font-black text-2xl md:text-3xl leading-none">
+                              <div className="w-28 sm:w-32 flex-shrink-0 bg-gradient-to-b from-brand-red to-red-700 text-white p-3 sm:p-4 flex flex-col justify-center items-center text-center relative border-r border-dashed border-white/40 select-none">
+                                {/* Kupon Bilet Çentikleri (Ticket Notches) */}
+                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-slate-50 rounded-full border border-slate-200 pointer-events-none" />
+                                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-slate-50 rounded-full border border-slate-200 pointer-events-none" />
+
+                                <Ticket size={22} className="opacity-80 mb-1 sm:mb-2" />
+                                <div className="font-display font-black text-xl sm:text-2xl leading-tight">
                                   {kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `₺${kupon.indirim_miktari}`}
                                 </div>
-                                <span className="text-[10px] font-display font-bold uppercase tracking-widest mt-1 opacity-90">
+                                <span className="text-[9px] font-display font-bold uppercase tracking-widest mt-1 opacity-90">
                                   İNDİRİM
                                 </span>
                               </div>
 
                               {/* Sağ Bilet Detayları */}
-                              <div className="flex-1 p-4 md:p-5 flex flex-col justify-between">
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                              <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
                                     {kupon.kaynak === 'tanimli' ? (
                                       <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                                         🔒 Hesabıma Özel
@@ -1525,12 +1565,12 @@ export default function HesabimPage() {
                                       </span>
                                     )}
                                     {isInstagram && (
-                                      <span className="bg-pink-100 text-pink-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      <span className="bg-pink-100 text-pink-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                                         📸 Instagram
                                       </span>
                                     )}
                                     {kupon.kategori ? (
-                                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 truncate max-w-[180px]" title={kupon.kategori}>
                                         🏷️ {kupon.kategori}
                                       </span>
                                     ) : (
@@ -1540,40 +1580,35 @@ export default function HesabimPage() {
                                     )}
                                   </div>
 
-                                  <h4 className="font-display font-bold text-slate-900 text-sm md:text-base leading-snug">
+                                  <h4 className="font-display font-bold text-slate-900 text-sm sm:text-base leading-snug line-clamp-2">
                                     {kupon.aciklama || `${indirimText} Fırsatı`}
                                   </h4>
 
                                   <div className="text-xs text-slate-500 font-body mt-2 space-y-1">
-                                    {kupon.kategori ? (
-                                      <div className="text-amber-800 font-medium">
+                                    {kupon.kategori && (
+                                      <div className="text-amber-800 font-medium text-[11px]">
                                         Kategori: <strong className="text-amber-900">{kupon.kategori}</strong>
-                                        <span className="text-[11px] text-amber-700 block sm:inline sm:ml-1">
-                                          (Yalnızca bu kategorideki ürünlerde geçerlidir)
-                                        </span>
                                       </div>
-                                    ) : (
-                                      <div className="text-slate-500">Tüm ürünlerde geçerlidir</div>
                                     )}
                                     {kupon.min_tutar ? (
-                                      <div>
-                                        Min. Sepet Tutarı: <strong className="text-slate-700">{kupon.min_tutar.toLocaleString('tr-TR')} ₺</strong>
+                                      <div className="text-[11px]">
+                                        Min. Sepet: <strong className="text-slate-700">{kupon.min_tutar.toLocaleString('tr-TR')} ₺</strong>
                                       </div>
                                     ) : (
-                                      <div>Alt limitsiz geçerli</div>
+                                      <div className="text-[11px] text-slate-500">Alt limitsiz geçerli</div>
                                     )}
                                     {kupon.gecerlilik_tarihi && (
-                                      <div>
-                                        Son Kullanım: <strong className="text-slate-700">{new Date(kupon.gecerlilik_tarihi).toLocaleDateString('tr-TR')}</strong>
+                                      <div className="text-[11px]">
+                                        Son Gün: <strong className="text-slate-700">{new Date(kupon.gecerlilik_tarihi).toLocaleDateString('tr-TR')}</strong>
                                       </div>
                                     )}
                                   </div>
                                 </div>
 
                                 {/* Kod ve Eylem Butonları */}
-                                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                  <div className="flex-1 bg-slate-50 border border-slate-200 border-dashed rounded-lg px-3 py-2 flex items-center justify-between">
-                                    <span className="font-display font-black tracking-widest text-brand-red text-sm">
+                                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                                  <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl px-3 py-2 flex items-center justify-between">
+                                    <span className="font-display font-black tracking-widest text-brand-red text-xs sm:text-sm truncate select-all">
                                       {kupon.kod}
                                     </span>
                                     <button
@@ -1583,7 +1618,7 @@ export default function HesabimPage() {
                                         setCopiedCoupon(kupon.id)
                                         setTimeout(() => setCopiedCoupon(null), 2000)
                                       }}
-                                      className="text-slate-400 hover:text-slate-700 text-xs flex items-center gap-1 font-display font-semibold transition-colors"
+                                      className="text-slate-500 hover:text-brand-red text-xs flex items-center gap-1 font-display font-semibold transition-colors flex-shrink-0 ml-2"
                                       title="Kodu Kopyala"
                                     >
                                       {copiedCoupon === kupon.id ? (
@@ -1591,7 +1626,7 @@ export default function HesabimPage() {
                                           <Check size={12} /> Kopyalandı
                                         </span>
                                       ) : (
-                                        <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                        <span className="text-[11px] text-slate-600 flex items-center gap-1">
                                           <Copy size={12} /> Kopyala
                                         </span>
                                       )}
@@ -1600,7 +1635,7 @@ export default function HesabimPage() {
 
                                   <Link
                                     href={`/sepet?kupon=${encodeURIComponent(kupon.kod)}`}
-                                    className="px-3.5 py-2 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm"
+                                    className="w-full py-2 px-3 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
                                   >
                                     <span>Sepette Kullan</span>
                                     <ArrowRight size={13} />
@@ -1616,27 +1651,40 @@ export default function HesabimPage() {
                 })()}
 
                 {/* Instagram & Sosyal Medya Kampanya Banner */}
-                <div className="bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 border border-pink-200/70 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="mt-6 bg-gradient-to-br from-pink-50 via-rose-50/60 to-purple-50 border border-pink-200/80 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
-                      <Gift size={24} />
+                      <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
                     </div>
                     <div>
                       <h4 className="font-display font-bold text-slate-900 text-sm md:text-base">
-                        Instagram &amp; Sosyal Medya Fırsatlarını Kaçırmayın!
+                        Instagram Fırsatlarını &amp; Kampanyalarını Kaçırmayın!
                       </h4>
                       <p className="text-xs text-slate-600 font-body mt-0.5 max-w-xl">
-                        Instagram sayfamızda (@sescimofficial) paylaşılan anlık flaş kupon kodlarını yukarıdaki alandan tanımlayarak sepette hemen indirim kazanabilirsiniz.
+                        Instagram sayfamızda (
+                        <a
+                          href="https://www.instagram.com/sescimofficial"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-pink-600 hover:text-pink-700 font-bold underline transition-colors"
+                        >
+                          @sescimofficial
+                        </a>
+                        ) paylaşılan anlık flaş kupon kodlarını hesabınıza ekleyerek sepette anında indirim kazanabilirsiniz.
                       </p>
                     </div>
                   </div>
-                  <Link
-                    href="/kampanyalar"
-                    className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-purple-600 hover:from-rose-700 hover:to-purple-700 text-white font-display font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-2 flex-shrink-0"
+                  <a
+                    href="https://www.instagram.com/sescimofficial"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2.5 bg-gradient-to-r from-rose-600 via-pink-600 to-purple-600 hover:opacity-95 text-white font-display font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-pink-500/25 flex items-center gap-2 flex-shrink-0"
                   >
-                    <span>Tüm Kampanyalar</span>
+                    <span>@sescimofficial Takip Et</span>
                     <ExternalLink size={14} />
-                  </Link>
+                  </a>
                 </div>
               </div>
             )}

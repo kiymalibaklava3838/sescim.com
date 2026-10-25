@@ -54,6 +54,21 @@ const nextConfig = {
         destination: '/urunler/:slug*',
         permanent: true,
       },
+      {
+        source: '/product-page/:slug*',
+        destination: '/urun/:slug*',
+        permanent: true,
+      },
+      {
+        source: '/product/:slug*',
+        destination: '/urun/:slug*',
+        permanent: true,
+      },
+      {
+        source: '/products/:slug*',
+        destination: '/urun/:slug*',
+        permanent: true,
+      },
     ]
   },
   async headers() {

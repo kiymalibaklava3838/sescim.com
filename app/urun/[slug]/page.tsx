@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound, redirect, permanentRedirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { Phone, Mail, ChevronRight, Bell, ShieldCheck, Truck, CreditCard } from 'lucide-react'
 import Link from 'next/link'
@@ -18,7 +18,7 @@ import InstallmentTrigger from '@/components/InstallmentTrigger'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
-import { getProductBySlug, getRelatedProducts, getCrossSellProducts } from '@/lib/product-service'
+import { getProductBySlug, getRelatedProducts, getCrossSellProducts, findClosestProductBySlug } from '@/lib/product-service'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { resolveStock } from '@/lib/product-stock'
 import { ProductCard } from '@/components/ProductGrid'
@@ -70,7 +70,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function UrunDetayPage({ params }: Props) {
   const supabase = await createServerSupabaseClient()
   const { data: product } = await getProductBySlug(params.slug)
-  if (!product) notFound()
+  if (!product) {
+    // 1. Akıllı slug eşleştirme: Eski Wix linkleri, ChatGPT veya arama motorlarındaki değişen sluglar
+    const matchedSlug = await findClosestProductBySlug(params.slug)
+    if (matchedSlug && matchedSlug !== params.slug) {
+      permanentRedirect(`/urun/${matchedSlug}`)
+    }
+
+    // 2. Tam eşleşen ürün bulunamazsa 404 yerine arama sonuçlarına yönlendir
+    const cleanQuery = decodeURIComponent(params.slug).replace(/[-_]+/g, ' ').trim()
+    if (cleanQuery.length > 2) {
+      redirect(`/arama?q=${encodeURIComponent(cleanQuery)}`)
+    }
+
+    notFound()
+  }
 
   // SEO için: Eğer link UUID ile girilmişse ve ürünün bir slug'ı varsa, slug linkine yönlendir (301)
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.slug)

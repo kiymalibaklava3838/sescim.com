@@ -80,7 +80,7 @@ export default function KampanyalarCoupons({ initialCoupons }: Props) {
           Şu Anda Yayında Olan Genel Kupon Bulunmuyor
         </h3>
         <p className="text-xs sm:text-sm text-slate-500 font-body max-w-md mx-auto mb-6 leading-relaxed">
-          Instagram sayfamızdaki (<span className="text-brand-red font-semibold">@sescimofficial</span>) veya kampanya duyurularımızdaki özel kodları hesabınıza ekleyerek indirimlerden yararlanabilirsiniz.
+          Instagram sayfamızdaki (<a href="https://www.instagram.com/sescimofficial" target="_blank" rel="noopener noreferrer" className="text-brand-red font-semibold hover:underline">@sescimofficial</a>) veya kampanya duyurularımızdaki özel kodları hesabınıza ekleyerek indirimlerden yararlanabilirsiniz.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link

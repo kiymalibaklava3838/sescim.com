@@ -27,7 +27,8 @@ export default function FavorilerPage() {
     if (item.fiyat_sorunuz || !item.fiyat) return
     const pb = item.para_birimi || 'TRY'
     const fiyatTL = dovizToTL(item.fiyat, pb, kur)
-    const indirimliTL = item.indirimli_fiyat ? dovizToTL(item.indirimli_fiyat, pb, kur) : null
+    const indirimPB = (item as any).indirimli_fiyat_pb || (item.indirimli_fiyat ? 'TRY' : pb)
+    const indirimliTL = item.indirimli_fiyat ? dovizToTL(item.indirimli_fiyat, indirimPB, kur) : null
 
     addToCart({
       id: item.id,
@@ -39,6 +40,7 @@ export default function FavorilerPage() {
       para_birimi: pb,
       indirimli_fiyat: indirimliTL,
       indirimli_fiyat_doviz: item.indirimli_fiyat || null,
+      indirimli_fiyat_pb: indirimPB,
     })
 
     setAddedMap((prev) => ({ ...prev, [item.id]: true }))

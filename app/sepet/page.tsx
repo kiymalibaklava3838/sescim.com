@@ -242,9 +242,31 @@ export default function SepetPage() {
 
   const livePrice = (i: CartItem): number => {
     const pb = i.para_birimi || 'TRY'
-    const doviz = i.indirimli_fiyat_doviz ? i.indirimli_fiyat_doviz : (i.fiyat_doviz || null)
-    if (doviz && pb !== 'TRY') return dovizToTL(doviz, pb, kur)
-    return Math.ceil(i.indirimli_fiyat ? i.indirimli_fiyat : i.fiyat)
+    const indirimPB = (i as any).indirimli_fiyat_pb || (i.indirimli_fiyat ? 'TRY' : pb)
+
+    // 1. İndirimli fiyat varsa (Flaş indirim, outlet veya genel indirim):
+    if (i.indirimli_fiyat !== null && i.indirimli_fiyat !== undefined && Number(i.indirimli_fiyat) > 0) {
+      if (indirimPB === 'USD' || indirimPB === 'EUR') {
+        const dovizVal = i.indirimli_fiyat_doviz ?? i.indirimli_fiyat
+        return dovizToTL(Number(dovizVal), indirimPB, kur)
+      }
+      return Math.ceil(Number(i.indirimli_fiyat))
+    }
+
+    // 2. Normal liste fiyatı:
+    if (i.fiyat_doviz && (pb === 'USD' || pb === 'EUR')) {
+      return dovizToTL(Number(i.fiyat_doviz), pb, kur)
+    }
+
+    return Math.ceil(Number(i.fiyat || 0))
+  }
+
+  const liveOriginalPrice = (i: CartItem): number => {
+    const pb = i.para_birimi || 'TRY'
+    if (i.fiyat_doviz && (pb === 'USD' || pb === 'EUR')) {
+      return dovizToTL(Number(i.fiyat_doviz), pb, kur)
+    }
+    return Math.ceil(Number(i.fiyat || 0))
   }
 
   const liveTotal = (): number => Math.ceil(items.reduce((sum, i) => sum + livePrice(i) * i.adet, 0))
@@ -572,16 +594,32 @@ export default function SepetPage() {
                           Özel Teklif Ürünü (Doğrudan Satılamaz)
                         </div>
                       ) : (
-                        <div className="font-display font-bold text-brand-red text-sm sm:text-base mt-1">
-                          {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
-                          <span className="text-slate-400 font-body font-medium text-[11px] ml-1.5 hidden xs:inline">({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})</span>
+                        <div className="flex flex-wrap items-baseline gap-2 mt-1">
+                          <span className="font-display font-bold text-brand-red text-sm sm:text-base">
+                            {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                          </span>
+                          {livePrice(i) < liveOriginalPrice(i) && (
+                            <span className="text-slate-400 line-through font-body text-xs">
+                              {Math.ceil(liveOriginalPrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                            </span>
+                          )}
+                          <span className="text-slate-400 font-body font-medium text-[11px] hidden xs:inline">
+                            ({Math.ceil(livePrice(i)).toLocaleString('tr-TR')} ₺ × {i.adet})
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
-                    <div className="sm:hidden font-display font-bold text-brand-red text-sm">
-                      {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                    <div className="sm:hidden flex flex-col items-end">
+                      <span className="font-display font-bold text-brand-red text-sm">
+                        {Math.ceil(livePrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                      </span>
+                      {livePrice(i) < liveOriginalPrice(i) && (
+                        <span className="text-slate-400 line-through text-[10px]">
+                          {Math.ceil(liveOriginalPrice(i) * i.adet).toLocaleString('tr-TR')} ₺
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
                       <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }} aria-label="Azalt"><Minus size={13} /></button>

@@ -218,6 +218,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       para_birimi: pb,
       indirimli_fiyat: indirimliFiyatTL,
       indirimli_fiyat_doviz: product.sescim_indirimli_fiyat || null,
+      indirimli_fiyat_pb: indirimPB,
     })
     setCartAdded(true)
     setTimeout(() => setCartAdded(false), 2000)

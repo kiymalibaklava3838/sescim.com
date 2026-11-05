@@ -87,6 +87,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
       para_birimi: pb,
       indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
       indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
+      indirimli_fiyat_pb: hasDiscount ? indirimPB : null,
     })
 
     setAdded(true)

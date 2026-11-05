@@ -10,6 +10,7 @@ export interface CartItem {
   para_birimi?: string    // USD / EUR / TRY
   indirimli_fiyat: number | null      // TL karşılığı
   indirimli_fiyat_doviz?: number | null // Orijinal döviz
+  indirimli_fiyat_pb?: string | null  // İndirimin para birimi (TRY / USD / EUR)
   adet: number
   marka?: string
   fiyat_sorunuz?: boolean
@@ -107,6 +108,8 @@ export function addToCart(item: Omit<CartItem, 'adet'>) {
     existing.adet += 1
     existing.fiyat = item.fiyat
     existing.indirimli_fiyat = item.indirimli_fiyat
+    existing.indirimli_fiyat_pb = item.indirimli_fiyat_pb
+    existing.indirimli_fiyat_doviz = item.indirimli_fiyat_doviz
   } else {
     cart.push({ ...item, adet: 1 })
   }
@@ -135,6 +138,8 @@ export function addManyToCart(items: Array<Omit<CartItem, 'adet'> & { adet: numb
       existing.adet += incoming.adet
       existing.fiyat = incoming.fiyat
       existing.indirimli_fiyat = incoming.indirimli_fiyat
+      existing.indirimli_fiyat_pb = incoming.indirimli_fiyat_pb
+      existing.indirimli_fiyat_doviz = incoming.indirimli_fiyat_doviz
     } else {
       cart.push({ ...incoming })
     }

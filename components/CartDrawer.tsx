@@ -138,8 +138,15 @@ export default function CartDrawer() {
                           <h3 className="font-display font-bold text-xs sm:text-sm text-slate-800 line-clamp-2 leading-snug">
                             {item.ad}
                           </h3>
-                          <div className="font-display font-black text-xs sm:text-sm text-brand-red mt-1">
-                            {Math.ceil(item.indirimli_fiyat ? item.indirimli_fiyat : item.fiyat).toLocaleString('tr-TR')} ₺
+                          <div className="flex items-baseline gap-2 mt-1">
+                            <span className="font-display font-black text-xs sm:text-sm text-brand-red">
+                              {Math.ceil(item.indirimli_fiyat ? item.indirimli_fiyat : item.fiyat).toLocaleString('tr-TR')} ₺
+                            </span>
+                            {item.indirimli_fiyat && item.indirimli_fiyat < item.fiyat && (
+                              <span className="text-[11px] text-slate-400 line-through">
+                                {Math.ceil(item.fiyat).toLocaleString('tr-TR')} ₺
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">

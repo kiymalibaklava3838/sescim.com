@@ -46,6 +46,7 @@ export default function AddToCartButton({ urun }: Props) {
       para_birimi: pb,
       indirimli_fiyat: indirimliFiyatTL,
       indirimli_fiyat_doviz: urun.indirimli_fiyat || null,
+      indirimli_fiyat_pb: indirimPb,
     })
     
     // Sepete Eklendi State

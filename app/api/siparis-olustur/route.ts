@@ -131,16 +131,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Sescim fiyat ve özel stok atamalarını ürünlerin gerçek UUID'leri üzerinden çek
+    // Sescim fiyat, aktif flaş indirim ve özel stok atamalarını ürünlerin gerçek UUID'leri üzerinden çek
     const allResolvedUuids = Array.from(new Set([...dbProducts.map((p: any) => p.id), ...uuidIds]))
-    const { data: sescimFiyatlarData } = allResolvedUuids.length > 0
-      ? await db.from('sescim_fiyatlar').select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu').in('urun_id', allResolvedUuids)
-      : { data: [] as any[] }
-
-    const sescimFiyatlarMap = new Map<string, any>()
-    ;(sescimFiyatlarData || []).forEach((f: any) => {
-      sescimFiyatlarMap.set(f.urun_id, f)
-    })
+    const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
+    const sescimFiyatlarMap = await getSescimPricingMap(allResolvedUuids)
 
     // Ürünlerin gerçek fiyatlarını hesapla ve doğrulanmış sepet dizisini oluştur
     // Fiyat Hiyerarşisi:
@@ -188,30 +182,33 @@ export async function POST(req: NextRequest) {
         }, { status: 400 })
       }
 
-      const rawSescimFiyat = sescimPricing?.sescim_fiyat ?? dbProd.sescim_fiyat
-      const sescimFiyat = (rawSescimFiyat !== null && rawSescimFiyat !== undefined && Number(rawSescimFiyat) > 0)
-        ? Number(rawSescimFiyat)
-        : null
-
-      const rawSescimIndirimli = sescimPricing?.sescim_indirimli_fiyat ?? dbProd.sescim_indirimli_fiyat
-      const sescimIndirimli = (rawSescimIndirimli !== null && rawSescimIndirimli !== undefined && Number(rawSescimIndirimli) > 0)
-        ? Number(rawSescimIndirimli)
-        : null
-
-      const listeFiyat = Number(dbProd.fiyat || 0)
-      const listeIndirimli = (dbProd.indirimli_fiyat !== null && dbProd.indirimli_fiyat !== undefined && Number(dbProd.indirimli_fiyat) > 0)
-        ? Number(dbProd.indirimli_fiyat)
-        : null
-
-      const basePrice = sescimFiyat !== null ? sescimFiyat : (listeIndirimli !== null ? listeIndirimli : listeFiyat)
-      const finalUnitCurrencyPrice = sescimIndirimli !== null ? sescimIndirimli : basePrice
       const pb = dbProd.para_birimi || 'TRY'
+      const indirimPB = sescimPricing?.sescim_indirimli_fiyat_pb || pb
 
-      // Döviz to TL dönüşümü
-      let unitPriceTL = finalUnitCurrencyPrice
-      if (pb === 'USD') unitPriceTL = finalUnitCurrencyPrice * kurObj.USD
-      else if (pb === 'EUR') unitPriceTL = finalUnitCurrencyPrice * kurObj.EUR
-      unitPriceTL = Math.ceil(unitPriceTL)
+      // 1. Liste / Normal Fiyatı (TL'ye çevrilmiş)
+      const rawNormal = sescimPricing?.sescim_fiyat ?? dbProd.sescim_fiyat ?? dbProd.fiyat ?? 0
+      let normalPriceTL = Number(rawNormal)
+      if (pb === 'USD') normalPriceTL = Math.ceil(normalPriceTL * kurObj.USD)
+      else if (pb === 'EUR') normalPriceTL = Math.ceil(normalPriceTL * kurObj.EUR)
+      else normalPriceTL = Math.ceil(normalPriceTL)
+
+      // 2. İndirimli Fiyat (Flaş indirim, outlet veya özel indirim)
+      const rawDiscount = sescimPricing?.sescim_indirimli_fiyat ?? dbProd.sescim_indirimli_fiyat ?? dbProd.indirimli_fiyat ?? null
+      let discountPriceTL: number | null = null
+      if (rawDiscount !== null && rawDiscount !== undefined && Number(rawDiscount) > 0) {
+        let dTL = Number(rawDiscount)
+        if (indirimPB === 'USD') dTL = Math.ceil(dTL * kurObj.USD)
+        else if (indirimPB === 'EUR') dTL = Math.ceil(dTL * kurObj.EUR)
+        else dTL = Math.ceil(dTL)
+
+        if (dTL > 0 && normalPriceTL > 0 && dTL < normalPriceTL) {
+          discountPriceTL = dTL
+        }
+      }
+
+      const unitPriceTL = discountPriceTL !== null ? discountPriceTL : normalPriceTL
+      const finalUnitCurrencyPrice = discountPriceTL !== null ? Number(rawDiscount) : Number(rawNormal)
+      const finalCurrency = discountPriceTL !== null ? indirimPB : pb
 
       const itemTotalTL = unitPriceTL * item.adet
       serverAraToplam += itemTotalTL
@@ -223,7 +220,7 @@ export async function POST(req: NextRequest) {
         alt_kategori: dbProd.alt_kategori || (item as any).alt_kategori || null,
         fiyat: unitPriceTL,
         birim_fiyat_doviz: finalUnitCurrencyPrice,
-        para_birimi: pb,
+        para_birimi: finalCurrency,
       })
     }
 

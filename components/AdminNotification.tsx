@@ -112,6 +112,8 @@ export default function AdminNotification() {
       .subscribe()
 
     // Realtime bağlantı kopması ihtimaline karşı yedek polling kontrolü
+    // NOT: Polling 25s → 90s'ye çıkarıldı. Realtime zaten aktif olduğundan
+    // 25s polling gereksiz egress yaratıyordu (saatte ~144 istek → ~12 istek).
     const pollInterval = setInterval(async () => {
       if (ilkYukleme.current) return
       try {
@@ -134,7 +136,7 @@ export default function AdminNotification() {
           }
         }
       } catch {}
-    }, 25000)
+    }, 90000)
 
     // 2 saniye sonra ilk yükleme bayrağını kaldır
     const t = setTimeout(() => { ilkYukleme.current = false }, 2000)

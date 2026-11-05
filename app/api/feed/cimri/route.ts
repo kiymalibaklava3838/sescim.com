@@ -7,7 +7,7 @@ import { dovizToTL, getKur } from '@/lib/kur'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { resolveStock } from '@/lib/product-stock'
 
-export const revalidate = 7200 // 2 saat Edge CDN önbellek
+export const revalidate = 21600 // 6 saat Edge CDN önbellek (eski: 2 saat → egress azaltmak için 6 saate çıkarıldı)
 
 export async function GET() {
   try {
@@ -121,7 +121,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=21600, s-maxage=21600, stale-while-revalidate=86400',
       },
     })
   } catch (e: any) {

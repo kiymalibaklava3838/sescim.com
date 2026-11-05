@@ -121,20 +121,27 @@ export default function AdminSiparisler() {
         { event: '*', schema: 'public', table: 'siparisler' },
         (payload: any) => {
           const yeni = payload.new
-          // Ödeme bekleyen taslaklar dışındaki gerçek siparişlerde (yeni ödenen, kargolanan, güncellenen) listeyi anında tazele
-          if (!yeni || yeni.durum !== 'odeme_bekliyor') {
+          const eski = payload.old
+          // Yalnızca anlamlı durum değişikliklerinde yenile (kargo güncelleme, not ekleme gibi
+          // küçük güncellemelerde gereksiz 50 kayıtlık sorgu oluşturma)
+          if (!yeni || yeni.durum === 'odeme_bekliyor') return
+          // Sadece durum veya odeme_durumu değiştiyse yenile
+          const durumDegisti = !eski || eski.durum !== yeni.durum || eski.odeme_durumu !== yeni.odeme_durumu
+          if (durumDegisti) {
             loadSiparisler(0, false, searchRef.current, filterDurumRef.current)
           }
         }
       )
       .subscribe()
 
-    // Yedek otomatik yenileme (Realtime bağlantı kesintilerine karşı her 20 saniyede bir sessiz kontrol)
+    // Yedek otomatik yenileme (Realtime bağlantı kesintilerine karşı her 60 saniyede bir sessiz kontrol)
+    // NOT: Polling süresi 20s → 60s olarak artırıldı; Realtime zaten aktif olduğu için
+    // 20s polling gereksiz egress yaratıyordu (her 20s'de 50 kayıtlık sorgu).
     const pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && !document.hidden) {
         loadSiparisler(0, false, searchRef.current, filterDurumRef.current)
       }
-    }, 20000)
+    }, 60000)
 
     return () => {
       clearInterval(pollInterval)

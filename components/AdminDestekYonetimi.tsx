@@ -30,7 +30,7 @@ export default function AdminDestekYonetimi() {
 
   const loadTalepler = async () => {
     setLoading(true)
-    const { data } = await supabase.from('destek_talepleri').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('destek_talepleri').select('id, user_id, konu, mesaj, kargo_kodu, durum, yanit, created_at').order('created_at', { ascending: false })
     setTalepler(data || [])
     setLoading(false)
   }

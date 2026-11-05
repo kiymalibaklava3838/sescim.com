@@ -39,7 +39,7 @@ export default function AdminYorumYonetimi() {
     setLoading(true)
     const { data } = await supabase
       .from('urun_yorumlari')
-      .select('*')
+      .select('id, urun_id, puan, yorum, ad_soyad, fotograflar, created_at, user_id, onaylandi')
       .order('created_at', { ascending: false })
     setYorumlar(data || [])
     setLoading(false)

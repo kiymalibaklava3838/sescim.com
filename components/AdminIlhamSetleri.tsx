@@ -69,7 +69,7 @@ export default function AdminIlhamSetleri({ supabase }: { supabase: any }) {
     try {
       const { data, error } = await supabase
         .from('bannerlar')
-        .select('*')
+        .select('id, baslik, alt_yazi, resim_url, link, sira, aktif, created_at')
         .order('sira', { ascending: true })
         .order('created_at', { ascending: false })
 

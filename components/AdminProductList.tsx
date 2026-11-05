@@ -141,11 +141,11 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     const sescimClient = createClient()
 
     try {
-      // 1. Sescim'in kendi ürünlerini çek
+      // 1. Sescim'in kendi ürünlerini çek (aciklama liste görünümünde gerekmez, düzenleme modalında ayrıca çekilir)
       let sescimQuery = sescimClient
         .from('urunler')
         .select(
-          'id, slug, ad, aciklama, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at'
+          'id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, model_kodu, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at'
         )
       if (searchQuery) {
         sescimQuery = sescimQuery.or(

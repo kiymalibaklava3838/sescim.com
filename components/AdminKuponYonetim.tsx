@@ -44,7 +44,7 @@ export default function AdminKuponYonetim() {
 
   const loadKuponlar = async () => {
     setLoading(true)
-    const { data } = await supabase.from('kuponlar').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('kuponlar').select('id, kod, indirim_tipi, indirim_miktari, min_tutar, max_kullanim, kullanim_sayisi, gecerlilik_tarihi, aktif, aciklama, ozel_mi, kategori, created_at').order('created_at', { ascending: false })
     setKuponlar(data || [])
     setLoading(false)
   }

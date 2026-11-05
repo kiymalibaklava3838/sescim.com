@@ -69,7 +69,7 @@ export default function AdminUyeYonetim({ supabaseClient }: AdminUyeYonetimProps
       // Fallback: Doğrudan uye_profiller tablosunu çek
       const { data: profs, error: profErr } = await supabase
         .from('uye_profiller')
-        .select('*')
+        .select('id, user_id, ad, soyad, email, telefon, created_at')
         .order('created_at', { ascending: false })
 
       if (profs && profs.length > 0) {
@@ -94,7 +94,7 @@ export default function AdminUyeYonetim({ supabaseClient }: AdminUyeYonetimProps
       try {
         const { data: directProfs } = await supabase
           .from('uye_profiller')
-          .select('*')
+          .select('id, user_id, ad, soyad, email, telefon, created_at')
           .order('created_at', { ascending: false })
         if (directProfs && directProfs.length > 0) {
           setUyeler(directProfs.map((p: any) => ({

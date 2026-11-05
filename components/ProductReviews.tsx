@@ -133,10 +133,11 @@ export default function ProductReviews({ urun_id }: Props) {
     try {
       const { data, error } = await supabase
         .from('urun_yorumlari')
-        .select('*')
+        .select('id, urun_id, puan, yorum, ad_soyad, fotograflar, created_at, user_id, onaylandi')
         .eq('urun_id', urun_id)
         .eq('onaylandi', true)
         .order('created_at', { ascending: false })
+        .limit(50)
 
       if (error) throw error
 

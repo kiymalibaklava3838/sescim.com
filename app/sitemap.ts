@@ -84,8 +84,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 3. Products (Hibrit Akdağ + Sescim)
   const sescimDb = await createServerSupabaseClient()
   const [akdagRes, sescimRes] = await Promise.all([
-    supabase.from('urunler').select('id, slug, updated_at, fotograflar').limit(50000),
-    sescimDb ? sescimDb.from('urunler').select('id, slug, updated_at, fotograflar').limit(5000) : Promise.resolve({ data: [] })
+    supabase.from('urunler').select('id, slug, updated_at').limit(50000),
+    sescimDb ? sescimDb.from('urunler').select('id, slug, updated_at').limit(5000) : Promise.resolve({ data: [] })
   ])
 
   const slugMap = new Map<string, any>()
@@ -98,9 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.65,
-    ...(Array.isArray(product.fotograflar) && product.fotograflar.length > 0 
-      ? { images: product.fotograflar.slice(0, 5) } 
-      : {})
   }))
 
   return [...staticPages, ...categorySitemap, ...productSitemap]

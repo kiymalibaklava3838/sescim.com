@@ -1,6 +1,7 @@
 import { notFound, redirect, permanentRedirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { Phone, Mail, ChevronRight, Bell, ShieldCheck, Truck, CreditCard } from 'lucide-react'
+import { Phone, Mail, ChevronRight, Bell, ShieldCheck, Truck, CreditCard, Zap } from 'lucide-react'
+import DailyDealsTimer from '@/components/DailyDealsTimer'
 import Link from 'next/link'
 import Image from 'next/image'
 import ProductImageGallery from '@/components/ProductImageGallery'
@@ -120,8 +121,18 @@ export default async function UrunDetayPage({ params }: Props) {
     fiyat_sorunuz: !!(product as any).fiyat_sorunuz
   })
   ;(product as any).fiyat_sorunuz = isFiyatSorunuz
-  const activePriceRaw = (product as any).sescim_indirimli_fiyat ?? (product as any).sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
-  const priceTL = (!isFiyatSorunuz && activePriceRaw) ? dovizToTL(activePriceRaw, pb, kur) : null
+
+  // Para birimi ve indirim hesaplama:
+  // Flaş indirimler veya outlet TL olarak girildiğinde kur ile çarpılmaz (TRY korunur).
+  const indirimPB = (product as any).sescim_indirimli_fiyat_pb || pb
+  const rawBasePrice = (product as any).sescim_fiyat ?? product.fiyat ?? 0
+  const basePriceTL = (!isFiyatSorunuz && rawBasePrice) ? dovizToTL(rawBasePrice, pb, kur) : 0
+
+  const rawDiscountPrice = (product as any).sescim_indirimli_fiyat ?? product.indirimli_fiyat ?? null
+  const discountPriceTL = (!isFiyatSorunuz && rawDiscountPrice) ? dovizToTL(rawDiscountPrice, indirimPB, kur) : null
+
+  const hasDiscount = !isFiyatSorunuz && discountPriceTL !== null && discountPriceTL > 0 && basePriceTL > 0 && discountPriceTL < basePriceTL
+  const priceTL = isFiyatSorunuz ? null : (hasDiscount ? discountPriceTL : (basePriceTL > 0 ? basePriceTL : null))
 
   // Breadcrumb hiyerarşisi
   const breadcrumbs = getBreadcrumbs(product.kategori, product.alt_kategori, product.urun_tipi)
@@ -357,16 +368,35 @@ export default async function UrunDetayPage({ params }: Props) {
             <div className="w-12 h-0.5 bg-brand-red mb-4" />
 
             {/* Ürün Rozetleri & Aciliyet Tetikleyicileri */}
-            {/* Ürün Rozetleri & Aciliyet Tetikleyicileri */}
             <div className="mb-4">
               <ProductBadges
                 stokAdedi={product.stok_adedi}
                 kritikStok={product.kritik_stok ?? 5}
                 stokDurumu={stok}
-                fiyat={isFiyatSorunuz ? undefined : ((product as any).sescim_fiyat ?? product.fiyat)}
-                indirimliFiyat={isFiyatSorunuz ? undefined : ((product as any).sescim_indirimli_fiyat ?? product.indirimli_fiyat)}
+                fiyat={isFiyatSorunuz ? undefined : (basePriceTL || undefined)}
+                indirimliFiyat={hasDiscount ? (discountPriceTL || undefined) : undefined}
               />
             </div>
+
+            {/* Flaş İndirim Canlı Sayaç Bandı (Varsa) */}
+            {hasDiscount && (product as any).is_flas_aktif && (
+              <div className="mb-4 p-3.5 bg-gradient-to-r from-red-600 via-brand-red to-orange-600 text-white rounded-xl shadow-md flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-white/20 backdrop-blur-xs rounded-lg">
+                    <Zap size={16} className="text-white fill-white animate-pulse" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-display font-black uppercase tracking-wider">
+                      Günün Fırsatı & Flaş İndirim
+                    </div>
+                    <div className="text-[11px] text-white/90">
+                      Bu indirimli fiyattan sipariş için kalan süre:
+                    </div>
+                  </div>
+                </div>
+                <DailyDealsTimer targetDate={(product as any).flas_bitis_tarihi || undefined} />
+              </div>
+            )}
 
             {/* Fiyat veya Distribütör Fiyat Koruması Kutusu */}
             {isFiyatSorunuz ? (
@@ -399,9 +429,10 @@ export default async function UrunDetayPage({ params }: Props) {
               <>
                 {/* Fiyat — client component ile kur dönüşümü */}
                 <UrunFiyatGosterge
-                  fiyat={(product as any).sescim_fiyat ?? product.fiyat}
-                  indirimliFiyat={(product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? undefined : product.indirimli_fiyat) ?? undefined}
-                  paraBirimi={product.para_birimi || 'TRY'}
+                  fiyat={rawBasePrice}
+                  indirimliFiyat={hasDiscount ? (rawDiscountPrice || undefined) : undefined}
+                  paraBirimi={pb}
+                  indirimliParaBirimi={indirimPB}
                   fiyatGuncelleme={product.fiyat_guncelleme}
                   urunAdi={product.ad}
                 />
@@ -474,10 +505,10 @@ export default async function UrunDetayPage({ params }: Props) {
                         slug: product.slug,
                         ad: product.ad,
                         kategori: product.kategori,
-                        fiyat: (product as any).sescim_fiyat ?? product.fiyat,
-                        para_birimi: product.para_birimi,
+                        fiyat: rawBasePrice,
+                        para_birimi: pb,
                         fotograflar: product.fotograflar || [],
-                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
+                        indirimli_fiyat: hasDiscount ? rawDiscountPrice : null,
                         stok_durumu: product.stok_durumu,
                         stok_adedi: product.stok_adedi,
                         marka: product.marka,
@@ -485,7 +516,7 @@ export default async function UrunDetayPage({ params }: Props) {
                     />
                   </div>
                 </div>
-              ) : ((product as any).sescim_fiyat ?? product.fiyat) && stockInfo.canOrder ? (
+              ) : (rawBasePrice && stockInfo.canOrder) ? (
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div className="sm:col-span-3">
                     <AddToCartButton urun={{
@@ -493,10 +524,10 @@ export default async function UrunDetayPage({ params }: Props) {
                       ad: product.ad,
                       kategori: product.kategori,
                       fotograflar: product.fotograflar || [],
-                      fiyat: (product as any).sescim_fiyat ?? product.fiyat,
-                      indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
-                      indirimli_fiyat_doviz: null,
-                      para_birimi: product.para_birimi || 'TRY',
+                      fiyat: rawBasePrice,
+                      indirimli_fiyat: hasDiscount ? rawDiscountPrice : null,
+                      indirimli_fiyat_doviz: hasDiscount ? indirimPB : null,
+                      para_birimi: pb,
                     }} />
                   </div>
                   <div className="sm:col-span-1">
@@ -506,10 +537,10 @@ export default async function UrunDetayPage({ params }: Props) {
                         slug: product.slug,
                         ad: product.ad,
                         kategori: product.kategori,
-                        fiyat: (product as any).sescim_fiyat ?? product.fiyat,
-                        para_birimi: product.para_birimi,
+                        fiyat: rawBasePrice,
+                        para_birimi: pb,
                         fotograflar: product.fotograflar || [],
-                        indirimli_fiyat: (product as any).sescim_indirimli_fiyat ?? ((product as any).sescim_fiyat ? null : product.indirimli_fiyat) ?? null,
+                        indirimli_fiyat: hasDiscount ? rawDiscountPrice : null,
                         stok_durumu: stockInfo.durum,
                         stok_adedi: stockInfo.adet,
                         marka: product.marka,
@@ -625,7 +656,12 @@ export default async function UrunDetayPage({ params }: Props) {
       </div>
 
       {/* Mobilde ekran altına sabitlenen Satın Alma Çubuğu */}
-      <MobileStickyAddToCart product={product as any} />
+      <MobileStickyAddToCart product={{
+        ...product,
+        sescim_fiyat: rawBasePrice,
+        sescim_indirimli_fiyat: hasDiscount ? rawDiscountPrice : null,
+        sescim_indirimli_fiyat_pb: indirimPB,
+      } as any} />
     </div>
   )
 }

@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { ProductCard } from '@/components/ProductGrid'
 import { getKurClient } from '@/lib/kur-client'
 import { createClient } from '@/lib/supabase'
-import type { KurData } from '@/lib/kur'
+import { DEFAULT_KUR, type KurData } from '@/lib/kur'
 
 export default function FeaturedCarousel({ products }: { products: any[] }) {
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   const [isBayiAuth, setIsBayiAuth] = useState(false)
   const [showPrice, setShowPrice] = useState(false)
 

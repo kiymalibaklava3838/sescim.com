@@ -106,6 +106,7 @@ export default async function OutletPage() {
         ...p,
         sescim_fiyat: pricing?.sescim_fiyat ?? p.fiyat,
         sescim_indirimli_fiyat: outletMeta?.outlet_fiyat ?? pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null,
+        sescim_indirimli_fiyat_pb: outletMeta?.fiyat_para_birimi || pricing?.sescim_indirimli_fiyat_pb || 'TRY',
         kullanim_alani: outletMeta?.durum_aciklamasi || 'Teşhir / Seri Sonu Fırsatı',
         sescim_aktif: pricing?.sescim_aktif ?? true,
         sescim_stok: pricing?.sescim_stok ?? null,

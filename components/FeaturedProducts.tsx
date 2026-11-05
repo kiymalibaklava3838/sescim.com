@@ -179,7 +179,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
                           {formatFiyat(normalFiyatTL || 0, 'TRY')}
                         </span>
                         <span className="text-lg font-bold text-brand-red mt-1">
-                          {formatFiyat(dovizToTL(indirimli, pb, kur), 'TRY')}
+                          {formatFiyat(dovizToTL(indirimli, product.sescim_indirimli_fiyat_pb || pb, kur), 'TRY')}
                         </span>
                       </div>
                     ) : (

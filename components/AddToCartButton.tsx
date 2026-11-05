@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingCart, Check } from 'lucide-react'
 import { addToCart } from '@/lib/cart'
-import { dovizToTL, type KurData } from '@/lib/kur'
+import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 
 interface Props {
@@ -23,7 +23,7 @@ interface Props {
 export default function AddToCartButton({ urun }: Props) {
   const [added, setAdded] = useState(false)
   const [flyingItems, setFlyingItems] = useState<{id: number, x: number, y: number}[]>([])
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
 
   useEffect(() => {
     getKurClient().then(setKur).catch(() => {})

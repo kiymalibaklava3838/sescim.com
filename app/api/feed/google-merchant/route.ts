@@ -109,8 +109,9 @@ export async function GET() {
       // İndirimli fiyat (Sescim indirimli fiyatı varsa öncelikli)
       const discountedRaw = pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? (p.indirimli_fiyat && p.indirimli_fiyat < (p.fiyat || 0) ? p.indirimli_fiyat : null)
 
+      const indirimPB = pricing?.sescim_indirimli_fiyat_pb || pb
       const normalPriceTL = normalRaw > 0 ? dovizToTL(normalRaw, pb, kur) : 0
-      const discountedPriceTL = discountedRaw && discountedRaw > 0 ? dovizToTL(discountedRaw, pb, kur) : null
+      const discountedPriceTL = discountedRaw && discountedRaw > 0 ? dovizToTL(discountedRaw, indirimPB, kur) : null
 
       const hasDiscount = discountedPriceTL !== null && discountedPriceTL > 0 && normalPriceTL > 0 && discountedPriceTL < normalPriceTL
       const finalPriceTL = hasDiscount ? discountedPriceTL : (normalPriceTL > 0 ? normalPriceTL : (discountedPriceTL || 0))

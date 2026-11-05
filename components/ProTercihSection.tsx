@@ -55,7 +55,7 @@ export default async function ProTercihSection() {
 
             const aktifFiyatTL = aktifFiyat ? dovizToTL(aktifFiyat, pb, kur) : null
             const normalFiyatTL = dovizToTL(product.fiyat ?? 0, pb, kur)
-            const indirimliFiyatTL = indirimli ? dovizToTL(indirimli, pb, kur) : null
+            const indirimliFiyatTL = indirimli ? dovizToTL(indirimli, product.sescim_indirimli_fiyat_pb || pb, kur) : null
 
             return (
               <StaggerItem key={product.id} className="flex flex-col h-full">

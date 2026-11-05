@@ -27,6 +27,7 @@ interface Props {
     sescim_stok_durumu?: string | null
     sescim_fiyat?: number
     sescim_indirimli_fiyat?: number | null
+    sescim_indirimli_fiyat_pb?: string | null
     marka?: string | null
     fiyat_sorunuz?: boolean
   }
@@ -54,8 +55,15 @@ export default function MobileStickyAddToCart({ product }: Props) {
   })
 
   const pb = product.para_birimi || 'TRY'
-  const rawPrice = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat
-  const priceTL = dovizToTL(rawPrice, pb, kur)
+  const indirimPB = (product as any).sescim_indirimli_fiyat_pb || pb
+  const rawBasePrice = product.sescim_fiyat ?? product.fiyat ?? 0
+  const basePriceTL = dovizToTL(rawBasePrice, pb, kur)
+
+  const rawIndirimli = product.sescim_indirimli_fiyat ?? product.indirimli_fiyat ?? null
+  const indirimliPriceTL = rawIndirimli ? dovizToTL(rawIndirimli, indirimPB, kur) : null
+  const hasDiscount = indirimliPriceTL !== null && indirimliPriceTL > 0 && basePriceTL > 0 && indirimliPriceTL < basePriceTL
+
+  const priceTL = hasDiscount ? indirimliPriceTL : basePriceTL
 
   const stockInfo = resolveStock({
     stok_durumu: product.stok_durumu,
@@ -74,11 +82,11 @@ export default function MobileStickyAddToCart({ product }: Props) {
       ad: product.ad,
       kategori: product.kategori,
       fotograf: product.fotograflar?.[0] || '',
-      fiyat: priceTL,
-      fiyat_doviz: rawPrice,
+      fiyat: basePriceTL,
+      fiyat_doviz: rawBasePrice,
       para_birimi: pb,
-      indirimli_fiyat: product.sescim_indirimli_fiyat ? priceTL : null,
-      indirimli_fiyat_doviz: product.sescim_indirimli_fiyat || null,
+      indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
+      indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
     })
 
     setAdded(true)

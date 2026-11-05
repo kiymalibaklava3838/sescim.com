@@ -113,6 +113,8 @@ function triggerCacheRevalidation(slug?: string) {
     revalidatePath('/')
     revalidatePath('/firsatlar')
     revalidatePath('/outlet')
+    revalidatePath('/urunler')
+    revalidatePath('/arama')
     revalidatePath('/api/feed/google-merchant')
     if (slug) {
       revalidatePath(`/urun/${slug}`)

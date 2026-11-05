@@ -75,6 +75,7 @@ export default async function AramaPage({
             ...p,
             sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
             sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
+            sescim_indirimli_fiyat_pb: pricing?.sescim_indirimli_fiyat_pb || null,
             sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
             sescim_stok: pricing?.sescim_stok !== undefined && pricing?.sescim_stok !== null ? pricing.sescim_stok : (p.sescim_stok ?? null),
             sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,

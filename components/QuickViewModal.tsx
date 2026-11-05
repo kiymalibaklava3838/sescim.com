@@ -21,6 +21,7 @@ export interface QuickViewProduct {
   indirimli_fiyat?: number
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
+  sescim_indirimli_fiyat_pb?: string | null
   para_birimi?: string
   stok_durumu?: string
   stok_adedi?: number | null
@@ -70,10 +71,13 @@ export default function QuickViewModal() {
   if (!product) return null
 
   const pb = product.para_birimi || 'TRY'
+  const indirimPB = (product as any).sescim_indirimli_fiyat_pb || pb
   const rawPrice = product.sescim_fiyat ?? product.fiyat ?? 0
   const rawIndirimli = product.sescim_indirimli_fiyat ?? product.indirimli_fiyat
   const priceTL = dovizToTL(rawPrice, pb, kur)
-  const indirimliPriceTL = rawIndirimli ? dovizToTL(rawIndirimli, pb, kur) : null
+  const indirimliPriceTL = rawIndirimli ? dovizToTL(rawIndirimli, indirimPB, kur) : null
+  const hasDiscount = indirimliPriceTL !== null && indirimliPriceTL > 0 && priceTL > 0 && indirimliPriceTL < priceTL
+
   const stockInfo = resolveStock({
     stok_durumu: product.stok_durumu,
     stok_adedi: product.stok_adedi,
@@ -88,7 +92,7 @@ export default function QuickViewModal() {
     : []
 
   const handleAddToCart = () => {
-    const effectivePriceTL = indirimliPriceTL || priceTL
+    const effectivePriceTL = hasDiscount ? indirimliPriceTL : priceTL
     if (isOutOfStock || !effectivePriceTL) return
 
     addToCart({
@@ -99,8 +103,8 @@ export default function QuickViewModal() {
       fiyat: priceTL,
       fiyat_doviz: rawPrice,
       para_birimi: pb,
-      indirimli_fiyat: indirimliPriceTL,
-      indirimli_fiyat_doviz: rawIndirimli || null,
+      indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
+      indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
     })
 
     setCartAdded(true)
@@ -201,7 +205,7 @@ export default function QuickViewModal() {
           ) : (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg mb-6">
               <div className="flex items-baseline gap-3">
-                {indirimliPriceTL ? (
+                {hasDiscount && indirimliPriceTL ? (
                   <>
                     <span className="font-display font-black text-2xl sm:text-3xl text-brand-red">
                       {formatFiyat(indirimliPriceTL, 'TRY')}

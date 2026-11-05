@@ -106,11 +106,13 @@ export default async function DailyDealsSection() {
     const pricing = pricingMap.get(p.id)
     const flasItem = flasDataMap.get(p.id)
     const indirimliFiyat = flasItem ? Number(flasItem.indirimli_fiyat) : (pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null)
+    const indirimliPB = flasItem?.fiyat_para_birimi || pricing?.sescim_indirimli_fiyat_pb || null
 
     return {
       ...p,
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: indirimliFiyat,
+      sescim_indirimli_fiyat_pb: indirimliPB,
       sescim_aktif: pricing?.sescim_aktif ?? true,
       sescim_stok: pricing?.sescim_stok ?? null,
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
@@ -164,11 +166,12 @@ export default async function DailyDealsSection() {
         <StaggerContainer className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {dealsProducts.map((product) => {
             const pb = product.para_birimi || 'TRY'
+            const indirimPB = product.sescim_indirimli_fiyat_pb || pb
             const normalFiyatRaw = product.sescim_fiyat ?? product.fiyat ?? 0
             const indirimliFiyatRaw = product.sescim_indirimli_fiyat ?? null
 
             const normalFiyatTL = dovizToTL(normalFiyatRaw, pb, kur)
-            const indirimliFiyatTL = indirimliFiyatRaw ? dovizToTL(indirimliFiyatRaw, pb, kur) : null
+            const indirimliFiyatTL = indirimliFiyatRaw ? dovizToTL(indirimliFiyatRaw, indirimPB, kur) : null
 
             const gecerliFiyatTL = indirimliFiyatTL || normalFiyatTL
             const indirimOrani = (indirimliFiyatTL && normalFiyatTL > indirimliFiyatTL)

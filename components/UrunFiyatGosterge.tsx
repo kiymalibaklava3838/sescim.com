@@ -9,12 +9,13 @@ interface Props {
   fiyat?: number
   indirimliFiyat?: number
   paraBirimi: string
+  indirimliParaBirimi?: string
   fiyatGuncelleme?: string
   urunAdi?: string
 }
 
 export default function UrunFiyatGosterge({
-  fiyat, indirimliFiyat, paraBirimi, fiyatGuncelleme, urunAdi = ''
+  fiyat, indirimliFiyat, paraBirimi, indirimliParaBirimi, fiyatGuncelleme, urunAdi = ''
 }: Props) {
   const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
 
@@ -24,9 +25,10 @@ export default function UrunFiyatGosterge({
 
   if (!fiyat) return null
 
+  const indirimPB = indirimliParaBirimi || paraBirimi
   const fiyatTL = dovizToTL(fiyat, paraBirimi, kur)
-  const indirimliFiyatTL = indirimliFiyat ? dovizToTL(indirimliFiyat, paraBirimi, kur) : null
-  const indirimliFiyatGoster = indirimliFiyatTL && indirimliFiyatTL < fiyatTL
+  const indirimliFiyatTL = indirimliFiyat ? dovizToTL(indirimliFiyat, indirimPB, kur) : null
+  const indirimliFiyatGoster = indirimliFiyatTL !== null && indirimliFiyatTL > 0 && indirimliFiyatTL < fiyatTL
 
   const indirimYuzde = indirimliFiyatGoster && indirimliFiyatTL
     ? Math.round((1 - indirimliFiyatTL / fiyatTL) * 100)

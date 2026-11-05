@@ -26,6 +26,7 @@ interface Product {
   indirimli_fiyat?: number
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
+  sescim_indirimli_fiyat_pb?: string | null
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
   para_birimi?: string
@@ -193,32 +194,62 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
 
         if (prods.length > 0) {
           try {
-            const { data: sfData } = await sescimDb
-              .from('sescim_fiyatlar')
-              .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu')
-              .in('urun_id', prods.map(p => p.id))
+            const nowIso = new Date().toISOString()
+            const [sfRes, flasRes] = await Promise.all([
+              sescimDb
+                .from('sescim_fiyatlar')
+                .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu')
+                .in('urun_id', prods.map(p => p.id)),
+              sescimDb
+                .from('flas_indirimler')
+                .select('urun_id, indirimli_fiyat, fiyat_para_birimi, bitis_tarihi')
+                .in('urun_id', prods.map(p => p.id))
+                .eq('aktif', true)
+                .gt('bitis_tarihi', nowIso)
+                .lte('baslangic_tarihi', nowIso)
+            ])
 
-            if (sfData) {
-              const sfMap = new Map<string, any>((sfData as any[]).map((x: any) => [x.urun_id, x]))
-              prods = prods
-                .map(p => {
-                  const s = sfMap.get(p.id)
-                  const rawFiyatSorunuz = s?.fiyat_sorunuz ?? p.fiyat_sorunuz ?? false
-                  const quoteOnly = isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: rawFiyatSorunuz })
-                  return {
-                    ...p,
-                    sescim_fiyat: s?.sescim_fiyat ?? p.sescim_fiyat ?? null,
-                    sescim_indirimli_fiyat: s?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
-                    sescim_aktif: s?.sescim_aktif ?? p.sescim_aktif ?? true,
-                    sescim_stok: s?.sescim_stok !== undefined && s?.sescim_stok !== null ? s.sescim_stok : (p.sescim_stok ?? null),
-                    sescim_stok_durumu: s?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
-                    fiyat_sorunuz: quoteOnly
-                  }
-                })
-                .filter(p => p.sescim_aktif !== false)
-            }
+            const sfData = sfRes.data || []
+            const flasData = flasRes.data || []
+
+            const sfMap = new Map<string, any>(sfData.map((x: any) => [x.urun_id, x]))
+            const flasMap = new Map<string, any>(flasData.map((x: any) => [x.urun_id, x]))
+
+            prods = prods
+              .map(p => {
+                const s = sfMap.get(p.id)
+                const flas = flasMap.get(p.id)
+                const rawFiyatSorunuz = s?.fiyat_sorunuz ?? p.fiyat_sorunuz ?? false
+                const quoteOnly = isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: rawFiyatSorunuz })
+
+                let indirimliFiyat: number | null = null
+                let indirimliPB: string | null = null
+
+                if (flas && flas.indirimli_fiyat !== null && flas.indirimli_fiyat !== undefined) {
+                  indirimliFiyat = Number(flas.indirimli_fiyat)
+                  indirimliPB = flas.fiyat_para_birimi || 'TRY'
+                } else if (s?.sescim_indirimli_fiyat !== null && s?.sescim_indirimli_fiyat !== undefined) {
+                  indirimliFiyat = Number(s.sescim_indirimli_fiyat)
+                  indirimliPB = 'TRY'
+                } else if (p.indirimli_fiyat !== null && p.indirimli_fiyat !== undefined) {
+                  indirimliFiyat = Number(p.indirimli_fiyat)
+                  indirimliPB = p.para_birimi || 'TRY'
+                }
+
+                return {
+                  ...p,
+                  sescim_fiyat: s?.sescim_fiyat ?? p.sescim_fiyat ?? null,
+                  sescim_indirimli_fiyat: indirimliFiyat,
+                  sescim_indirimli_fiyat_pb: indirimliPB,
+                  sescim_aktif: s?.sescim_aktif ?? p.sescim_aktif ?? true,
+                  sescim_stok: s?.sescim_stok !== undefined && s?.sescim_stok !== null ? s.sescim_stok : (p.sescim_stok ?? null),
+                  sescim_stok_durumu: s?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
+                  fiyat_sorunuz: quoteOnly
+                }
+              })
+              .filter(p => p.sescim_aktif !== false)
           } catch (sfErr) {
-            console.error('Failed to merge sescim_fiyatlar in search:', sfErr)
+            console.error('Failed to merge sescim_fiyatlar/flas in search:', sfErr)
           }
         }
 
@@ -470,9 +501,14 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   </div>
                   {results.map((product) => {
                     const pb = product.para_birimi || 'TRY'
-                    const aktifFiyat = product.sescim_indirimli_fiyat ?? product.sescim_fiyat ?? product.indirimli_fiyat ?? product.fiyat ?? 0
-                    const fiyatTL = dovizToTL(aktifFiyat, pb, kur)
-                    const formatliFiyat = formatFiyat(fiyatTL, 'TRY')
+                    const indirimPB = product.sescim_indirimli_fiyat_pb || pb
+                    const normalFiyatRaw = product.sescim_fiyat ?? product.fiyat ?? 0
+                    const normalFiyatTL = normalFiyatRaw ? dovizToTL(normalFiyatRaw, pb, kur) : 0
+                    const indirimliFiyatRaw = product.sescim_indirimli_fiyat ?? product.indirimli_fiyat ?? null
+                    const indirimliFiyatTL = indirimliFiyatRaw ? dovizToTL(indirimliFiyatRaw, indirimPB, kur) : null
+                    const hasDiscount = indirimliFiyatTL !== null && indirimliFiyatTL > 0 && normalFiyatTL > 0 && indirimliFiyatTL < normalFiyatTL
+                    const aktifFiyatTL = hasDiscount ? indirimliFiyatTL : normalFiyatTL
+                    const formatliFiyat = formatFiyat(aktifFiyatTL, 'TRY')
                     const stockInfo = resolveStock(product)
 
                     return (
@@ -524,7 +560,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                               <span className="font-display font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">
                                 Tükendi
                               </span>
-                              {fiyatTL > 0 && !product.fiyat_sorunuz && (
+                              {aktifFiyatTL > 0 && !product.fiyat_sorunuz && (
                                 <span className="text-[10px] text-slate-400 line-through">
                                   {formatliFiyat}
                                 </span>
@@ -541,8 +577,13 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                                   Siparişe Göre
                                 </span>
                               )}
+                              {hasDiscount && (
+                                <span className="text-[10px] text-slate-400 line-through whitespace-nowrap">
+                                  {formatFiyat(normalFiyatTL, 'TRY')}
+                                </span>
+                              )}
                               <span className="font-display font-black text-brand-red text-xs sm:text-sm whitespace-nowrap">
-                                {fiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
+                                {aktifFiyatTL > 0 ? formatliFiyat : 'Fiyat Sorun'}
                               </span>
                             </div>
                           )}

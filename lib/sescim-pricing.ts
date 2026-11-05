@@ -4,6 +4,9 @@ export interface SescimPricing {
   urun_id: string
   sescim_fiyat: number | null
   sescim_indirimli_fiyat: number | null
+  sescim_indirimli_fiyat_pb?: string | null
+  is_flas_aktif?: boolean
+  flas_bitis_tarihi?: string | null
   sescim_aktif: boolean
   is_outlet?: boolean
   outlet_durum?: string | null
@@ -22,34 +25,81 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
   if (!supabase) return map
 
   try {
-    // URL uzunluğu ve header taşmasını (HeadersOverflowError) önlemek için 50'şerli parçalarla çek
+    const nowIso = new Date().toISOString()
+    // URL uzunluğu ve header taşmasını önlemek için 50'şerli parçalarla çek
     const BATCH_SIZE = 50
     for (let i = 0; i < urunIds.length; i += BATCH_SIZE) {
       const batchIds = urunIds.slice(i, i + BATCH_SIZE)
-      const { data, error } = await supabase
-        .from('sescim_fiyatlar')
-        .select('*')
-        .in('urun_id', batchIds)
+      const [sfRes, flasRes, outletRes] = await Promise.all([
+        supabase
+          .from('sescim_fiyatlar')
+          .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, is_outlet, outlet_durum, is_firsat, fiyat_sorunuz, sescim_stok, sescim_stok_durumu, updated_at')
+          .in('urun_id', batchIds),
+        supabase
+          .from('flas_indirimler')
+          .select('urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
+          .in('urun_id', batchIds)
+          .eq('aktif', true)
+          .gt('bitis_tarihi', nowIso)
+          .lte('baslangic_tarihi', nowIso),
+        supabase
+          .from('outlet_urunler')
+          .select('urun_id, outlet_fiyat, fiyat_para_birimi, durum_aciklamasi, stok_adedi, aktif')
+          .in('urun_id', batchIds)
+          .eq('aktif', true)
+      ])
 
-      if (error) {
-        console.error('Error fetching Sescim pricing map batch:', error)
-        continue
-      }
+      const sfData = sfRes.data || []
+      const flasData = flasRes.data || []
+      const outletData = outletRes.data || []
 
-      if (data) {
-        data.forEach(item => {
-          map.set(item.urun_id, {
-            urun_id: item.urun_id,
-            sescim_fiyat: item.sescim_fiyat !== null ? Number(item.sescim_fiyat) : null,
-            sescim_indirimli_fiyat: item.sescim_indirimli_fiyat !== null ? Number(item.sescim_indirimli_fiyat) : null,
-            sescim_aktif: item.sescim_aktif !== false,
-            is_outlet: !!item.is_outlet,
-            outlet_durum: item.outlet_durum || 'Teşhir / B-Stock',
-            is_firsat: !!item.is_firsat,
-            fiyat_sorunuz: !!item.fiyat_sorunuz,
-            sescim_stok: item.sescim_stok !== null && item.sescim_stok !== undefined ? Number(item.sescim_stok) : null,
-            sescim_stok_durumu: item.sescim_stok_durumu || null,
-          })
+      const sfMap = new Map<string, any>(sfData.map(item => [item.urun_id, item]))
+      const flasMap = new Map<string, any>(flasData.map(item => [item.urun_id, item]))
+      const outletMap = new Map<string, any>(outletData.map(item => [item.urun_id, item]))
+
+      for (const id of batchIds) {
+        const sf = sfMap.get(id)
+        const flas = flasMap.get(id)
+        const outlet = outletMap.get(id)
+
+        if (!sf && !flas && !outlet) continue
+
+        let indirimliFiyat: number | null = null
+        let indirimliPB: string | null = null
+        let isFlasAktif = false
+        let flasBitis: string | null = null
+        let isFirsat = false
+
+        // 1. Öncelik: Aktif Flaş İndirim (kendi para birimiyle: TRY, USD, EUR)
+        if (flas && flas.indirimli_fiyat !== null && flas.indirimli_fiyat !== undefined) {
+          indirimliFiyat = Number(flas.indirimli_fiyat)
+          indirimliPB = flas.fiyat_para_birimi || 'TRY'
+          isFlasAktif = true
+          flasBitis = flas.bitis_tarihi
+          isFirsat = true
+        } else if (outlet && outlet.outlet_fiyat !== null && outlet.outlet_fiyat !== undefined) {
+          indirimliFiyat = Number(outlet.outlet_fiyat)
+          indirimliPB = outlet.fiyat_para_birimi || 'TRY'
+        } else if (sf && sf.sescim_indirimli_fiyat !== null && sf.sescim_indirimli_fiyat !== undefined) {
+          indirimliFiyat = Number(sf.sescim_indirimli_fiyat)
+          indirimliPB = 'TRY'
+          isFirsat = !!sf.is_firsat
+        }
+
+        map.set(id, {
+          urun_id: id,
+          sescim_fiyat: sf?.sescim_fiyat !== null && sf?.sescim_fiyat !== undefined ? Number(sf.sescim_fiyat) : null,
+          sescim_indirimli_fiyat: indirimliFiyat,
+          sescim_indirimli_fiyat_pb: indirimliPB,
+          is_flas_aktif: isFlasAktif,
+          flas_bitis_tarihi: flasBitis,
+          sescim_aktif: sf?.sescim_aktif !== false,
+          is_outlet: !!(outlet?.aktif || sf?.is_outlet),
+          outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',
+          is_firsat: isFirsat,
+          fiyat_sorunuz: !!sf?.fiyat_sorunuz,
+          sescim_stok: outlet ? (outlet.stok_adedi ?? 1) : (sf?.sescim_stok !== null && sf?.sescim_stok !== undefined ? Number(sf.sescim_stok) : null),
+          sescim_stok_durumu: sf?.sescim_stok_durumu || null,
         })
       }
     }
@@ -65,32 +115,75 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
   if (!supabase) return null
 
   try {
-    const { data, error } = await supabase
-      .from('sescim_fiyatlar')
-      .select('*')
-      .eq('urun_id', urunId)
-      .single()
+    const nowIso = new Date().toISOString()
+    const [sfRes, flasRes, outletRes] = await Promise.all([
+      supabase
+        .from('sescim_fiyatlar')
+        .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, is_outlet, outlet_durum, is_firsat, fiyat_sorunuz, sescim_stok, sescim_stok_durumu, updated_at')
+        .eq('urun_id', urunId)
+        .maybeSingle(),
+      supabase
+        .from('flas_indirimler')
+        .select('indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
+        .eq('urun_id', urunId)
+        .eq('aktif', true)
+        .gt('bitis_tarihi', nowIso)
+        .lte('baslangic_tarihi', nowIso)
+        .order('bitis_tarihi', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('outlet_urunler')
+        .select('outlet_fiyat, fiyat_para_birimi, durum_aciklamasi, stok_adedi, aktif')
+        .eq('urun_id', urunId)
+        .eq('aktif', true)
+        .limit(1)
+        .maybeSingle()
+    ])
 
-    if (error) {
-      if (error.code !== 'PGRST116') { // not found
-        console.error('Error fetching Sescim pricing:', error)
-      }
-      return null
+    const sf = sfRes.data
+    const flas = flasRes.data
+    const outlet = outletRes.data
+
+    if (!sf && !flas && !outlet) return null
+
+    let indirimliFiyat: number | null = null
+    let indirimliPB: string | null = null
+    let isFlasAktif = false
+    let flasBitis: string | null = null
+    let isFirsat = false
+
+    // 1. Öncelik: Aktif Flaş İndirim (kendi para birimiyle: TRY, USD, EUR)
+    if (flas && flas.indirimli_fiyat !== null && flas.indirimli_fiyat !== undefined) {
+      indirimliFiyat = Number(flas.indirimli_fiyat)
+      indirimliPB = flas.fiyat_para_birimi || 'TRY'
+      isFlasAktif = true
+      flasBitis = flas.bitis_tarihi
+      isFirsat = true
+    } else if (outlet && outlet.outlet_fiyat !== null && outlet.outlet_fiyat !== undefined) {
+      indirimliFiyat = Number(outlet.outlet_fiyat)
+      indirimliPB = outlet.fiyat_para_birimi || 'TRY'
+    } else if (sf && sf.sescim_indirimli_fiyat !== null && sf.sescim_indirimli_fiyat !== undefined) {
+      indirimliFiyat = Number(sf.sescim_indirimli_fiyat)
+      indirimliPB = 'TRY'
+      isFirsat = !!sf.is_firsat
     }
 
-    if (data) {
-      return {
-        urun_id: data.urun_id,
-        sescim_fiyat: data.sescim_fiyat !== null ? Number(data.sescim_fiyat) : null,
-        sescim_indirimli_fiyat: data.sescim_indirimli_fiyat !== null ? Number(data.sescim_indirimli_fiyat) : null,
-        sescim_aktif: data.sescim_aktif !== false,
-        is_outlet: !!data.is_outlet,
-        outlet_durum: data.outlet_durum || 'Teşhir / B-Stock',
-        is_firsat: !!data.is_firsat,
-        fiyat_sorunuz: !!data.fiyat_sorunuz,
-        sescim_stok: data.sescim_stok !== null && data.sescim_stok !== undefined ? Number(data.sescim_stok) : null,
-        sescim_stok_durumu: data.sescim_stok_durumu || null,
-      }
+    return {
+      urun_id: urunId,
+      sescim_fiyat: sf?.sescim_fiyat !== null && sf?.sescim_fiyat !== undefined ? Number(sf.sescim_fiyat) : null,
+      sescim_indirimli_fiyat: indirimliFiyat,
+      sescim_indirimli_fiyat_pb: indirimliPB,
+      is_flas_aktif: isFlasAktif,
+      flas_bitis_tarihi: flasBitis,
+      sescim_aktif: sf?.sescim_aktif !== false,
+      is_outlet: !!(outlet?.aktif || sf?.is_outlet),
+      outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',
+      is_firsat: isFirsat,
+      fiyat_sorunuz: !!sf?.fiyat_sorunuz,
+      sescim_stok: outlet ? (outlet.stok_adedi ?? 1) : (sf?.sescim_stok !== null && sf?.sescim_stok !== undefined ? Number(sf.sescim_stok) : null),
+      sescim_stok_durumu: sf?.sescim_stok_durumu || null,
+      updated_at: sf?.updated_at
     }
   } catch (error) {
     console.error('Exception fetching Sescim pricing:', error)

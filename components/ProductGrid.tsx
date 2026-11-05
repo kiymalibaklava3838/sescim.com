@@ -7,7 +7,7 @@ import SafeProductImage from './SafeProductImage'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, GitCompare, Heart, Package, Search, ShoppingCart, Check, Eye, MessageSquareText } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { dovizToTL, formatFiyat, type KurData } from '@/lib/kur'
+import { dovizToTL, formatFiyat, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { addToCart } from '@/lib/cart'
 import ProductBadges from './ProductBadges'
 import {
@@ -59,7 +59,7 @@ interface Props {
 import { getKurClient } from '@/lib/kur-client'
 
 function useKur() {
-  const [kur, setKur] = useState<KurData>({ USD: 32.5, EUR: 35.2, guncelleme: null })
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
   useEffect(() => {
     getKurClient().then(setKur)
   }, [])
@@ -140,7 +140,7 @@ export default function ProductGrid({ products, suggested, searchQuery, isBayi, 
 }
 
 export const ProductCard = memo(function ProductCard({ product, isBayi, kur, showPrice }: { product: Product; isBayi?: boolean; kur?: KurData; showPrice?: boolean }) {
-  const kurData = kur || { USD: 32.5, EUR: 35.2, guncelleme: null }
+  const kurData = kur || DEFAULT_KUR
   const pb = product.para_birimi || 'TRY'
 
   const stockInfo = resolveStock({

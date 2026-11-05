@@ -50,7 +50,10 @@ export default function AdminFirsatYonetimi() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
-  const [priceInputMode, setPriceInputMode] = useState<'currency' | 'tl'>('currency')
+  // priceInputMode: Kullanıcının fiyat giriş para birimi
+  //   'TRY' → Her zaman TL olarak saklanır, kur dönüşümü yapılmaz
+  //   'currency' → Ürünün kendi para birimi (USD/EUR/TRY) kullanılır
+  const [priceInputMode, setPriceInputMode] = useState<'currency' | 'TRY'>('TRY')
   const supabase = useRef(createClient()).current
 
   // Form states - Fırsat
@@ -190,12 +193,10 @@ export default function AdminFirsatYonetimi() {
       return
     }
 
-    // Kullanıcı TL ile girmişse ürünün kendi para birimine çevirip DB'ye kaydedelim
-    let finalIndirimliFiyat = valNum
-    if (priceInputMode === 'tl' && pb !== 'TRY') {
-      const rate = pb === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR)
-      finalIndirimliFiyat = parseFloat((valNum / rate).toFixed(2))
-    }
+    // Kullanıcının girdiği para birimini belirle (dönüşüm yapma — ne girdiyse DB'ye öyle kaydet)
+    // TRY modunda: fiyat_para_birimi = 'TRY', indirimli_fiyat = girilen TL tutarı
+    // currency modunda: fiyat_para_birimi = ürünün para birimi (USD/EUR/TRY), indirimli_fiyat = girilen tutar
+    const finalFiyatPB = priceInputMode === 'TRY' ? 'TRY' : pb
 
     setSaving(true)
     setError('')
@@ -208,7 +209,8 @@ export default function AdminFirsatYonetimi() {
         body: JSON.stringify({
           action: 'create_firsat',
           urun_id: urunId,
-          indirimli_fiyat: finalIndirimliFiyat,
+          indirimli_fiyat: valNum,
+          fiyat_para_birimi: finalFiyatPB,
           baslangic_tarihi: baslangic,
           bitis_tarihi: bitis,
           product: selectedUrun
@@ -243,11 +245,10 @@ export default function AdminFirsatYonetimi() {
       return
     }
 
-    let finalOutletFiyat = valNum
-    if (priceInputMode === 'tl' && pb !== 'TRY') {
-      const rate = pb === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR)
-      finalOutletFiyat = parseFloat((valNum / rate).toFixed(2))
-    }
+    // Outlet fiyatını DB'ye girilen para birimiyle kaydet — kur dönüşümü yapma
+    // TRY modunda: fiyat_para_birimi = 'TRY', outlet_fiyat = girilen TL tutarı
+    // currency modunda: fiyat_para_birimi = ürünün para birimi (USD/EUR/TRY)
+    const finalOutletPB = priceInputMode === 'TRY' ? 'TRY' : pb
 
     setSaving(true)
     setError('')
@@ -260,7 +261,8 @@ export default function AdminFirsatYonetimi() {
         body: JSON.stringify({
           action: 'create_outlet',
           urun_id: urunId,
-          indirimli_fiyat: finalOutletFiyat,
+          indirimli_fiyat: valNum,
+          fiyat_para_birimi: finalOutletPB,
           durum_aciklamasi: outletDurum,
           stok_adedi: parseInt(outletStok) || 1,
           product: selectedUrun
@@ -487,12 +489,12 @@ export default function AdminFirsatYonetimi() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (priceInputMode === 'tl' && indirimliFiyat) {
+                        // TRY → currency moduna geçerken: TL tutarı ürünün para birimine çevir
+                        if (priceInputMode === 'TRY' && indirimliFiyat && pb !== 'TRY') {
                           const tlNum = parseFloat(indirimliFiyat)
                           if (!isNaN(tlNum)) {
                             const rate = pb === 'USD' ? (kur?.USD || DEFAULT_KUR.USD) : (kur?.EUR || DEFAULT_KUR.EUR)
-                            const inCurr = pb === 'TRY' ? tlNum : (tlNum / rate)
-                            setIndirimliFiyat(inCurr.toFixed(2))
+                            setIndirimliFiyat((tlNum / rate).toFixed(2))
                           }
                         }
                         setPriceInputMode('currency')
@@ -508,16 +510,17 @@ export default function AdminFirsatYonetimi() {
                     <button
                       type="button"
                       onClick={() => {
+                        // currency → TRY moduna geçerken: ürün para birimini TL'ye çevir
                         if (priceInputMode === 'currency' && indirimliFiyat) {
                           const valNum = parseFloat(indirimliFiyat)
                           if (!isNaN(valNum)) {
-                            setIndirimliFiyat(dovizToTL(valNum, pb, kur).toString())
+                            setIndirimliFiyat(Math.round(dovizToTL(valNum, pb, kur)).toString())
                           }
                         }
-                        setPriceInputMode('tl')
+                        setPriceInputMode('TRY')
                       }}
                       className={`px-2 py-0.5 text-[10px] font-display font-bold uppercase rounded transition-all ${
-                        priceInputMode === 'tl'
+                        priceInputMode === 'TRY'
                           ? 'bg-white text-emerald-700 shadow-xs'
                           : 'text-slate-500 hover:text-slate-900'
                       }`}
@@ -669,7 +672,10 @@ export default function AdminFirsatYonetimi() {
             const pCurr = u?.para_birimi || 'TRY'
             const rawOri = u?.sescim_fiyat ?? u?.fiyat ?? 0
             const oriTL = dovizToTL(rawOri, pCurr, kur)
-            const indirimTL = dovizToTL(firsat.indirimli_fiyat, pCurr, kur)
+            // fiyat_para_birimi: flaş indirim fiyatının hangi para birimiyle kaydedildiği
+            // Eski kayıtlarda bu alan olmayabilir → varsayılan olarak ürünün para birimini kullan
+            const indirimPB = (firsat as any).fiyat_para_birimi || pCurr
+            const indirimTL = dovizToTL(firsat.indirimli_fiyat, indirimPB, kur)
             const indirimOrani = oriTL > indirimTL ? Math.round(((oriTL - indirimTL) / oriTL) * 100) : null
 
             return (
@@ -712,7 +718,7 @@ export default function AdminFirsatYonetimi() {
                     </div>
                     {pCurr !== 'TRY' && (
                       <div className="text-[11px] font-mono text-slate-500">
-                        Orijinal: {rawOri} {pCurr} → İndirimli: <strong>{firsat.indirimli_fiyat} {pCurr}</strong>
+                        Orijinal: {rawOri} {pCurr} → İndirimli: <strong>{firsat.indirimli_fiyat} {indirimPB}</strong>
                       </div>
                     )}
                   </div>
@@ -748,7 +754,9 @@ export default function AdminFirsatYonetimi() {
             const pCurr = u?.para_birimi || 'TRY'
             const rawOri = u?.sescim_fiyat ?? u?.fiyat ?? 0
             const oriTL = dovizToTL(rawOri, pCurr, kur)
-            const outletTL = dovizToTL(item.outlet_fiyat, pCurr, kur)
+            // fiyat_para_birimi: outlet fiyatının hangi para birimiyle kaydedildiği
+            const outletPB = (item as any).fiyat_para_birimi || pCurr
+            const outletTL = dovizToTL(item.outlet_fiyat, outletPB, kur)
 
             return (
               <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between gap-4 shadow-sm">
@@ -777,7 +785,7 @@ export default function AdminFirsatYonetimi() {
                     </div>
                     {pCurr !== 'TRY' && (
                       <div className="text-[11px] font-mono text-slate-500">
-                        Orijinal: {rawOri} {pCurr} → Outlet: <strong>{item.outlet_fiyat} {pCurr}</strong>
+                        Orijinal: {rawOri} {pCurr} → Outlet: <strong>{item.outlet_fiyat} {outletPB}</strong>
                       </div>
                     )}
                   </div>

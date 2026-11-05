@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { action, urun_id, indirimli_fiyat, baslangic_tarihi, bitis_tarihi, durum_aciklamasi, stok_adedi, product } = body
+    const { action, urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, durum_aciklamasi, stok_adedi, product } = body
 
     if (!urun_id) {
       return NextResponse.json({ error: 'Ürün ID zorunludur' }, { status: 400 })
@@ -176,11 +176,15 @@ export async function POST(req: NextRequest) {
       }
 
       // Flaş indirim tablosuna ekle
+      // fiyat_para_birimi: Admin hangi para birimiyle girdiyse onu sakla.
+      // TRY ile girilmişse TRY, USD ile girilmişse USD — kur dönüşümü yok.
+      const indirimliFiyatPB = fiyat_para_birimi || 'TRY'
       const { data: firsatRow, error: firsatErr } = await db
         .from('flas_indirimler')
         .insert({
           urun_id,
           indirimli_fiyat: fiyatNum,
+          fiyat_para_birimi: indirimliFiyatPB,
           baslangic_tarihi: new Date(baslangic_tarihi).toISOString(),
           bitis_tarihi: new Date(bitis_tarihi).toISOString(),
           aktif: true
@@ -194,6 +198,8 @@ export async function POST(req: NextRequest) {
       }
 
       // sescim_fiyatlar tablosunu senkronize et
+      // sescim_indirimli_fiyat her zaman TL olarak saklanır — fiyat TRY ise direkt, döviz ise çevrilmeden ürün sayfası zaten döviz→TL yapar.
+      // Ancak flaş indirim kendi para birimiyle DB'de tutulur; ürün sayfası hangi para biriminde olduğunu bilip çevirir.
       try {
         await db.from('sescim_fiyatlar').upsert({
           urun_id,
@@ -221,6 +227,7 @@ export async function POST(req: NextRequest) {
         .insert({
           urun_id,
           outlet_fiyat: outletFiyatNum,
+          fiyat_para_birimi: fiyat_para_birimi || 'TRY',
           durum_aciklamasi: durum_aciklamasi || 'Teşhir Ürünü - 1 Yıl Distribütör Garantili',
           stok_adedi: parseInt(stok_adedi) || 1,
           aktif: true

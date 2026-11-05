@@ -116,10 +116,15 @@ export default async function FirsatlarPage() {
       const pricing = pricingMap.get(p.id)
       const flasItem = flasDataMap.get(p.id)
       const indirimliFiyat = flasItem ? Number(flasItem.indirimli_fiyat) : (pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null)
+      // Flaş indirim fiyatı hangi para birimiyle kaydedildiyse onu kullan.
+      // Bu sayede TL ile girilmiş fiyatlar kur dönüşümünden etkilenmez.
+      const indirimliPB = flasItem?.fiyat_para_birimi ?? null
       return {
         ...p,
         sescim_fiyat: pricing?.sescim_fiyat ?? null,
         sescim_indirimli_fiyat: indirimliFiyat,
+        // Flaş indirim para birimini override olarak ilet; null ise ürünün kendi para birimi kullanılır
+        sescim_indirimli_fiyat_pb: indirimliPB,
         sescim_aktif: pricing?.sescim_aktif ?? true,
         sescim_stok: pricing?.sescim_stok ?? null,
         sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,

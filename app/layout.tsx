@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     default: 'Sescim - Yeni Nesil Müzik Market | Profesyonel Ses, Işık & Görüntü',
   },
   description: 'Profesyonel ses sistemleri, sahne ışıkları, stüdyo ve DJ ekipmanları, kulaklık ve hoparlör çeşitleri. Akdağ Elektronik güvencesiyle Sescim.',
-  keywords: 'ses sistemi, ışık sistemi, görüntü sistemi, kulaklık, dj ekipmanı, stüdyo ekipmanı, hoparlör, mikrofon, sahne ekipmanı, sescim, müzik market',
+  keywords: 'sescim, sescim.com, ses cim, sescim müzik market, akdağ elektronik sescim, profesyonel ses sistemleri, sahne ışık sistemleri, dj ekipmanları, stüdyo monitörleri, telsiz mikrofon, mikser amfi, hoparlör, sahne ekipmanı',
   metadataBase: new URL(getSiteUrl()),
   alternates: { canonical: '/' },
   verification: {
@@ -243,6 +243,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://ktoifumardevbznyzljb.supabase.co" />
+        <link rel="dns-prefetch" href="https://ktoifumardevbznyzljb.supabase.co" />
+        <link rel="preconnect" href="https://csekzzsaeehakpdmzfam.supabase.co" />
+        <link rel="dns-prefetch" href="https://csekzzsaeehakpdmzfam.supabase.co" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
       <body className="bg-slate-50 text-slate-900 antialiased font-body">

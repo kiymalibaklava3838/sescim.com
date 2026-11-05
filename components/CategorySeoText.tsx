@@ -81,6 +81,61 @@ const SEO_CONTENT_MAP: Record<string, SeoContentItem> = {
       '4K HDMI / fiber optik görüntü aktarıcılar ve switcher sistemleri'
     ],
     body: `Görsel sunumların başarısı, ortam ışığına uygun parlaklık (lümen) ve kontrast oranına sahip projeksiyon veya LED panellerin seçilmesine dayanır. Sescim, anahtar teslim görüntüleme çözümleriyle projenizin tüm donanım ihtiyaçlarını karşılar.`
+  },
+  'dj-ekipmanlari': {
+    title: 'Profesyonel DJ Ekipmanları, Kontrol Üniteleri ve Mikserler',
+    lead: 'Yeni başlayanlardan festival sahnelerinde performans sergileyen profesyonellere kadar en iyi DJ ekipmanları, all-in-one kontrolörler ve kulaklıklar Sescim\'de.',
+    highlights: [
+      'Rekordbox, Serato ve Traktor uyumlu çok kanallı DJ controller sistemleri',
+      'Kulüp standardında profesyonel DJ mikserleri ve medya oynatıcılar (CDJ / XDJ)',
+      'Yüksek ses izolasyonlu ve dönebilen kulaklıklı DJ referans kulaklıkları',
+      'Pioneer DJ, Numark, Denon DJ gibi dünya devi markalarda 2 yıl distribütör garantisi'
+    ],
+    body: `DJ performansının akıcılığı, kullanılan donanımın hassasiyetine, jog wheel tepkimesine ve efekt kontrol yeteneklerine bağlıdır. İster ev stüdyonuzda set hazırlayın, ister kulüpte çalın; Sescim en yeni nesil DJ kontrol ünitelerini, pikapları ve DJ aksesuarlarını peşin fiyatına taksit ve aynı gün kargo avantajıyla sunar.`
+  },
+  'studyo-ekipmanlari': {
+    title: 'Stüdyo Referans Monitörleri, Ses Kartları & Kayıt Ekipmanları',
+    lead: 'Ev stüdyolarından ticari prodüksiyon merkezlerine kadar kristal netliğinde duyum ve profesyonel kayıt kalitesi sunan stüdyo donanımları.',
+    highlights: [
+      'Düz frekans tepkisine sahip aktif stüdyo referans monitörleri (5", 7", 8")',
+      'Ultra düşük gecikmeli, yüksek çözünürlüklü (24-bit/192kHz) USB-C ses kartları',
+      'Vokal ve enstrüman kaydı için geniş diyaframlı stüdyo kondenser mikrofonları',
+      'MIDI klavyeler, pad kontrolörler, akustik paneller ve stüdyo sehpaları'
+    ],
+    body: `Miks ve mastering süreçlerinde doğru kararlar alabilmek, renklendirilmemiş ve gerçeğe en yakın duyumu sağlayan stüdyo monitörleri ve kaliteli ses kartları ile mümkündür. Yamaha, PreSonus, Focusrite, KRK ve Mackie gibi lider markaların stüdyo çözümlerini Sescim güvencesiyle keşfedebilirsiniz.`
+  },
+  'kulaklik-ve-monitor': {
+    title: 'Stüdyo, DJ ve Sahne Kulak İçi Monitör Sistemleri',
+    lead: 'Kritik dinleme, stüdyo miksi, DJ performansı ve canlı sahnede müzisyen duyumu için profesyonel kulaklık ve kablosuz in-ear monitörler.',
+    highlights: [
+      'Geniş frekans aralığına sahip arkası açık (open-back) ve kapalı (closed-back) stüdyo kulaklıkları',
+      'Canlı sahnede berrak vokal/enstrüman takibi sağlayan kablosuz kulak içi (in-ear) sistemler',
+      'Yüksek desibel ortamlar için pasif ses izolasyonlu DJ kulaklıkları',
+      'Değiştirilebilir kablo ve konforlu kulak yastığı yapısıyla uzun süreli kullanım'
+    ],
+    body: `Her müzikal detayı duymak, doğru frekans dengesini yakalamak ve sahnede ritmi kaçırmamak için doğru kulaklık seçimi şarttır. Sescim, Sennheiser, Audio-Technica, Shure ve AKG gibi referans kulaklık üreticilerinin en popüler modellerini orijinal kutusunda ve garantili olarak ulaştırır.`
+  },
+  'sahne-ve-truss': {
+    title: 'Alüminyum Sahne Truss Sistemleri, Podyumlar ve Taşıyıcı Ayaklar',
+    lead: 'Konserler, festivaller, düğün salonları ve açık hava organizasyonları için güvenli, modüler ve yüksek taşıma kapasiteli sahne konstrüksiyonları.',
+    highlights: [
+      'Yüksek mukavemetli alüminyum alaşımlı üçgen ve kare (quadro) truss sistemleri',
+      'Işık robotları ve hoparlör asımı için motorlu/manuel ışık asansörleri (winch stand)',
+      'Modüler yükseklik ayarlı kaydırmaz yüzeyli sahne podyumları ve basamaklar',
+      'Kelepçe, kanca, spigot, pim ve emniyet teli güvenlik aksesuarları'
+    ],
+    body: `Sahne güvenliği taviz verilemez en kritik unsurdur. Statik hesaplamalara uygun, uluslararası güvenlik sertifikalarına sahip alüminyum truss ve podyum sistemleriyle sahne kurulumlarınızı güvenle tamamlayabilirsiniz. Proje bazlı truss teklifleri için Sescim teknik ekibi her zaman yanınızdadır.`
+  },
+  'kablo-stand-ve-aksesuar': {
+    title: 'Profesyonel Ses Kabloları, Mikrofon Sehpaları & Sahne Aksesuarları',
+    lead: 'Sinyal kaybını sıfıra indiren oksijensiz bakır (OFC) ses/ışık kabloları, dayanıklı mikrofon ve hoparlör standları.',
+    highlights: [
+      'Gürültü önleyici zırhlı dengeli (balanced) XLR, TRS jak ve Speakon hoparlör kabloları',
+      'DMX 512 ışık kontrol kabloları ve stagebox çoklu kablo sistemleri',
+      'Ağır döküm tabanlı ve bomlu profesyonel mikrofon sehpaları ile hoparlör ara boruları',
+      'Neutrik uyumlu altın kaplama konnektörler, adaptörler ve kablo düzenleyiciler'
+    ],
+    body: `En kaliteli hoparlör ve mikser dahi yetersiz kablolama ve kalitesiz konnektörler yüzünden parazit ve sinyal zayıflığı yaşayabilir. Sescim, profesyonel sahne ve stüdyolar için uzun ömürlü, aşınmaya dayanıklı kablo ve donanım aksesuarlarını en uygun fiyatlarla sunar.`
   }
 }
 

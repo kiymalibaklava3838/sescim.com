@@ -43,6 +43,22 @@ export default function HakkimizdaPage() {
       name: 'Sescim',
       legalName: 'Mustafa Akdağ - Akdağ Elektronik',
       url: baseUrl,
+      logo: `${baseUrl}/logo.png`,
+      telephone: '+90-850-305-38-70',
+      email: 'info@sescim.com',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: 'Cumhuriyet Mah. Sur Cad. No:17/A',
+        addressLocality: 'Melikgazi',
+        addressRegion: 'Kayseri',
+        postalCode: '38040',
+        addressCountry: 'TR',
+      },
+      sameAs: [
+        'https://www.instagram.com/sescimofficial',
+        'https://youtube.com/@sescim',
+        'https://twitter.com/sescim',
+      ],
     },
   }
 

@@ -40,6 +40,7 @@ interface Product {
   kullanim_alani?: string | null
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
+  sescim_indirimli_fiyat_pb?: string | null  // Flaş indirim fiyatının kaydedildiği para birimi (TRY, USD, EUR)
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
   sescim_stok?: number | null
@@ -203,7 +204,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     if (isFiyatSorunuz || !finalFiyat || !stockInfo.canOrder) return
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
-    const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
+    // İndirimli fiyatın kendi para birimini kullan (TRY ile girilmişse TRY, USD ise USD)
+    const indirimPB = product.sescim_indirimli_fiyat_pb || pb
+    const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, indirimPB, kurData) : null
 
     addToCart({
       id: product.id,
@@ -220,7 +223,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     setTimeout(() => setCartAdded(false), 2000)
   }
 
-  const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, pb, kurData) : null
+  const indirimliFiyatTL = product.sescim_indirimli_fiyat
+    ? dovizToTL(product.sescim_indirimli_fiyat, product.sescim_indirimli_fiyat_pb || pb, kurData)
+    : null
   const isNewProduct = product.created_at ? (Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000) : false
 
   return (

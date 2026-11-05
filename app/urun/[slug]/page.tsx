@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const image = product.fotograflar?.[0] || `${getSiteUrl()}/logo.png`
 
   return {
-    title: product.ad,
+    title: `${product.ad} Fiyatı ve Özellikleri`,
     description: cleanDescription,
     alternates: { canonical: url },
     openGraph: {

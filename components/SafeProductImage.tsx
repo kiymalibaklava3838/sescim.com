@@ -21,11 +21,20 @@ interface SafeProductImageProps {
 }
 
 /**
- * Hata Toleranslı, Vercel CPU Dostu ve Akıllı Görsel Bileşeni
- * 1. Görsel yoksa veya boşsa: Şık gri paket ikonu render eder.
- * 2. Next.js optimizasyon sunucusu hata verirse: Otomatik olarak doğrudan unoptimized Supabase CDN linkine geçer.
- * 3. Doğrudan link de erişilemezse: Güvenli fallback ikonunu gösterir.
- * 4. Yüklenme tamamlanana kadar pürüzsüz animasyon sağlar, layout shift yaratmaz.
+ * 3 Aşamalı Hata Toleranslı Görsel Bileşeni
+ *
+ * Aşama 1 — "optimized": Next.js Image Optimizer üzerinden WebP/AVIF ile yükle.
+ *   → Başarılı: SEO + Core Web Vitals için optimize görsel kullanılır.
+ *   → Hata (optimizer erişilemiyor, kota doldu, vb.): Aşama 2'ye geç.
+ *
+ * Aşama 2 — "direct": Supabase CDN'den doğrudan unoptimized olarak yükle.
+ *   → Next.js proxy'si devre dışı, orijinal URL kullanılır.
+ *   → Hata (görsel silinmiş, CDN erişilemiyor, vb.): Aşama 3'e geç.
+ *
+ * Aşama 3 — "failed": Şık gri Package ikonu gösterilir. Layout shift yaratmaz.
+ *
+ * Not: `unoptimized` prop'u dışarıdan verilirse Aşama 1 atlanır, doğrudan
+ * Aşama 2'den başlanır (küçük thumbnail'lar için optimize etmeye değmez).
  */
 export default function SafeProductImage({
   src,
@@ -38,30 +47,37 @@ export default function SafeProductImage({
   loading,
   className = 'object-contain',
   wrapperClassName = '',
-  unoptimized = true,
+  unoptimized = false,
   quality = 80,
   placeholderIconSize = 32,
 }: SafeProductImageProps) {
-  // Aşama: Doğrudan CDN üzerinden hızlı yükleme, hata verirse fallback ikonu
-  const [stage, setStage] = useState<'direct' | 'failed'>(() => {
+  type Stage = 'optimized' | 'direct' | 'failed'
+
+  const getInitialStage = (): Stage => {
     if (!src || !src.trim()) return 'failed'
-    return 'direct'
-  })
+    // Dışarıdan unoptimized=true verilmişse optimize adımını atla
+    return unoptimized ? 'direct' : 'optimized'
+  }
+
+  const [stage, setStage] = useState<Stage>(getInitialStage)
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // src prop değişirse durumu sıfırla
+  // src veya unoptimized prop değişirse durumu sıfırla
   useEffect(() => {
     if (!src || !src.trim()) {
       setStage('failed')
-      setIsLoaded(false)
     } else {
-      setStage('direct')
-      setIsLoaded(false)
+      setStage(unoptimized ? 'direct' : 'optimized')
     }
-  }, [src])
+    setIsLoaded(false)
+  }, [src, unoptimized])
 
   const handleError = () => {
-    setStage('failed')
+    setStage((prev) => {
+      if (prev === 'optimized') return 'direct'   // Optimizer hata → CDN doğrudan dene
+      return 'failed'                              // CDN de hata → ikon göster
+    })
+    setIsLoaded(false)
   }
 
   if (stage === 'failed' || !src || !src.trim()) {
@@ -73,10 +89,11 @@ export default function SafeProductImage({
   }
 
   const effectiveLoading = priority ? undefined : (loading || 'lazy')
+  const isUnoptimized = stage === 'direct'
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${wrapperClassName}`}>
-      {/* Hafif yükleniyor arka planı — görsel yüklendiğinde gizlenir */}
+      {/* Yükleniyor shimmer arka planı — görsel hazır olunca gizlenir */}
       {!isLoaded && (
         <div className="absolute inset-0 bg-slate-100 skeleton-shimmer z-0" />
       )}
@@ -91,8 +108,8 @@ export default function SafeProductImage({
         sizes={sizes}
         priority={priority}
         loading={effectiveLoading}
-        unoptimized={stage === 'direct'}
-        quality={quality}
+        unoptimized={isUnoptimized}
+        quality={isUnoptimized ? undefined : quality}
         onLoad={() => setIsLoaded(true)}
         onError={handleError}
         className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}

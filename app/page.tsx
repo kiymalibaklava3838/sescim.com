@@ -71,6 +71,51 @@ export default async function HomePage() {
 
       {/* TRUST BADGES */}
       <TrustBadges />
+
+      {/* SEO İÇERİK BLOKU — Google'ın "sescim" aramasında siteyi doğru anlaması için */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20 border-t border-slate-200">
+        <div className="grid md:grid-cols-2 gap-10 lg:gap-16 items-start">
+          {/* Sescim Nedir */}
+          <div>
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-slate-900 uppercase tracking-tight mb-4">
+              Sescim Nedir?
+            </h2>
+            <div className="w-10 h-0.5 bg-brand-red mb-5" />
+            <p className="text-slate-600 font-body text-sm sm:text-base leading-relaxed mb-4">
+              <strong>Sescim</strong>, Kayseri merkezli <strong>Akdağ Elektronik</strong> güvencesiyle kurulan Türkiye&apos;nin yeni nesil profesyonel ses, ışık ve müzik ekipmanları e-ticaret platformudur. Sahne sistemlerinden stüdyo donanımlarına, DJ ekipmanlarından hoparlör ve mikrofon setlerine kadar binlerce orijinal ürünü distribütör garantisiyle sunar.
+            </p>
+            <p className="text-slate-600 font-body text-sm sm:text-base leading-relaxed">
+              İster yatak odasında kayıt yapan amatör bir müzisyen olun, ister binlerce kişilik konser salonları kuran ses mühendisi — <strong>sescim.com</strong>&apos;da ihtiyacınıza uygun ekipmanı aynı gün kargo ve taksit avantajıyla kapınıza getiriyoruz.
+            </p>
+          </div>
+
+          {/* Neden Sescim */}
+          <div>
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-slate-900 uppercase tracking-tight mb-4">
+              Neden Sescim?
+            </h2>
+            <div className="w-10 h-0.5 bg-brand-red mb-5" />
+            <ul className="space-y-3">
+              {[
+                { title: '%100 Orijinal & Distribütör Garantili', desc: 'Tüm ürünler resmi distribütör kanalından, seri numarası doğrulanmış olarak gönderilir.' },
+                { title: 'Aynı Gün Hızlı Kargo', desc: '1999 ₺ ve üzeri siparişlerde ücretsiz, hafta içi saat 14:00\'e kadar verilen siparişlerde aynı gün kargo.' },
+                { title: 'Uzman Teknik Destek', desc: 'Satış öncesi ve sonrası; WhatsApp, telefon ve e-posta ile ses mühendislerimizden ücretsiz danışmanlık.' },
+                { title: 'Peşin Fiyatına Taksit', desc: 'Tüm kredi kartlarına 6 aya varan taksit imkânı ve kurumsal fatura seçeneği.' },
+              ].map((item) => (
+                <li key={item.title} className="flex items-start gap-3">
+                  <span className="mt-1 flex-shrink-0 w-5 h-5 rounded-full bg-brand-red/10 flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-brand-red" />
+                  </span>
+                  <div>
+                    <span className="font-semibold text-slate-800 text-sm">{item.title}:</span>{' '}
+                    <span className="text-slate-500 text-sm">{item.desc}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

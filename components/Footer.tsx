@@ -4,11 +4,15 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Instagram, Youtube, Twitter, ShieldCheck, Check, Copy, Sparkles, Lock, CreditCard, MessageCircle } from 'lucide-react'
-import { KATEGORILER } from '@/lib/categories'
+import { HIERARCHY_DATA } from '@/lib/categories'
 import { usePathname } from 'next/navigation'
 
 export default function Footer() {
-  const displayCategories = KATEGORILER.slice(0, 8)
+  // Ana kategori slug ve isimlerini HIERARCHY_DATA'dan al — her biri doğru URL'e gider
+  const displayCategories = HIERARCHY_DATA.slice(0, 8).map((cat) => ({
+    label: cat.name,
+    slug: cat.slug,
+  }))
   const pathname = usePathname()
   
   const [newsletterEmail, setNewsletterEmail] = useState('')
@@ -166,10 +170,10 @@ export default function Footer() {
         <div>
           <h4 className="font-bold text-slate-800 text-sm mb-6">Kategoriler</h4>
           <ul className="space-y-3">
-            {displayCategories.map((item) => (
-              <li key={item}>
-                <Link href="/urunler" className="text-slate-500 hover:text-brand-red text-sm transition-colors">
-                  {item}
+            {displayCategories.map((cat) => (
+              <li key={cat.slug}>
+                <Link href={`/urunler/${cat.slug}`} className="text-slate-500 hover:text-brand-red text-sm transition-colors">
+                  {cat.label}
                 </Link>
               </li>
             ))}

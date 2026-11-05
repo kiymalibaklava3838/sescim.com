@@ -150,7 +150,6 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
                     sizes="(max-width: 1280px) 100vw, 1280px"
                     className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/slide:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
                     priority={idx === 0}
-                    unoptimized={true}
                   />
                 </div>
 
@@ -164,7 +163,6 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
                       sizes="100vw"
                       className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/slide:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
                       priority={idx === 0}
-                      unoptimized={true}
                     />
                   </div>
                 )}

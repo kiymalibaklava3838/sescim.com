@@ -157,7 +157,6 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
                     fill
                     priority={index === 0}
                     sizes="100vw"
-                    unoptimized={true}
                     className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
                   />
                 </div>
@@ -171,7 +170,6 @@ export default function HeroSlider({ initialSlides }: HeroSliderProps) {
                       fill
                       priority={index === 0}
                       sizes="100vw"
-                      unoptimized={true}
                       className={`object-cover object-center ${isWholeSlideClickable ? 'group-hover/link:scale-[1.01] transition-transform duration-700 ease-out' : ''}`}
                     />
                   </div>

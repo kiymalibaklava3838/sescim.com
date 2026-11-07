@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 120" width="540" height="120">
+  <!-- Martin Audio Iconic M Waveform Badge -->
+  <g transform="translate(10, 10) scale(0.666)">
+    <rect x="0" y="0" width="150" height="150" rx="12" fill="#0f172a"/>
+    <g transform="translate(0, 0)">
+      <path d="M7.2 26.3c12.4.8 24.7 3.5 36.2 8.1C55.1 39 65.7 45.7 74.8 54.2c13.1-12.3 28.6-19.9 45.9-24.4 7.2-1.9 14.7-3.1 22.1-3.5v83h-6.9V33.6c-23.8 3.8-44.5 13.1-61 30.8-16.5-17.7-37.3-27-61-30.8v75.8H7.2V26.3z" fill="#ffffff"/>
+      <path d="M33.2 109.4H26V62.6c11.5-.1 21.9 3 30.7 10.7s12.9 17.8 15.1 28.9h5.9c2.9-14.2 8.9-26.3 22-33.8 6.8-3.9 18.9-6.7 23.8-5.6v46.6h-6.8V69.9c-9.7 1.2-17.5 5.5-23.2 13.4-5.5 7.7-7.3 16.7-7.8 26h-21c-.6-3.7-.8-7.5-1.7-11.1-3-13.6-10.6-23.4-24.6-27.3-1.6-.5-3.4-.7-5.2-1v39.5zM116.8 127v-8.3h26v8.3h-26zM7.2 127v-8.3h26v8.3h-26zM85.8 118.7v8.3H64.6v-8.3h21.2z" fill="#ffffff"/>
+    </g>
+  </g>
+  <!-- Text Lockup -->
+  <text x="135" y="68" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="46" fill="#0f172a" letter-spacing="3.5">MARTIN AUDIO</text>
+  <text x="138" y="98" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="20" fill="#64748b" letter-spacing="9">LONDON</text>
+</svg>

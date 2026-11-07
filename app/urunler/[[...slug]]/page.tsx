@@ -26,6 +26,15 @@ import type { Metadata } from 'next'
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 const PER_PAGE = 20
 
+function normalizeBrandName(m?: string): string {
+  if (!m) return ''
+  const trimmed = m.trim()
+  const upper = trimmed.toUpperCase()
+  if (upper === 'LD SYSTEM') return 'LD SYSTEMS'
+  if (upper === 'ALLEN&HEALTH' || upper === 'ALLEN & HEALTH' || upper === 'ALLEN AND HEATH') return 'ALLEN&HEATH'
+  return trimmed
+}
+
 function getCategoryPathBreadcrumbs(slugArray: string[], marka?: string) {
   const baseUrl = getSiteUrl()
   const crumbs = [
@@ -262,8 +271,9 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
       if (sq) sq = sq.eq('stok_durumu', filters.stok)
     }
     if (filters.marka && filters.marka !== 'tum') {
-      q = q.ilike('marka', filters.marka)
-      if (sq) sq = sq.ilike('marka', filters.marka)
+      const targetMarka = normalizeBrandName(filters.marka)
+      q = q.ilike('marka', targetMarka)
+      if (sq) sq = sq.ilike('marka', targetMarka)
     }
     if (filters.kullanim && filters.kullanim !== 'tum') {
       q = q.eq('kullanim_alani', filters.kullanim)

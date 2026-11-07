@@ -1,16 +1,35 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { ShieldCheck, Truck, Headphones, CreditCard, CheckCircle2 } from 'lucide-react'
 
-const TOP_BRANDS = [
-  'SHURE', 'PIONEER DJ', 'YAMAHA', 'SENNHEISER', 'JBL PRO', 
-  'RODE', 'BEHRINGER', 'GENELEC', 'AUDIO-TECHNICA', 'FOCUSRITE', 
-  'DENON DJ', 'KORG', 'ROLAND', 'MACKIE', 'ELECTRO-VOICE', 'QSC'
+interface BrandItem {
+  id: string
+  name: string
+  query: string
+  logo: string
+}
+
+const BRANDS: BrandItem[] = [
+  { id: 'yamaha', name: 'Yamaha', query: 'YAMAHA', logo: '/brands/yamaha-clean.webp' },
+  { id: 'jbl', name: 'JBL', query: 'JBL', logo: '/brands/jbl-clean.webp' },
+  { id: 'soundcraft', name: 'Soundcraft', query: 'SOUNDCRAFT', logo: '/brands/soundcraft-clean.webp' },
+  { id: 'ld-systems', name: 'LD Systems', query: 'LD SYSTEMS', logo: '/brands/ld-systems-clean.webp' },
+  { id: 'rcf', name: 'RCF', query: 'RCF', logo: '/brands/rcf-clean.webp' },
+  { id: 'alto', name: 'Alto Professional', query: 'ALTO', logo: '/brands/alto-clean.webp' },
+  { id: 'db-technologies', name: 'dB Technologies', query: 'DB TECHNOLOGIES', logo: '/brands/db-technologies-clean.webp' },
+  { id: 'mackie', name: 'Mackie', query: 'MACKIE', logo: '/brands/mackie-clean.webp' },
+  { id: 'martin-audio', name: 'Martin Audio', query: 'MARTIN AUDIO', logo: '/brands/martin-audio-clean.webp' },
+  { id: 'audac', name: 'Audac', query: 'AUDAC', logo: '/brands/audac-clean.webp' },
+  { id: 'allen-heath', name: 'Allen & Heath', query: 'ALLEN&HEATH', logo: '/brands/allen-heath-clean.webp' },
+  { id: 'shure', name: 'Shure', query: 'SHURE', logo: '/brands/shure-clean.webp' },
+  { id: 'sennheiser', name: 'Sennheiser', query: 'SENNHEISER', logo: '/brands/sennheiser-clean.webp' },
+  { id: 'behringer', name: 'Behringer', query: 'BEHRINGER', logo: '/brands/behringer-clean.webp' },
 ]
 
 // Sonsuz pürüzsüz kaydırma için iki eşit yarı (50% translate ile sıfır atlama)
-const MARQUEE_BRANDS = [...TOP_BRANDS, ...TOP_BRANDS]
+const MARQUEE_BRANDS = [...BRANDS, ...BRANDS]
 
 export default function WorldBrandsTrustBanner() {
   return (
@@ -72,23 +91,32 @@ export default function WorldBrandsTrustBanner() {
         </div>
       </div>
 
-      {/* DÜNYANIN EN İYİ MARKALARI — TIKLANABİLİR KESİNTİSİZ KAYAN MARQUEE ŞERİDİ (LIGHT TEMA) */}
-      <div className="mt-6 pt-4 border-t border-slate-100 relative group">
+      {/* DÜNYANIN EN İYİ MARKALARI — TIKLANABİLİR KESİNTİSİZ KAYAN MARQUEE ŞERİDİ (LOGOLU VİTRİN) */}
+      <div className="mt-6 pt-5 border-t border-slate-100 relative group">
         {/* Sol & Sağ Kenar Yumuşatma Gölgeleri (Fade Mask - Light Tema) */}
-        <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-white via-white/80 to-transparent z-20 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-white via-white/80 to-transparent z-20 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-white via-white/90 to-transparent z-20 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-white via-white/90 to-transparent z-20 pointer-events-none" />
 
-        <div className="relative flex overflow-hidden w-full">
-          <div className="flex animate-marquee whitespace-nowrap group-hover:[animation-play-state:paused] py-1 items-center will-change-transform gpu-accelerate">
+        <div className="relative flex overflow-hidden w-full py-1">
+          <div className="flex animate-marquee [animation-duration:38s] whitespace-nowrap group-hover:[animation-play-state:paused] items-center will-change-transform gpu-accelerate">
             {MARQUEE_BRANDS.map((brand, index) => (
               <Link
-                key={index}
-                href={`/urunler?marka=${encodeURIComponent(brand)}`}
-                className="inline-flex items-center gap-2.5 mx-2 sm:mx-3 px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-brand-red text-slate-700 hover:text-white border border-slate-200 hover:border-brand-red font-display font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
-                title={`${brand} Ürünlerini Keşfet`}
+                key={`${brand.id}-${index}`}
+                href={`/urunler?marka=${encodeURIComponent(brand.query)}`}
+                className="inline-flex items-center justify-center mx-2 sm:mx-3 px-5 sm:px-6 h-14 sm:h-16 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-brand-red/50 shadow-2xs hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 shrink-0 group/card"
+                title={`${brand.name} Ürünlerini Keşfet`}
+                aria-label={`${brand.name} Yetkili Satıcı Ürünleri`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-red group-hover:bg-white transition-colors shrink-0" />
-                <span>{brand}</span>
+                <div className="relative h-7 sm:h-8 w-24 sm:w-28 flex items-center justify-center">
+                  <Image
+                    src={brand.logo}
+                    alt={`${brand.name} Logo`}
+                    width={140}
+                    height={40}
+                    unoptimized
+                    className="max-h-full max-w-full w-auto h-auto object-contain transition-all duration-300 opacity-80 group-hover/card:opacity-100 group-hover/card:scale-105"
+                  />
+                </div>
               </Link>
             ))}
           </div>

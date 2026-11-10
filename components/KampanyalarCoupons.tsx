@@ -62,13 +62,16 @@ export default function KampanyalarCoupons({ initialCoupons }: Props) {
   }
 
   useEffect(() => {
-    loadCoupons()
+    // Sunucudan initialCoupons gelmemişse ilk yüklemede çek
+    if (!initialCoupons || initialCoupons.length === 0) {
+      loadCoupons()
+    }
 
     // Sayfaya dönüldüğünde (focus) kupon listesini tazele
     const handleFocus = () => loadCoupons()
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [])
+  }, [initialCoupons])
 
   if (coupons.length === 0) {
     return (

@@ -3,8 +3,9 @@ import { createAkdagServerClient } from './supabase-akdag'
 import { LIGHT_PRODUCT_FIELDS } from './product-queries'
 import { getSescimPricingMap } from './sescim-pricing'
 import { isQuoteOnlyProduct } from './distributor-rules'
+import { unstable_cache } from 'next/cache'
 
-export async function getProTercihProducts(): Promise<any[]> {
+async function fetchProTercihProductsInternal(): Promise<any[]> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) return []
@@ -82,8 +83,8 @@ export async function getProTercihProducts(): Promise<any[]> {
       for (const item of fallbackList) {
         if (!seen.has(item.id)) {
           seen.add(item.id)
-          uniqueFallback.push(item)
         }
+        uniqueFallback.push(item)
       }
       products = uniqueFallback.slice(0, 8)
     }
@@ -130,3 +131,9 @@ export async function getProTercihProducts(): Promise<any[]> {
     return []
   }
 }
+
+export const getProTercihProducts = unstable_cache(
+  fetchProTercihProductsInternal,
+  ['pro-tercih-products'],
+  { revalidate: 1800, tags: ['pro_tercih', 'products'] }
+)

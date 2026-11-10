@@ -1,5 +1,4 @@
 import { notFound, redirect, permanentRedirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { Phone, Mail, ChevronRight, Bell, ShieldCheck, Truck, CreditCard, Zap } from 'lucide-react'
 import DailyDealsTimer from '@/components/DailyDealsTimer'
 import Link from 'next/link'
@@ -19,7 +18,7 @@ import InstallmentTrigger from '@/components/InstallmentTrigger'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
-import { getProductBySlug, getRelatedProducts, getCrossSellProducts, findClosestProductBySlug } from '@/lib/product-service'
+import { getProductBySlug, getRelatedProducts, getCrossSellProducts, findClosestProductBySlug, getApprovedProductReviews } from '@/lib/product-service'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { resolveStock } from '@/lib/product-stock'
 import { ProductCard } from '@/components/ProductGrid'
@@ -69,7 +68,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function UrunDetayPage({ params }: Props) {
-  const supabase = await createServerSupabaseClient()
   const { data: product } = await getProductBySlug(params.slug)
   if (!product) {
     // 1. Akıllı slug eşleştirme: Eski Wix linkleri, ChatGPT veya arama motorlarındaki değişen sluglar
@@ -137,48 +135,39 @@ export default async function UrunDetayPage({ params }: Props) {
   // Breadcrumb hiyerarşisi
   const breadcrumbs = getBreadcrumbs(product.kategori, product.alt_kategori, product.urun_tipi)
 
-  // Onaylı yorumları, puan ortalamasını ve review listesini çek
+  // Onaylı yorumları, puan ortalamasını ve review listesini merkezi önbellekten çek (çift sorguları önler)
   let aggregateRating: any = undefined
   let reviewsJsonLd: any[] = []
-  try {
-    const { data: approvedReviews } = await supabase
-      .from('urun_yorumlari')
-      .select('id, puan, ad_soyad, yorum, created_at')
-      .eq('urun_id', product.id)
-      .eq('onaylandi', true)
-      .order('created_at', { ascending: false })
+  const approvedReviews = await getApprovedProductReviews(product.id).catch(() => [])
 
-    if (approvedReviews && approvedReviews.length > 0) {
-      const totalPuan = approvedReviews.reduce((acc: number, r: any) => acc + (r.puan || 5), 0)
-      const avg = Number((totalPuan / approvedReviews.length).toFixed(1))
-      aggregateRating = {
-        '@type': 'AggregateRating',
-        ratingValue: avg,
-        reviewCount: approvedReviews.length,
-        bestRating: 5,
-        worstRating: 1,
-      }
-      reviewsJsonLd = approvedReviews.map((r: any) => {
-        const { cleanYorum } = parseReviewContent(r.yorum || '')
-        return {
-          '@type': 'Review',
-          author: {
-            '@type': 'Person',
-            name: r.ad_soyad || 'Müşteri',
-          },
-          datePublished: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2025-01-01',
-          reviewRating: {
-            '@type': 'Rating',
-            ratingValue: r.puan || 5,
-            bestRating: 5,
-            worstRating: 1,
-          },
-          reviewBody: cleanYorum || 'Ürün değerlendirmesi',
-        }
-      })
+  if (approvedReviews && approvedReviews.length > 0) {
+    const totalPuan = approvedReviews.reduce((acc: number, r: any) => acc + (r.puan || 5), 0)
+    const avg = Number((totalPuan / approvedReviews.length).toFixed(1))
+    aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: avg,
+      reviewCount: approvedReviews.length,
+      bestRating: 5,
+      worstRating: 1,
     }
-  } catch (e) {
-    // Yorum çekme hatası olursa şema aksamasın
+    reviewsJsonLd = approvedReviews.map((r: any) => {
+      const { cleanYorum } = parseReviewContent(r.yorum || '')
+      return {
+        '@type': 'Review',
+        author: {
+          '@type': 'Person',
+          name: r.ad_soyad || 'Müşteri',
+        },
+        datePublished: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2025-01-01',
+        reviewRating: {
+          '@type': 'Rating',
+          ratingValue: r.puan || 5,
+          bestRating: 5,
+          worstRating: 1,
+        },
+        reviewBody: cleanYorum || 'Ürün değerlendirmesi',
+      }
+    })
   }
 
   const brandName = product.marka || 'Akdağ Elektronik'
@@ -647,7 +636,7 @@ export default async function UrunDetayPage({ params }: Props) {
         )}
 
         {/* Değerlendirmeler / Yorumlar */}
-        <ProductReviews urun_id={product.id} />
+        <ProductReviews urun_id={product.id} initialReviews={approvedReviews} />
 
         {/* Sıkça Sorulan Sorular & FAQPage Şeması */}
         <ProductFaq productName={product.ad} brandName={brandName} />

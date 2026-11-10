@@ -11,7 +11,7 @@ import { calculateShippingFee } from '@/lib/shipping'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { getSiteUrl } from '@/lib/site-url'
 import { resolveStock, deductSescimStock } from '@/lib/product-stock'
-import { DEFAULT_KUR } from '@/lib/kur'
+import { DEFAULT_KUR, getKur } from '@/lib/kur'
 
 const supabaseAdmin = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -65,17 +65,10 @@ export async function POST(req: NextRequest) {
     const db = supabaseAdmin()
     const akdagDb = akdagAdmin()
 
-    // 1. Döviz kurlarını al
-    let dolarKuru = DEFAULT_KUR.USD
-    let euroKuru = DEFAULT_KUR.EUR
-    try {
-      const kurRes = await fetch(`${req.nextUrl.origin}/api/kur`)
-      if (kurRes.ok) {
-        const kurData = await kurRes.json()
-        dolarKuru = kurData.USD || DEFAULT_KUR.USD
-        euroKuru = kurData.EUR || DEFAULT_KUR.EUR
-      }
-    } catch {}
+    // 1. Döviz kurlarını doğrudan ortak önbellekten al (sunucu içi döngüsel HTTP çağrısı kaldırıldı)
+    const kurData = await getKur().catch(() => DEFAULT_KUR)
+    const dolarKuru = kurData.USD || DEFAULT_KUR.USD
+    const euroKuru = kurData.EUR || DEFAULT_KUR.EUR
 
     const kurObj = { USD: dolarKuru, EUR: euroKuru }
 

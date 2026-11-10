@@ -2,16 +2,48 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // PayTR iFrame ödeme sonrası /odeme/basarili veya /odeme/hata sayfalarına POST ile dönebilir.
+  const { pathname } = request.nextUrl
+
+  // 1. PayTR iFrame ödeme sonrası /odeme/basarili veya /odeme/hata sayfalarına POST ile dönebilir.
   // Next.js App Router sayfaları sadece GET kabul ettiğinden POST istekleri 303 ile GET'e çevrilir.
   if (
     request.method === 'POST' &&
-    (request.nextUrl.pathname.startsWith('/odeme/basarili') || request.nextUrl.pathname.startsWith('/odeme/hata'))
+    (pathname.startsWith('/odeme/basarili') || pathname.startsWith('/odeme/hata'))
   ) {
-    const redirectUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, request.url)
+    const redirectUrl = new URL(pathname + request.nextUrl.search, request.url)
     return NextResponse.redirect(redirectUrl, 303)
   }
 
+  // 2. /odeme/ rotalarındaki GET istekleri genel bilgilendirme sayfalarıdır;
+  // Supabase auth kontrolü gerektirmez, doğrudan devam et (Edge CPU tasarrufu).
+  if (pathname.startsWith('/odeme/basarili') || pathname.startsWith('/odeme/hata')) {
+    return NextResponse.next()
+  }
+
+  // 3. /uye/panel eski rotası doğrudan /hesabim'e yönlendirilir
+  if (pathname.startsWith('/uye/panel')) {
+    return NextResponse.redirect(new URL('/hesabim', request.url))
+  }
+
+  // 4. Supabase auth çerezi ön kontrolü:
+  // @supabase/ssr kütüphanesi oturum çerezlerini `sb-<project-ref>-auth-token` formatında tutar.
+  // Çerezlerde bu isimde bir token yoksa kullanıcı kesinlikle anonimdir.
+  const hasAuthCookie = request.cookies.getAll().some(
+    (c) => c.name.startsWith('sb-') && c.name.includes('auth-token')
+  )
+
+  // Anonim kullanıcı /hesabim sayfasına gitmek isterse harici API beklemeden anında yönlendir (0ms, 0 Edge CPU)
+  if (pathname.startsWith('/hesabim') && !hasAuthCookie) {
+    return NextResponse.redirect(new URL('/uye', request.url))
+  }
+
+  // Anonim kullanıcı /admin sayfasına girerse AdminClient zaten AdminLoginForm gösterecektir;
+  // Supabase auth sorgusu yapmadan devam et
+  if (pathname.startsWith('/admin') && !hasAuthCookie) {
+    return NextResponse.next()
+  }
+
+  // 5. Yalnızca auth çerezi bulunan kullanıcılar için Supabase SSR oturum yenileme ve doğrulama
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -55,7 +87,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Admin koruması — site_admins tablosunda olması gerekiyor
-  if (request.nextUrl.pathname.startsWith('/admin') && user) {
+  if (pathname.startsWith('/admin') && user) {
     const { data: row, error } = await supabase
       .from('site_admins')
       .select('user_id')
@@ -73,22 +105,23 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Hesabım koruması — giriş yapmadan erişim yok
-  if (request.nextUrl.pathname.startsWith('/hesabim') && !user) {
+  // Hesabım koruması — çerez vardı ancak geçersiz/süresi dolmuşsa
+  if (pathname.startsWith('/hesabim') && !user) {
     return NextResponse.redirect(new URL('/uye', request.url))
-  }
-
-  // Üye panel yönlendirmesi — /uye/panel yerine doğrudan /hesabim
-  if (request.nextUrl.pathname.startsWith('/uye/panel')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/uye', request.url))
-    }
-    return NextResponse.redirect(new URL('/hesabim', request.url))
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/hesabim', '/hesabim/:path*', '/uye/panel', '/uye/panel/:path*', '/odeme/basarili', '/odeme/hata'],
+  matcher: [
+    '/admin',
+    '/admin/:path*',
+    '/hesabim',
+    '/hesabim/:path*',
+    '/uye/panel',
+    '/uye/panel/:path*',
+    '/odeme/basarili',
+    '/odeme/hata',
+  ],
 }

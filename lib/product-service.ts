@@ -139,55 +139,59 @@ export const getProductBySlug = unstable_cache(
  * Eski sistem (Wix /product-page/), arama motorları veya ChatGPT gibi yapay zeka araçlarından gelen
  * değişmiş/eski slugları akıllıca tespit edip en uygun canlı ürünün güncel slug'ını bulur.
  */
-export async function findClosestProductBySlug(slug: string): Promise<string | null> {
-  if (!slug || typeof slug !== 'string') return null
+export const findClosestProductBySlug = unstable_cache(
+  async (slug: string): Promise<string | null> => {
+    if (!slug || typeof slug !== 'string') return null
 
-  try {
-    const raw = decodeURIComponent(slug).toLowerCase().replace(/[-_]+/g, ' ').trim()
-    const tokens = raw.split(/\s+/).filter(t => t.length > 1 && !['ve', 'ile', 'icin', 'olan', 'adet', 'fiyati', 'urun', 'product'].includes(t))
-    if (tokens.length === 0) return null
+    try {
+      const raw = decodeURIComponent(slug).toLowerCase().replace(/[-_]+/g, ' ').trim()
+      const tokens = raw.split(/\s+/).filter(t => t.length > 1 && !['ve', 'ile', 'icin', 'olan', 'adet', 'fiyati', 'urun', 'product'].includes(t))
+      if (tokens.length === 0) return null
 
-    // Sayı içeren model kodları veya en az 4 harfli ayırt edici kelimeler
-    const distinctive = tokens.filter(t => /[0-9]/.test(t) || t.length >= 4)
-    const searchTerms = distinctive.length > 0 ? distinctive : tokens
-    const primaryTerm = searchTerms[0]
+      // Sayı içeren model kodları veya en az 4 harfli ayırt edici kelimeler
+      const distinctive = tokens.filter(t => /[0-9]/.test(t) || t.length >= 4)
+      const searchTerms = distinctive.length > 0 ? distinctive : tokens
+      const primaryTerm = searchTerms[0]
 
-    const akdagDb = await createAkdagServerClient()
-    const sescimDb = await createServerSupabaseClient()
+      const akdagDb = await createAkdagServerClient()
+      const sescimDb = await createServerSupabaseClient()
 
-    const [akdagRes, sescimRes] = await Promise.all([
-      akdagDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35),
-      sescimDb ? sescimDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35) : Promise.resolve({ data: [] })
-    ])
+      const [akdagRes, sescimRes] = await Promise.all([
+        akdagDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35),
+        sescimDb ? sescimDb.from('urunler').select('id, ad, slug').ilike('ad', `%${primaryTerm}%`).limit(35) : Promise.resolve({ data: [] })
+      ])
 
-    const candidates = [...(akdagRes.data || []), ...(sescimRes.data || [])]
-    if (candidates.length === 0) return null
+      const candidates = [...(akdagRes.data || []), ...(sescimRes.data || [])]
+      if (candidates.length === 0) return null
 
-    let bestSlug: string | null = null
-    let highestScore = 0
+      let bestSlug: string | null = null
+      let highestScore = 0
 
-    for (const c of candidates) {
-      if (!c.slug) continue
-      const cTokens = (c.slug + ' ' + (c.ad || '')).toLowerCase().split(/[-_\s]+/)
-      let score = 0
-      for (const t of tokens) {
-        if (cTokens.includes(t)) {
-          // Model kodu veya rakam içeren kelimelere daha yüksek ağırlık ver
-          score += /[0-9]/.test(t) ? 3 : 1
+      for (const c of candidates) {
+        if (!c.slug) continue
+        const cTokens = (c.slug + ' ' + (c.ad || '')).toLowerCase().split(/[-_\s]+/)
+        let score = 0
+        for (const t of tokens) {
+          if (cTokens.includes(t)) {
+            // Model kodu veya rakam içeren kelimelere daha yüksek ağırlık ver
+            score += /[0-9]/.test(t) ? 3 : 1
+          }
+        }
+        if (score > highestScore && score >= 2) {
+          highestScore = score
+          bestSlug = c.slug
         }
       }
-      if (score > highestScore && score >= 2) {
-        highestScore = score
-        bestSlug = c.slug
-      }
-    }
 
-    return bestSlug
-  } catch (err) {
-    console.error('[findClosestProductBySlug] error:', err)
-    return null
-  }
-}
+      return bestSlug
+    } catch (err) {
+      console.error('[findClosestProductBySlug] error:', err)
+      return null
+    }
+  },
+  ['closest-product-slug'],
+  { revalidate: 86400, tags: ['products'] }
+)
 
 export const getRelatedProducts = unstable_cache(
   async (kategori: string, excludeId: string) => {
@@ -555,4 +559,32 @@ export const getCrossSellProducts = unstable_cache(
   ['product-cross-sell-smart'],
   { revalidate: 3600, tags: ['products'] }
 )
+
+/**
+ * Onaylanmış ürün yorumlarını ve puanlarını çeker ve 1 saat önbelleğe alır.
+ * /urun/[slug] sayfasında hem SEO schema verisi hem de ProductReviews bileşeni için
+ * ortak kaynak olarak kullanılır (çift Supabase sorgularını önler).
+ */
+export const getApprovedProductReviews = unstable_cache(
+  async (productId: string) => {
+    try {
+      const supabase = await createServerSupabaseClient()
+      if (!supabase) return []
+      const { data } = await supabase
+        .from('urun_yorumlari')
+        .select('id, urun_id, puan, yorum, ad_soyad, fotograflar, created_at, user_id, onaylandi')
+        .eq('urun_id', productId)
+        .eq('onaylandi', true)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      return data || []
+    } catch (e) {
+      console.error('[getApprovedProductReviews] error:', e)
+      return []
+    }
+  },
+  ['product-reviews-approved'],
+  { revalidate: 3600, tags: ['reviews'] }
+)
+
 

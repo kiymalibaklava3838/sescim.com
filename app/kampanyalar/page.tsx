@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Tag, Sparkles, ArrowRight, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import { unstable_cache } from 'next/cache';
 import KampanyalarCoupons from '@/components/KampanyalarCoupons';
 import { getSiteUrl } from '@/lib/site-url';
 
@@ -15,32 +16,36 @@ export const metadata = {
   },
 };
 
-async function getInitialCoupons() {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-    const { data } = await supabase
-      .from('kuponlar')
-      .select('*')
-      .eq('aktif', true)
-      .order('created_at', { ascending: false });
+const getInitialCoupons = unstable_cache(
+  async () => {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const { data } = await supabase
+        .from('kuponlar')
+        .select('*')
+        .eq('aktif', true)
+        .order('created_at', { ascending: false });
 
-    if (!data) return [];
+      if (!data) return [];
 
-    const now = Date.now();
-    return data.filter((k: any) => {
-      if (k.ozel_mi === true) return false;
-      if (k.gecerlilik_tarihi && new Date(k.gecerlilik_tarihi).getTime() < now) return false;
-      if (k.max_kullanim && (k.kullanim_sayisi || 0) >= k.max_kullanim) return false;
-      return true;
-    });
-  } catch {
-    return [];
-  }
-}
+      const now = Date.now();
+      return data.filter((k: any) => {
+        if (k.ozel_mi === true) return false;
+        if (k.gecerlilik_tarihi && new Date(k.gecerlilik_tarihi).getTime() < now) return false;
+        if (k.max_kullanim && (k.kullanim_sayisi || 0) >= k.max_kullanim) return false;
+        return true;
+      });
+    } catch {
+      return [];
+    }
+  },
+  ['kampanyalar-initial-coupons'],
+  { revalidate: 1800, tags: ['coupons'] }
+);
 
 const kampanyalar = [
   {

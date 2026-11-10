@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from './supabase-server'
+import { unstable_cache } from 'next/cache'
 
 export interface InspirationSet {
   id: string
@@ -69,25 +70,29 @@ export const DEFAULT_INSPIRATION_SETS: InspirationSet[] = [
   }
 ]
 
-export async function getActiveInspirationSets(): Promise<InspirationSet[]> {
-  try {
-    const supabase = await createServerSupabaseClient()
-    if (!supabase) return DEFAULT_INSPIRATION_SETS
+export const getActiveInspirationSets = unstable_cache(
+  async (): Promise<InspirationSet[]> => {
+    try {
+      const supabase = await createServerSupabaseClient()
+      if (!supabase) return DEFAULT_INSPIRATION_SETS
 
-    const { data, error } = await supabase
-      .from('bannerlar')
-      .select('id, baslik, alt_yazi, resim_url, link, aktif, sira, created_at')
-      .eq('aktif', true)
-      .order('sira', { ascending: true })
-      .order('created_at', { ascending: false })
+      const { data, error } = await supabase
+        .from('bannerlar')
+        .select('id, baslik, alt_yazi, resim_url, link, aktif, sira, created_at')
+        .eq('aktif', true)
+        .order('sira', { ascending: true })
+        .order('created_at', { ascending: false })
 
-    if (error || !data || data.length === 0) {
+      if (error || !data || data.length === 0) {
+        return DEFAULT_INSPIRATION_SETS
+      }
+
+      return data as InspirationSet[]
+    } catch (err) {
+      console.error('Failed to get inspiration sets:', err)
       return DEFAULT_INSPIRATION_SETS
     }
-
-    return data as InspirationSet[]
-  } catch (err) {
-    console.error('Failed to get inspiration sets:', err)
-    return DEFAULT_INSPIRATION_SETS
-  }
-}
+  },
+  ['active-inspiration-sets'],
+  { revalidate: 1800, tags: ['inspiration_sets'] }
+)

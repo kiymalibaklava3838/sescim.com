@@ -39,6 +39,7 @@ interface PhotoItem {
 
 interface Props {
   urun_id: string
+  initialReviews?: any[]
 }
 
 export function packReviewContent(
@@ -94,9 +95,22 @@ export const parseReviewContent = (
   return { cleanYorum, photos, replies }
 }
 
-export default function ProductReviews({ urun_id }: Props) {
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [loading, setLoading] = useState(true)
+export function formatReviewList(list: any[]): Review[] {
+  return (list || []).map((rev: any) => {
+    const { cleanYorum, photos, replies } = parseReviewContent(rev.yorum || '')
+    return {
+      ...rev,
+      rawYorum: rev.yorum,
+      yorum: cleanYorum,
+      fotograflar: rev.fotograflar && rev.fotograflar.length > 0 ? rev.fotograflar : photos,
+      replies: replies,
+    }
+  })
+}
+
+export default function ProductReviews({ urun_id, initialReviews }: Props) {
+  const [reviews, setReviews] = useState<Review[]>(() => formatReviewList(initialReviews || []))
+  const [loading, setLoading] = useState(!initialReviews || initialReviews.length === 0)
   const [session, setSession] = useState<any>(null)
   const [rating, setRating] = useState(5)
   const [yorum, setYorum] = useState('')
@@ -126,8 +140,10 @@ export default function ProductReviews({ urun_id }: Props) {
       setReturnUrl(`${window.location.pathname}#yorumlar`)
     }
 
-    loadReviews()
-  }, [urun_id])
+    if (!initialReviews || initialReviews.length === 0) {
+      loadReviews()
+    }
+  }, [urun_id, initialReviews])
 
   const loadReviews = async () => {
     try {
@@ -141,18 +157,7 @@ export default function ProductReviews({ urun_id }: Props) {
 
       if (error) throw error
 
-      const formatted = (data || []).map((rev: any) => {
-        const { cleanYorum, photos, replies } = parseReviewContent(rev.yorum)
-        return {
-          ...rev,
-          rawYorum: rev.yorum,
-          yorum: cleanYorum,
-          fotograflar: rev.fotograflar && rev.fotograflar.length > 0 ? rev.fotograflar : photos,
-          replies: replies,
-        }
-      })
-
-      setReviews(formatted)
+      setReviews(formatReviewList(data || []))
     } catch (e) {
       console.error('Yorumlar yüklenirken hata:', e)
     } finally {

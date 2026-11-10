@@ -81,6 +81,223 @@ const getCachedFilters = unstable_cache(
   { revalidate: 3600 } // 1 saatlik cache
 )
 
+// Keşfet Sayfası Özel Vitrinleri (unstable_cache ile 30 dk önbellek)
+const getMainDiscoverCurated = unstable_cache(
+  async () => {
+    try {
+      const akdagClient = await createAkdagServerClient()
+      const [sets, proProds, newRes, bestRes, forYouRes] = await Promise.all([
+        getActiveInspirationSets(),
+        getProTercihProducts(),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).order('created_at', { ascending: false }).limit(8),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).gt('fiyat', 1000).order('fiyat', { ascending: false }).limit(8),
+        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).in('kategori', ['Stüdyo Ekipmanları', 'Kulaklık & Monitör', 'DJ Ekipmanları']).limit(8),
+      ])
+
+      let inspirationSets = sets || []
+      let proTercihProducts = proProds || []
+      let newArrivals = newRes.data || []
+      let bestSellers = bestRes.data || []
+      let forYouProducts = forYouRes.data || []
+
+      // Fiyatlandırma eşlemesi
+      const allCurated = [...newArrivals, ...bestSellers, ...forYouProducts]
+      const curIds = Array.from(new Set(allCurated.map((p: any) => p.id)))
+      if (curIds.length > 0) {
+        const pMap = await getSescimPricingMap(curIds)
+        const formatCurated = (list: any[]) => list.map((p: any) => {
+          const pr = pMap.get(p.id)
+          if (pr) {
+            return {
+              ...p,
+              sescim_fiyat: pr.sescim_fiyat,
+              sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
+              sescim_aktif: pr.sescim_aktif,
+              sescim_stok: pr.sescim_stok,
+              sescim_stok_durumu: pr.sescim_stok_durumu,
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pr.fiyat_sorunuz })
+            }
+          }
+          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
+        }).filter((p: any) => p.sescim_aktif === true)
+
+        newArrivals = formatCurated(newArrivals)
+        bestSellers = formatCurated(bestSellers)
+        forYouProducts = formatCurated(forYouProducts)
+      }
+
+      return {
+        inspirationSets,
+        proTercihProducts,
+        newArrivals,
+        bestSellers,
+        forYouProducts
+      }
+    } catch (e) {
+      console.error('Discover curated showcase load error:', e)
+      return {
+        inspirationSets: [],
+        proTercihProducts: [],
+        newArrivals: [],
+        bestSellers: [],
+        forYouProducts: []
+      }
+    }
+  },
+  ['main-discover-curated-showcase'],
+  { revalidate: 1800, tags: ['products'] }
+)
+
+// Kategori & Filtrelenmiş Ürün Listesi (unstable_cache ile 10 dk önbellek)
+const getCachedCategoryProducts = unstable_cache(
+  async (cacheKey: string, paramsJson: string) => {
+    const {
+      slugLength,
+      targetNames,
+      qText,
+      min,
+      max,
+      stok,
+      marka,
+      kullanim,
+      sirala,
+      from,
+      to
+    } = JSON.parse(paramsJson)
+
+    const sb = await createAkdagServerClient()
+    const sescimDb = await createServerSupabaseClient()
+
+    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
+    let sq = sescimDb
+      ? sescimDb
+          .from('urunler')
+          .select(
+            'id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at',
+            { count: 'exact' }
+          )
+      : null
+
+    if (qText) {
+      q = q.ilike('ad', `%${qText}%`)
+      if (sq) sq = sq.ilike('ad', `%${qText}%`)
+    }
+    if (targetNames && targetNames.length > 0) {
+      if (slugLength === 1) {
+        q = q.in('kategori', targetNames)
+        if (sq) sq = sq.in('kategori_id', targetNames)
+      } else if (slugLength === 2) {
+        q = q.in('alt_kategori', targetNames)
+        if (sq) sq = sq.in('alt_kategori_id', targetNames)
+      } else if (slugLength === 3) {
+        q = q.in('urun_tipi', targetNames)
+      }
+    }
+    if (min) {
+      q = q.gte('fiyat', min)
+      if (sq) sq = sq.gte('fiyat', min)
+    }
+    if (max) {
+      q = q.lte('fiyat', max)
+      if (sq) sq = sq.lte('fiyat', max)
+    }
+    if (stok && stok !== 'tum') {
+      q = q.eq('stok_durumu', stok)
+      if (sq) sq = sq.eq('stok_durumu', stok)
+    }
+    if (marka && marka !== 'tum') {
+      const targetMarka = normalizeBrandName(marka)
+      q = q.ilike('marka', targetMarka)
+      if (sq) sq = sq.ilike('marka', targetMarka)
+    }
+    if (kullanim && kullanim !== 'tum') {
+      q = q.eq('kullanim_alani', kullanim)
+      if (sq) sq = sq.eq('kullanim_alani', kullanim)
+    }
+
+    if (sirala === 'yeni') {
+      q = q.order('created_at', { ascending: false })
+      if (sq) sq = sq.order('created_at', { ascending: false })
+    } else if (sirala === 'fiyat_artan') {
+      q = q.order('fiyat', { ascending: true })
+      if (sq) sq = sq.order('fiyat', { ascending: true })
+    } else if (sirala === 'fiyat_azalan') {
+      q = q.order('fiyat', { ascending: false })
+      if (sq) sq = sq.order('fiyat', { ascending: false })
+    } else if (sirala === 'ad_asc') {
+      q = q.order('ad', { ascending: true })
+      if (sq) sq = sq.order('ad', { ascending: true })
+    }
+
+    const [akdagRes, sescimRes] = await Promise.all([
+      q,
+      sq ? sq : Promise.resolve({ data: [], count: 0 })
+    ])
+
+    const aData = akdagRes.data || []
+    const sData = (sescimRes.data || []).map((p: any) => ({
+      ...p,
+      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
+      sescim_aktif: p.sescim_aktif !== false
+    }))
+
+    const productMap = new Map<string, any>()
+    aData.forEach((p: any) => productMap.set(p.id, p))
+
+    sData.forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
+
+    const combined = Array.from(productMap.values())
+    const totalCount = combined.length
+    let paged = combined.slice(from, to + 1)
+
+    if (paged.length > 0) {
+      try {
+        const urunIds = paged.map((p: any) => p.id)
+        const pricingMap = await getSescimPricingMap(urunIds)
+        paged = paged
+          .map((p: any) => {
+            const pricing = pricingMap.get(p.id)
+            if (pricing) {
+              return {
+                ...p,
+                sescim_fiyat: pricing.sescim_fiyat,
+                sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
+                sescim_indirimli_fiyat_pb: pricing.sescim_indirimli_fiyat_pb,
+                sescim_aktif: pricing.sescim_aktif,
+                sescim_stok: pricing.sescim_stok,
+                sescim_stok_durumu: pricing.sescim_stok_durumu,
+                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
+              }
+            }
+            return {
+              ...p,
+              sescim_aktif: true,
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
+            }
+          })
+          .filter((p: any) => p.sescim_aktif === true)
+      } catch (e) {
+        console.error('Sescim pricing fetch failed for product list', e)
+      }
+    }
+
+    return { products: paged, count: totalCount }
+  },
+  ['category-products-listing'],
+  { revalidate: 600, tags: ['products'] }
+)
+
 interface Props {
   params: { slug?: string[] }
   searchParams: {
@@ -190,7 +407,6 @@ export async function generateMetadata({ params, searchParams }: Props) {
 }
 
 export default async function UrunlerPage({ params, searchParams }: Props) {
-  const supabase = await createAkdagServerClient()
   const slugArray = params.slug || []
   
   // Kategori Bulma
@@ -231,143 +447,35 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
 
   const isMainDiscoverPage = slugArray.length === 0 && !filters.q && !filters.marka && !filters.stok && !filters.min && !filters.max
 
-  // Ürün sorgusu - Sescim kendi ürünleri + Akdağ ortak kataloğu
-  const fetchProducts = async () => {
-    const sb = await createAkdagServerClient()
-    const sescimDb = await createServerSupabaseClient()
-
-    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
-    let sq = sescimDb ? sescimDb.from('urunler').select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at', { count: 'exact' }) : null
-
-    if (filters.q) {
-      q = q.ilike('ad', `%${filters.q}%`)
-      if (sq) sq = sq.ilike('ad', `%${filters.q}%`)
-    }
-    if (filters.activeCategory) {
-      const targetNames = Array.isArray(filters.activeCategory.dbName)
-        ? filters.activeCategory.dbName
-        : [filters.activeCategory.dbName || filters.activeCategory.name]
-
-      if (filters.slugLength === 1) {
-        q = q.in('kategori', targetNames)
-        if (sq) sq = sq.in('kategori_id', targetNames)
-      } else if (filters.slugLength === 2) {
-        q = q.in('alt_kategori', targetNames)
-        if (sq) sq = sq.in('alt_kategori_id', targetNames)
-      } else if (filters.slugLength === 3) {
-        q = q.in('urun_tipi', targetNames)
-      }
-    }
-    if (filters.min) {
-      q = q.gte('fiyat', filters.min)
-      if (sq) sq = sq.gte('fiyat', filters.min)
-    }
-    if (filters.max) {
-      q = q.lte('fiyat', filters.max)
-      if (sq) sq = sq.lte('fiyat', filters.max)
-    }
-    if (filters.stok && filters.stok !== 'tum') {
-      q = q.eq('stok_durumu', filters.stok)
-      if (sq) sq = sq.eq('stok_durumu', filters.stok)
-    }
-    if (filters.marka && filters.marka !== 'tum') {
-      const targetMarka = normalizeBrandName(filters.marka)
-      q = q.ilike('marka', targetMarka)
-      if (sq) sq = sq.ilike('marka', targetMarka)
-    }
-    if (filters.kullanim && filters.kullanim !== 'tum') {
-      q = q.eq('kullanim_alani', filters.kullanim)
-      if (sq) sq = sq.eq('kullanim_alani', filters.kullanim)
-    }
-
-    if (filters.sirala === 'yeni') {
-      q = q.order('created_at', { ascending: false })
-      if (sq) sq = sq.order('created_at', { ascending: false })
-    } else if (filters.sirala === 'fiyat_artan') {
-      q = q.order('fiyat', { ascending: true })
-      if (sq) sq = sq.order('fiyat', { ascending: true })
-    } else if (filters.sirala === 'fiyat_azalan') {
-      q = q.order('fiyat', { ascending: false })
-      if (sq) sq = sq.order('fiyat', { ascending: false })
-    } else if (filters.sirala === 'ad_asc') {
-      q = q.order('ad', { ascending: true })
-      if (sq) sq = sq.order('ad', { ascending: true })
-    }
-
-    const [akdagRes, sescimRes] = await Promise.all([
-      q,
-      sq ? sq : Promise.resolve({ data: [], count: 0 })
-    ])
-
-    const aData = akdagRes.data || []
-    const sData = (sescimRes.data || []).map((p: any) => ({
-      ...p,
-      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
-      sescim_aktif: p.sescim_aktif !== false
-    }))
-
-    // Akdağ veritabanındaki ürünler ana katalogdur ve gerçek fiziksel stoğu taşır
-    const productMap = new Map<string, any>()
-    aData.forEach((p: any) => productMap.set(p.id, p))
-
-    // Sescim'deki ürünler: Eğer Akdağ'da zaten varsa, Akdağ'ın gerçek stoğunu ve bilgilerini KORU!
-    // Yalnızca Sescim'e özel fiyatlandırmayı üzerine bindir. Akdağ'da hiç yoksa (Sescim özel ürünü) listeye ekle.
-    sData.forEach((p: any) => {
-      if (!productMap.has(p.id)) {
-        productMap.set(p.id, p)
-      } else {
-        const existing = productMap.get(p.id)
-        productMap.set(p.id, {
-          ...existing,
-          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
-          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
-        })
-      }
-    })
-
-    const combined = Array.from(productMap.values())
-    const totalCount = combined.length
-    const paged = combined.slice(from, to + 1)
-
-    return { data: paged, count: totalCount }
-  }
-
   let products: any[] = []
   let count = 0
 
   if (!isMainDiscoverPage) {
-    const res = await fetchProducts() as any
-    products = res.data || []
-    count = res.count || 0
-  }
+    const targetNames = activeCategory
+      ? (Array.isArray(activeCategory.dbName)
+          ? activeCategory.dbName
+          : [activeCategory.dbName || activeCategory.name])
+      : null
 
-  if (products && products.length > 0) {
-    try {
-      const urunIds = products.map((p: any) => p.id)
-      const pricingMap = await getSescimPricingMap(urunIds)
-      products = products
-        .map((p: any) => {
-          const pricing = pricingMap.get(p.id)
-          if (pricing) {
-            return { 
-              ...p, 
-              sescim_fiyat: pricing.sescim_fiyat,
-              sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
-              sescim_indirimli_fiyat_pb: pricing.sescim_indirimli_fiyat_pb,
-              sescim_aktif: pricing.sescim_aktif,
-              sescim_stok: pricing.sescim_stok,
-              sescim_stok_durumu: pricing.sescim_stok_durumu,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
-            }
-          }
-          // Sescim'de kaydı olmayan ürünler her zaman gösterilir (default: true)
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
-        })
-        .filter((p: any) => p.sescim_aktif === true)
-    } catch (e) {
-      console.error('Sescim pricing fetch failed for product list', e)
-      // Hata olursa tüm ürünleri göster
-    }
+    const cacheKey = `${slugArray.join('/')}_s${sayfa}_q${filters.q || ''}_m${filters.marka || ''}_k${filters.kullanim || ''}_st${filters.stok || ''}_min${filters.min ?? ''}_max${filters.max ?? ''}_ord${filters.sirala}`
+
+    const paramsJson = JSON.stringify({
+      slugLength: filters.slugLength,
+      targetNames,
+      qText: filters.q,
+      min: filters.min,
+      max: filters.max,
+      stok: filters.stok,
+      marka: filters.marka,
+      kullanim: filters.kullanim,
+      sirala: filters.sirala,
+      from,
+      to
+    })
+
+    const res = await getCachedCategoryProducts(cacheKey, paramsJson)
+    products = res.products || []
+    count = res.count || 0
   }
 
   const totalPages = Math.ceil((count || 0) / PER_PAGE)
@@ -386,50 +494,12 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
   let forYouProducts: any[] = []
 
   if (isMainDiscoverPage) {
-    try {
-      const akdagClient = await createAkdagServerClient()
-      const [sets, proProds, newRes, bestRes, forYouRes] = await Promise.all([
-        getActiveInspirationSets(),
-        getProTercihProducts(),
-        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).order('created_at', { ascending: false }).limit(8),
-        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).gt('fiyat', 1000).order('fiyat', { ascending: false }).limit(8),
-        akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS).in('kategori', ['Stüdyo Ekipmanları', 'Kulaklık & Monitör', 'DJ Ekipmanları']).limit(8),
-      ])
-
-      inspirationSets = sets || []
-      proTercihProducts = proProds || []
-      newArrivals = newRes.data || []
-      bestSellers = bestRes.data || []
-      forYouProducts = forYouRes.data || []
-
-      // Fiyatlandırma eşlemesi
-      const allCurated = [...newArrivals, ...bestSellers, ...forYouProducts]
-      const curIds = Array.from(new Set(allCurated.map((p: any) => p.id)))
-      if (curIds.length > 0) {
-        const pMap = await getSescimPricingMap(curIds)
-        const formatCurated = (list: any[]) => list.map((p: any) => {
-          const pr = pMap.get(p.id)
-          if (pr) {
-            return {
-              ...p,
-              sescim_fiyat: pr.sescim_fiyat,
-              sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
-              sescim_aktif: pr.sescim_aktif,
-              sescim_stok: pr.sescim_stok,
-              sescim_stok_durumu: pr.sescim_stok_durumu,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pr.fiyat_sorunuz })
-            }
-          }
-          return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
-        }).filter((p: any) => p.sescim_aktif === true)
-
-        newArrivals = formatCurated(newArrivals)
-        bestSellers = formatCurated(bestSellers)
-        forYouProducts = formatCurated(forYouProducts)
-      }
-    } catch (curErr) {
-      console.error('Discover curated load error:', curErr)
-    }
+    const curated = await getMainDiscoverCurated()
+    inspirationSets = curated.inspirationSets
+    proTercihProducts = curated.proTercihProducts
+    newArrivals = curated.newArrivals
+    bestSellers = curated.bestSellers
+    forYouProducts = curated.forYouProducts
   }
 
   const baseParams = new URLSearchParams()

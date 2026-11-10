@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from './supabase-server'
+import { unstable_cache } from 'next/cache'
 
 export interface StoreBanner {
   id: string
@@ -149,29 +150,33 @@ export function packBannerSubtitle(
   })
 }
 
-export async function getActiveBanners(): Promise<StoreBanner[]> {
-  try {
-    const supabase = await createServerSupabaseClient()
-    if (!supabase) return []
-    
-    const { data, error } = await supabase
-      .from('store_banners')
-      .select('id, image_url, title, subtitle, link_url, is_active, created_at, sort_order')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false })
+export const getActiveBanners = unstable_cache(
+  async (): Promise<StoreBanner[]> => {
+    try {
+      const supabase = await createServerSupabaseClient()
+      if (!supabase) return []
+      
+      const { data, error } = await supabase
+        .from('store_banners')
+        .select('id, image_url, title, subtitle, link_url, is_active, created_at, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Banners alınamadı:', error)
+      if (error) {
+        console.error('Banners alınamadı:', error)
+        return []
+      }
+
+      return (data || []) as StoreBanner[]
+    } catch (err) {
+      console.error('Error in getActiveBanners:', err)
       return []
     }
-
-    return (data || []) as StoreBanner[]
-  } catch (err) {
-    console.error('Error in getActiveBanners:', err)
-    return []
-  }
-}
+  },
+  ['active-store-banners'],
+  { revalidate: 1800, tags: ['banners'] }
+)
 
 export async function getActiveParsedBanners(): Promise<ParsedBannerSlide[]> {
   const raw = await getActiveBanners()

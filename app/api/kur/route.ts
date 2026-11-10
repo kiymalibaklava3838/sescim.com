@@ -1,20 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { rateLimit } from '@/lib/rate-limit'
-import { getClientIp } from '@/lib/request-ip'
+import { NextResponse } from 'next/server'
 import { getKur } from '@/lib/kur'
 
-export const revalidate = 300 // 5 dakika
+export const revalidate = 300 // 5 dakika ISR önbellek
 
-export async function GET(req: NextRequest) {
-  const ip = getClientIp(req)
-  if (!(await rateLimit(`kur:${ip}`, 120, 60_000))) {
-    return NextResponse.json({ error: 'Çok fazla istek' }, { status: 429 })
-  }
-
+/**
+ * Döviz kurları API rotası.
+ * - Dinamik request header/ip bağımlılıkları kaldırılarak Vercel Edge CDN'de tam önbelleklenmesi sağlanmıştır.
+ * - Her istek için Node.js serverless fonksiyonunun ayağa kalkmasını önler (0 CPU tüketimi).
+ */
+export async function GET() {
   const kurData = await getKur()
   return NextResponse.json(kurData, {
     headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600',
     },
   })
 }

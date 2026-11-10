@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
@@ -11,6 +9,7 @@ import {
   Headphones, Music, Mic, Package, Plug, Truck, CircleDot 
 } from 'lucide-react'
 import CartIcon from './CartIcon'
+import MobileDrawer from './MobileDrawer'
 
 const categoryIcons: Record<string, any> = {
   'Ses Sistemleri': Speaker,
@@ -71,7 +70,7 @@ export default function Navbar() {
   }, [supabase])
 
   const [isVisible, setIsVisible] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  const lastScrollY = useRef(0)
   const [isScrolled, setIsScrolled] = useState(false)
   const [announcementCoupon, setAnnouncementCoupon] = useState<{ kod: string; miktar: string } | null>({ kod: 'SESCIM5', miktar: '%5' })
 
@@ -98,40 +97,50 @@ export default function Navbar() {
       .catch(() => {})
   }, [])
 
+  // Aşağı kaydırırken navbar'ı kayarak gizle, yukarı kaydırırken veya en tepede anında getir
   useEffect(() => {
+    let ticking = false
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      setIsScrolled(currentScrollY > 20)
-      
-      // Aşağı kaydırıldığında gizle (eğer 100px'den fazla inildiyse)
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(false)
-      } 
-      // Yukarı kaydırıldığında göster
-      else if (currentScrollY < lastScrollY) {
-        setIsVisible(true)
-      }
-      setLastScrollY(currentScrollY)
+      if (ticking) return
+      ticking = true
+
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0
+        setIsScrolled(currentScrollY > 20)
+
+        // Mobil çekmece açıkken gizleme
+        if (mobileMenuOpen) {
+          setIsVisible(true)
+          lastScrollY.current = currentScrollY
+          ticking = false
+          return
+        }
+
+        // Sayfa başında (ilk 60px) daima göster
+        if (currentScrollY <= 60) {
+          setIsVisible(true)
+        } 
+        // Aşağı kaydırırken (en az 8px net hareket varsa ve 80px geçildiyse) gizle
+        else if (currentScrollY > lastScrollY.current + 8 && currentScrollY > 80) {
+          setIsVisible(false)
+        } 
+        // Yukarı kaydırırken (en az 8px net yukarı hareket varsa) göster
+        else if (currentScrollY < lastScrollY.current - 8) {
+          setIsVisible(true)
+        }
+
+        lastScrollY.current = currentScrollY
+        ticking = false
+      })
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [lastScrollY])
-
-  // Mobil menü açıkken arkadaki sayfanın kaydırılmasını kilitle
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => {
-      document.body.style.overflow = ''
-    }
   }, [mobileMenuOpen])
 
   return (
-    <header className={`bg-white border-b border-slate-200 w-full z-50 sticky top-0 transition-all duration-500 ease-in-out ${
+    <header className={`bg-white border-b border-slate-200 w-full z-50 sticky top-0 transition-transform duration-300 ease-in-out will-change-transform ${
       isVisible ? 'translate-y-0' : '-translate-y-full'
     } ${isScrolled ? 'shadow-lg' : ''}`}>
       {/* Top announcement bar */}
@@ -224,162 +233,13 @@ export default function Navbar() {
         <ProductSearch fullPage />
       </div>
 
-      {/* Mobil Kayar Menü Çekmecesi (Off-Canvas Drawer - React Portal ile Body'ye bağlanır) */}
-      {mounted && createPortal(
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <div className="fixed inset-0 z-[9999] md:hidden">
-              {/* Arka Plan Karartma (Tam Ekran) */}
-              <motion.div 
-                key="mobile-menu-backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm"
-                onClick={() => setMobileMenuOpen(false)}
-              />
-
-              {/* Çekmece Paneli (Tam Ekran Yüksekliği - Sol taraftan akıcı animasyon) */}
-              <motion.div
-                key="mobile-menu-panel"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-                className="fixed inset-y-0 left-0 w-[85%] max-w-[320px] h-[100dvh] bg-white shadow-2xl flex flex-col z-[10000]"
-              >
-                {/* Çekmece Başlığı */}
-                <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-                  <Link href="/" onClick={() => setMobileMenuOpen(false)}>
-                    <Image 
-                      src="/logo.png" 
-                      alt="sescim.com" 
-                      width={120} 
-                      height={38} 
-                      className="object-contain h-7 w-auto" 
-                      priority
-                    />
-                  </Link>
-                  <button 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-red active:scale-95 transition-all shadow-xs"
-                    aria-label="Menüyü Kapat"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                {/* Kullanıcı Giriş Durumu */}
-                <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-brand-red/20 border border-brand-red/40 flex items-center justify-center text-brand-red shrink-0">
-                      <User size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[11px] text-slate-400 font-medium leading-none mb-1">Hoş Geldiniz</div>
-                      <div className="text-sm font-bold truncate max-w-[150px]">
-                        {user ? (user.user_metadata?.full_name || user.email?.split('@')[0] || 'Hesabım') : 'Giriş Yap / Üye Ol'}
-                      </div>
-                    </div>
-                  </div>
-                  <Link 
-                    href={user ? '/hesabim' : '/uye'} 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded font-display uppercase tracking-wider font-semibold transition-colors shrink-0"
-                  >
-                    {user ? 'Hesap' : 'Giriş'}
-                  </Link>
-                </div>
-
-                {/* Hızlı Kısayollar (Fırsatlar, Kuponlar, Outlet, Favoriler) */}
-                <div className="grid grid-cols-4 gap-1 p-2 bg-slate-100 border-b border-slate-200 text-center shrink-0">
-                  <Link
-                    href="/firsatlar"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="py-2 px-1 rounded bg-white hover:bg-red-50 text-[10px] font-display font-bold uppercase text-slate-800 hover:text-brand-red flex flex-col items-center gap-1 shadow-xs transition-colors"
-                  >
-                    <Zap size={14} className="text-brand-red" />
-                    <span>Fırsat</span>
-                  </Link>
-                  <Link
-                    href="/kampanyalar"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="py-2 px-1 rounded bg-white hover:bg-amber-50 text-[10px] font-display font-bold uppercase text-slate-800 hover:text-amber-700 flex flex-col items-center gap-1 shadow-xs transition-colors"
-                  >
-                    <Gift size={14} className="text-amber-600" />
-                    <span>Kupon</span>
-                  </Link>
-                  <Link
-                    href="/outlet"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="py-2 px-1 rounded bg-white hover:bg-purple-50 text-[10px] font-display font-bold uppercase text-slate-800 hover:text-purple-700 flex flex-col items-center gap-1 shadow-xs transition-colors"
-                  >
-                    <Tag size={14} className="text-purple-600" />
-                    <span>Outlet</span>
-                  </Link>
-                  <Link
-                    href="/favoriler"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="py-2 px-1 rounded bg-white hover:bg-rose-50 text-[10px] font-display font-bold uppercase text-slate-800 hover:text-rose-600 flex flex-col items-center gap-1 shadow-xs transition-colors"
-                  >
-                    <Heart size={14} className="text-rose-500" />
-                    <span>Favori</span>
-                  </Link>
-                </div>
-
-                {/* Kategoriler Listesi (Scroll edilebilir alan) */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-1 bg-white custom-scrollbar">
-                  <div className="text-[10px] font-display font-black uppercase tracking-widest text-slate-400 mb-2 px-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Compass size={13} className="text-brand-red" />
-                      Tüm Kategoriler
-                    </span>
-                    <span className="text-[9px] text-slate-400 font-mono">9 Kategori</span>
-                  </div>
-                  {NEW_KATEGORI_HIYERARSI.map((kat) => {
-                    const Icon = categoryIcons[kat.name] || ChevronRight
-                    return (
-                      <Link 
-                        key={kat.slug} 
-                        href={`/urunler/${kat.slug}`}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-red-50 hover:text-brand-red transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon size={16} className="text-slate-400 group-hover:text-brand-red" />
-                          <span>{kat.name}</span>
-                        </div>
-                        <ChevronRight size={14} className="text-slate-300" />
-                      </Link>
-                    )
-                  })}
-                </div>
-
-                {/* Alt Destek & İletişim */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 pb-safe shrink-0">
-                  <a 
-                    href="https://wa.me/908503053870"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider shadow-xs transition-colors"
-                  >
-                    WhatsApp Destek
-                  </a>
-                  <a 
-                    href="tel:+908503053870"
-                    className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold font-display uppercase tracking-wider transition-colors"
-                  >
-                    <Phone size={13} className="text-brand-red" />
-                    0850 305 38 70
-                  </a>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      {/* Mobil Kayar Menü Çekmecesi (Native Drill-Down + 3 Sekmeli Gelişmiş Drawer) */}
+      <MobileDrawer
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        user={user}
+        announcementCoupon={announcementCoupon}
+      />
 
       {/* Bottom Navbar (Categories) - Desktop */}
       <div className="border-t border-slate-200 hidden md:block bg-white shadow-sm relative z-40">

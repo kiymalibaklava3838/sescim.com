@@ -39,7 +39,15 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
   }, [isOpen, mounted])
   const clearFiltersUrl = slugArray.length > 0 ? `/urunler/${slugArray.join('/')}` : '/urunler'
   
-  const hasFilters = !!(searchParams.marka || searchParams.kullanim || searchParams.stok || searchParams.min || searchParams.max || searchParams.q)
+  const hasFilters = !!(
+    searchParams.marka || 
+    searchParams.kullanim || 
+    searchParams.stok || 
+    searchParams.min || 
+    searchParams.max || 
+    searchParams.q ||
+    (searchParams.sirala && searchParams.sirala !== 'yeni')
+  )
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -191,11 +199,13 @@ export default function ProductFilters({ markalar, kullanimAlanlari, searchParam
                       <label className="block text-[10px] font-display font-black uppercase text-slate-800 tracking-[0.2em] border-b border-slate-100 pb-2">
                         Sıralama
                       </label>
-                      <select name="sirala" defaultValue={searchParams.sirala || 'yeni'} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm py-3 px-3 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all cursor-pointer">
+                      <select name="sirala" defaultValue={searchParams.sirala || 'yeni'} className="w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm py-3 px-3 focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all cursor-pointer font-body">
                         <option value="yeni">En Yeniler</option>
-                        <option value="fiyat_artan">Fiyat (Artan)</option>
-                        <option value="fiyat_azalan">Fiyat (Azalan)</option>
+                        <option value="cok_satanlar">Çok Satanlar</option>
+                        <option value="fiyat_artan">Fiyat (Düşükten Yükseğe)</option>
+                        <option value="fiyat_azalan">Fiyat (Pahalıdan Ucuza)</option>
                         <option value="ad_asc">İsim (A-Z)</option>
+                        <option value="ad_desc">İsim (Z-A)</option>
                       </select>
                     </div>
                   </form>

@@ -85,7 +85,9 @@ async function ensureMirrorProduct(db: any, product: any) {
       stok_adedi: stokAdedi,
       stok_durumu: stokDurumu,
       aktif: true,
-      sescim_aktif: true
+      sescim_aktif: true,
+      kategori_id: product.kategori || null,
+      alt_kategori_id: product.alt_kategori || null
     }
 
     const { error: mirrorErr } = await db.from('urunler').insert(mirrorPayload)
@@ -102,6 +104,8 @@ async function ensureMirrorProduct(db: any, product: any) {
           stok_durumu: stokDurumu,
           fiyat: Number(product.fiyat) || undefined,
           slug: product.slug || undefined,
+          kategori_id: product.kategori || undefined,
+          alt_kategori_id: product.alt_kategori || undefined
         })
         .eq('id', product.id)
     } catch {}

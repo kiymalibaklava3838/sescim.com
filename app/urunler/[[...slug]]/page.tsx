@@ -21,6 +21,8 @@ import { unstable_cache } from 'next/cache'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { getSiteUrl } from '@/lib/site-url'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { getKur, dovizToTL, type KurData } from '@/lib/kur'
+import { resolveStock } from '@/lib/product-stock'
 import type { Metadata } from 'next'
 
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
@@ -112,6 +114,7 @@ const getMainDiscoverCurated = unstable_cache(
               ...p,
               sescim_fiyat: pr.sescim_fiyat,
               sescim_indirimli_fiyat: pr.sescim_indirimli_fiyat,
+              sescim_indirimli_fiyat_pb: pr.sescim_indirimli_fiyat_pb,
               sescim_aktif: pr.sescim_aktif,
               sescim_stok: pr.sescim_stok,
               sescim_stok_durumu: pr.sescim_stok_durumu,
@@ -168,13 +171,12 @@ const getCachedCategoryProducts = unstable_cache(
     const sb = await createAkdagServerClient()
     const sescimDb = await createServerSupabaseClient()
 
-    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS, { count: 'exact' })
+    let q = sb.from('urunler').select(LIGHT_PRODUCT_FIELDS)
     let sq = sescimDb
       ? sescimDb
           .from('urunler')
           .select(
-            'id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at',
-            { count: 'exact' }
+            'id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at'
           )
       : null
 
@@ -191,19 +193,10 @@ const getCachedCategoryProducts = unstable_cache(
         if (sq) sq = sq.in('alt_kategori_id', targetNames)
       } else if (slugLength === 3) {
         q = q.in('urun_tipi', targetNames)
+        // Sescim veritabanında urun_tipi sütunu bulunmadığı ve yaprak kategoriler Akdağ kataloğuyla eşleştiği için
+        // kategori dışı bağımsız veya ayna kayıtların bu listeye sızmasını önlemek üzere sq 3. seviyede kapatılır.
+        sq = null
       }
-    }
-    if (min) {
-      q = q.gte('fiyat', min)
-      if (sq) sq = sq.gte('fiyat', min)
-    }
-    if (max) {
-      q = q.lte('fiyat', max)
-      if (sq) sq = sq.lte('fiyat', max)
-    }
-    if (stok && stok !== 'tum') {
-      q = q.eq('stok_durumu', stok)
-      if (sq) sq = sq.eq('stok_durumu', stok)
     }
     if (marka && marka !== 'tum') {
       const targetMarka = normalizeBrandName(marka)
@@ -215,23 +208,9 @@ const getCachedCategoryProducts = unstable_cache(
       if (sq) sq = sq.eq('kullanim_alani', kullanim)
     }
 
-    if (sirala === 'yeni') {
-      q = q.order('created_at', { ascending: false })
-      if (sq) sq = sq.order('created_at', { ascending: false })
-    } else if (sirala === 'fiyat_artan') {
-      q = q.order('fiyat', { ascending: true })
-      if (sq) sq = sq.order('fiyat', { ascending: true })
-    } else if (sirala === 'fiyat_azalan') {
-      q = q.order('fiyat', { ascending: false })
-      if (sq) sq = sq.order('fiyat', { ascending: false })
-    } else if (sirala === 'ad_asc') {
-      q = q.order('ad', { ascending: true })
-      if (sq) sq = sq.order('ad', { ascending: true })
-    }
-
     const [akdagRes, sescimRes] = await Promise.all([
       q,
-      sq ? sq : Promise.resolve({ data: [], count: 0 })
+      sq ? sq : Promise.resolve({ data: [] })
     ])
 
     const aData = akdagRes.data || []
@@ -246,6 +225,20 @@ const getCachedCategoryProducts = unstable_cache(
 
     sData.forEach((p: any) => {
       if (!productMap.has(p.id)) {
+        // Eğer kategori filtresi aktifse, Sescim'den gelen ürünün ilgili kategoriye ait olduğu doğrulanmalıdır
+        if (targetNames && targetNames.length > 0) {
+          const pKat = p.kategori || p.kategori_id
+          const pAltKat = p.alt_kategori || p.alt_kategori_id
+          if (slugLength === 1 && (!pKat || !targetNames.includes(pKat))) {
+            return
+          }
+          if (slugLength === 2 && (!pAltKat || !targetNames.includes(pAltKat))) {
+            return
+          }
+          if (slugLength === 3) {
+            return
+          }
+        }
         productMap.set(p.id, p)
       } else {
         const existing = productMap.get(p.id)
@@ -258,39 +251,129 @@ const getCachedCategoryProducts = unstable_cache(
     })
 
     const combined = Array.from(productMap.values())
-    const totalCount = combined.length
-    let paged = combined.slice(from, to + 1)
-
-    if (paged.length > 0) {
-      try {
-        const urunIds = paged.map((p: any) => p.id)
-        const pricingMap = await getSescimPricingMap(urunIds)
-        paged = paged
-          .map((p: any) => {
-            const pricing = pricingMap.get(p.id)
-            if (pricing) {
-              return {
-                ...p,
-                sescim_fiyat: pricing.sescim_fiyat,
-                sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
-                sescim_indirimli_fiyat_pb: pricing.sescim_indirimli_fiyat_pb,
-                sescim_aktif: pricing.sescim_aktif,
-                sescim_stok: pricing.sescim_stok,
-                sescim_stok_durumu: pricing.sescim_stok_durumu,
-                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
-              }
-            }
-            return {
-              ...p,
-              sescim_aktif: true,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
-            }
-          })
-          .filter((p: any) => p.sescim_aktif === true)
-      } catch (e) {
-        console.error('Sescim pricing fetch failed for product list', e)
-      }
+    if (combined.length === 0) {
+      return { products: [], count: 0 }
     }
+
+    const kur = await getKur()
+    const allUrunIds = combined.map((p: any) => p.id)
+    const pricingMap = await getSescimPricingMap(allUrunIds)
+
+    let fullProducts = combined
+      .map((p: any) => {
+        const pricing = pricingMap.get(p.id)
+        if (pricing) {
+          return {
+            ...p,
+            sescim_fiyat: pricing.sescim_fiyat,
+            sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat,
+            sescim_indirimli_fiyat_pb: pricing.sescim_indirimli_fiyat_pb,
+            sescim_aktif: pricing.sescim_aktif,
+            sescim_stok: pricing.sescim_stok,
+            sescim_stok_durumu: pricing.sescim_stok_durumu,
+            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
+          }
+        }
+        return {
+          ...p,
+          sescim_aktif: true,
+          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false })
+        }
+      })
+      .filter((p: any) => p.sescim_aktif === true)
+
+    // Gerçek efektif TL fiyatını hesaplayan yardımcı fonksiyon (Flaş indirim TL ise kur çarpılmaz)
+    const getEffectivePriceTL = (p: any): number => {
+      if (p.fiyat_sorunuz) return Infinity
+      const pb = p.para_birimi || 'TRY'
+      const indirimPB = p.sescim_indirimli_fiyat_pb || pb
+      const rawDiscount = p.sescim_indirimli_fiyat ?? null
+      const rawBase = p.sescim_fiyat ?? p.fiyat ?? 0
+      const basePriceTL = dovizToTL(Number(rawBase), pb, kur)
+
+      if (rawDiscount !== null && rawDiscount !== undefined && Number(rawDiscount) > 0) {
+        const discountPriceTL = dovizToTL(Number(rawDiscount), indirimPB, kur)
+        if (discountPriceTL > 0 && discountPriceTL < basePriceTL) {
+          return discountPriceTL
+        }
+      }
+      return basePriceTL
+    }
+
+    // Min ve Max Fiyat Filtresi (Gerçek TL cinsinden hatasız filtreleme)
+    if (min !== null && min !== undefined && !isNaN(min)) {
+      fullProducts = fullProducts.filter((p: any) => {
+        const tl = getEffectivePriceTL(p)
+        return tl !== Infinity && tl >= min
+      })
+    }
+    if (max !== null && max !== undefined && !isNaN(max)) {
+      fullProducts = fullProducts.filter((p: any) => {
+        const tl = getEffectivePriceTL(p)
+        return tl !== Infinity && tl <= max
+      })
+    }
+
+    // Stok Durumu Filtresi (Merkezi Stok Motoru ile Hatasız Hesaplama)
+    if (stok && stok !== 'tum') {
+      fullProducts = fullProducts.filter((p: any) => {
+        const s = resolveStock({
+          stok_durumu: p.stok_durumu,
+          stok_adedi: p.stok_adedi,
+          kritik_stok: p.kritik_stok,
+          sescim_stok: p.sescim_stok,
+          sescim_stok_durumu: p.sescim_stok_durumu,
+        })
+        if (stok === 'stokta') return s.canOrder || s.durum === 'stokta'
+        return s.durum === stok
+      })
+    }
+
+    // Sıralama (Gerçek TL Fiyatları, Satış Adetleri ve Alfabetik)
+    if (sirala === 'fiyat_artan') {
+      fullProducts.sort((a: any, b: any) => {
+        const pA = getEffectivePriceTL(a)
+        const pB = getEffectivePriceTL(b)
+        return pA - pB
+      })
+    } else if (sirala === 'fiyat_azalan') {
+      fullProducts.sort((a: any, b: any) => {
+        const pA = a.fiyat_sorunuz ? -1 : getEffectivePriceTL(a)
+        const pB = b.fiyat_sorunuz ? -1 : getEffectivePriceTL(b)
+        return pB - pA
+      })
+    } else if (sirala === 'ad_asc') {
+      fullProducts.sort((a: any, b: any) => (a.ad || '').localeCompare(b.ad || '', 'tr'))
+    } else if (sirala === 'ad_desc') {
+      fullProducts.sort((a: any, b: any) => (b.ad || '').localeCompare(a.ad || '', 'tr'))
+    } else if (sirala === 'cok_satanlar') {
+      let salesCounts = new Map<string, number>()
+      if (sescimDb) {
+        try {
+          const { data: kal } = await sescimDb.from('siparis_kalemleri').select('urun_id, adet')
+          ;(kal || []).forEach((k: any) => {
+            if (k.urun_id) salesCounts.set(k.urun_id, (salesCounts.get(k.urun_id) || 0) + (k.adet || 1))
+          })
+        } catch {}
+      }
+      const popularBrands = ['SOUNDCRAFT', 'YAMAHA', 'RCF', 'BEHRINGER', 'LD SYSTEMS', 'MARTIN AUDIO', 'KÖNİG', 'ALTO', 'ROOF', 'AUDAC', 'MACKIE']
+      fullProducts.sort((a: any, b: any) => {
+        const sA = (salesCounts.get(a.id) || 0) + (popularBrands.includes(a.marka?.toUpperCase()) ? 3 : 0) + (a.is_featured ? 5 : 0)
+        const sB = (salesCounts.get(b.id) || 0) + (popularBrands.includes(b.marka?.toUpperCase()) ? 3 : 0) + (b.is_featured ? 5 : 0)
+        if (sB !== sA) return sB - sA
+        return getEffectivePriceTL(b) - getEffectivePriceTL(a)
+      })
+    } else {
+      // Varsayılan: En Yeniler
+      fullProducts.sort((a: any, b: any) => {
+        const tA = a.created_at ? new Date(a.created_at).getTime() : 0
+        const tB = b.created_at ? new Date(b.created_at).getTime() : 0
+        return tB - tA
+      })
+    }
+
+    const totalCount = fullProducts.length
+    const paged = fullProducts.slice(from, to + 1)
 
     return { products: paged, count: totalCount }
   },
@@ -337,6 +420,33 @@ export async function generateMetadata({ params, searchParams }: Props) {
         locale: 'tr_TR',
         type: 'website',
         images: [{ url: `${baseUrl}/logo.png`, width: 1200, height: 630, alt: `${marka} Sescim` }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${rawTitle} | Sescim`,
+        description,
+        images: [`${baseUrl}/logo.png`],
+      },
+    }
+  }
+
+  if (searchParams?.sirala === 'cok_satanlar' && (!params.slug || params.slug.length === 0)) {
+    const rawTitle = 'En Çok Satan Profesyonel Ses ve Sahne Ekipmanları | Sescim'
+    const description = 'Sescim güvencesiyle Türkiye\'nin en çok tercih edilen ve en popüler profesyonel ses sistemleri, mikserler, mikrofonlar ve stüdyo donanımları.'
+    const url = `${baseUrl}/urunler?sirala=cok_satanlar`
+    return {
+      title: rawTitle,
+      description,
+      alternates: { canonical: url },
+      robots,
+      openGraph: {
+        title: `${rawTitle} | Sescim`,
+        description,
+        url,
+        siteName: 'Sescim',
+        locale: 'tr_TR',
+        type: 'website',
+        images: [{ url: `${baseUrl}/logo.png`, width: 1200, height: 630, alt: 'En Çok Satanlar Sescim' }],
       },
       twitter: {
         card: 'summary_large_image',
@@ -445,7 +555,18 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
     sirala
   }
 
-  const isMainDiscoverPage = slugArray.length === 0 && !filters.q && !filters.marka && !filters.stok && !filters.min && !filters.max
+  const hasActiveFilterOrSort = !!(
+    filters.q ||
+    filters.marka ||
+    filters.stok ||
+    filters.min !== null ||
+    filters.max !== null ||
+    filters.kullanim ||
+    (filters.sirala && filters.sirala !== 'yeni') ||
+    sayfa > 1
+  )
+
+  const isMainDiscoverPage = slugArray.length === 0 && !hasActiveFilterOrSort
 
   let products: any[] = []
   let count = 0
@@ -592,17 +713,37 @@ export default async function UrunlerPage({ params, searchParams }: Props) {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-[2px] bg-brand-red" />
           <span className="font-display font-black text-[10px] tracking-[0.4em] uppercase text-brand-red">
-            {filters.marka ? 'Marka Kataloğu' : activeCategory ? 'Kategori Kataloğu' : 'Keşfet & Çözüm Kataloğu'}
+            {filters.marka 
+              ? 'Marka Kataloğu' 
+              : activeCategory 
+                ? 'Kategori Kataloğu' 
+                : filters.sirala === 'cok_satanlar'
+                  ? 'Popüler Ürünler'
+                  : 'Keşfet & Çözüm Kataloğu'}
           </span>
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="font-display font-black text-4xl md:text-6xl uppercase text-slate-900 tracking-tighter leading-none">
-              {filters.marka ? filters.marka : activeCategory ? activeCategory.name : 'KEŞFET'}
+              {filters.marka 
+                ? filters.marka 
+                : activeCategory 
+                  ? activeCategory.name 
+                  : filters.sirala === 'cok_satanlar'
+                    ? 'ÇOK SATANLAR'
+                    : filters.sirala === 'fiyat_artan'
+                      ? 'FİYAT (DÜŞÜKTEN YÜKSEĞE)'
+                      : filters.sirala === 'fiyat_azalan'
+                        ? 'FİYAT (PAHALIDAN UCUZA)'
+                        : 'KEŞFET'}
             </h1>
             {filters.marka ? (
               <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl font-body">
                 Tüm orijinal <strong className="text-slate-800">{filters.marka}</strong> profesyonel ses, stüdyo ve sahne sistemleri. Yetkili distribütör garantisi ve hızlı teslimat avantajıyla.
+              </p>
+            ) : filters.sirala === 'cok_satanlar' ? (
+              <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl font-body">
+                Sescim.com&apos;da en çok sipariş edilen ve profesyoneller tarafından en çok tercih edilen popüler ses, ışık ve stüdyo ekipmanları.
               </p>
             ) : !activeCategory ? (
               <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-xl font-body">

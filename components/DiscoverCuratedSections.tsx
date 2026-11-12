@@ -63,36 +63,62 @@ export default function DiscoverCuratedSections({
   const renderProductCard = (product: any, badge?: { text: string; color: string }) => {
     const img = product.fotograflar?.[0] || null
     const pb = product.para_birimi || 'TRY'
-    const rawPrice = product.sescim_indirimli_fiyat || product.sescim_fiyat || product.fiyat
-    const rawOldPrice = product.sescim_indirimli_fiyat ? (product.sescim_fiyat || product.fiyat) : null
-
-    const priceTL = rawPrice ? dovizToTL(rawPrice, pb, kur) : null
-    const oldPriceTL = rawOldPrice ? dovizToTL(rawOldPrice, pb, kur) : null
     const isQuoteOnly = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
 
+    const rawBasePrice = product.sescim_fiyat ?? product.fiyat ?? 0
+    const basePriceTL = (!isQuoteOnly && rawBasePrice) ? dovizToTL(Number(rawBasePrice), pb, kur) : null
+
+    // İndirimli Fiyat (Flaş indirim veya outlet TL cinsinden girilmişse döviz kuru çarpılmaz, TL korunur)
+    const indirimPB = product.sescim_indirimli_fiyat_pb || pb
+    const rawDiscount = product.sescim_indirimli_fiyat ?? null
+    const discountPriceTL = (!isQuoteOnly && rawDiscount && Number(rawDiscount) > 0)
+      ? dovizToTL(Number(rawDiscount), indirimPB, kur)
+      : null
+
+    const hasDiscount = !isQuoteOnly && discountPriceTL !== null && basePriceTL !== null && discountPriceTL > 0 && discountPriceTL < basePriceTL
+    const priceTL = isQuoteOnly ? null : (hasDiscount ? discountPriceTL : basePriceTL)
+    const oldPriceTL = hasDiscount ? basePriceTL : null
+    const indirimYuzde = hasDiscount && basePriceTL && discountPriceTL
+      ? Math.round(((basePriceTL - discountPriceTL) / basePriceTL) * 100)
+      : 0
+
     // Stok Mikro Bilgisi (Merkezi Stok Motoru ile Hatasız Hesaplama)
-    const resolvedStock = resolveStock(product)
-    let stockInfo = { text: 'Stokta', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
-    if (resolvedStock.isTukendi) {
-      stockInfo = { text: 'Tükendi', color: 'text-slate-400 bg-slate-100 border-slate-200' }
-    } else if (resolvedStock.isSipariseGore) {
-      stockInfo = { text: 'Siparişe Göre', color: 'text-blue-700 bg-blue-50 border-blue-200' }
-    } else if (resolvedStock.isKritik) {
-      stockInfo = { text: `Son ${resolvedStock.adet} Adet`, color: 'text-amber-700 bg-amber-50 border-amber-200' }
-    }
+    const resolvedStock = resolveStock({
+      stok_durumu: product.stok_durumu,
+      stok_adedi: product.stok_adedi,
+      kritik_stok: product.kritik_stok,
+      sescim_stok: product.sescim_stok,
+      sescim_stok_durumu: product.sescim_stok_durumu,
+    })
 
     return (
       <Link
         key={product.id}
         href={`/urun/${product.slug || product.id}`}
-        className="snap-start shrink-0 w-[180px] sm:w-[220px] bg-white border border-slate-200 hover:border-brand-red/40 rounded-2xl p-3 flex flex-col justify-between transition-all duration-300 hover:shadow-md group relative"
+        className="snap-start shrink-0 w-[180px] sm:w-[220px] bg-white border border-slate-200 hover:border-brand-red/40 rounded-2xl p-3 flex flex-col justify-between transition-all duration-300 hover:shadow-md group relative overflow-hidden"
       >
-        {/* Özel Rozet (YENİ / ÇOK SATAN vb.) */}
-        {badge && (
-          <span className={`absolute top-2.5 left-2.5 z-10 text-[9px] font-display font-black uppercase px-2 py-0.5 rounded shadow-xs ${badge.color}`}>
-            {badge.text}
-          </span>
+        {/* Tükendi Tam Kart Karartması (Overlay) */}
+        {resolvedStock.isTukendi && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center z-20 pointer-events-none">
+            <span className="font-display font-black text-xs uppercase tracking-widest text-slate-800 bg-slate-100 px-3 py-1 rounded border border-slate-200 shadow-xs">
+              TÜKENDİ
+            </span>
+          </div>
         )}
+
+        {/* Özel Rozetler (YENİ / ÇOK SATAN / İNDİRİM vb.) */}
+        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1 items-start">
+          {badge && (
+            <span className={`text-[9px] font-display font-black uppercase px-2 py-0.5 rounded shadow-xs ${badge.color}`}>
+              {badge.text}
+            </span>
+          )}
+          {hasDiscount && indirimYuzde > 0 && (
+            <span className="bg-brand-red text-white text-[9px] font-display font-black uppercase px-2 py-0.5 rounded shadow-xs">
+              -%{indirimYuzde} İNDİRİM
+            </span>
+          )}
+        </div>
 
         {/* Görsel */}
         <div className="w-full aspect-square relative bg-slate-50 rounded-xl mb-3 overflow-hidden flex items-center justify-center p-2">
@@ -131,16 +157,34 @@ export default function DiscoverCuratedSections({
                       {formatFiyat(oldPriceTL, 'TRY')}
                     </div>
                   )}
-                  <div className="font-display font-black text-sm sm:text-base text-slate-900 leading-tight">
+                  <div className={`font-display font-black text-sm sm:text-base leading-tight ${hasDiscount ? 'text-brand-red' : 'text-slate-900'}`}>
                     {priceTL ? formatFiyat(priceTL, 'TRY') : 'Fiyat Yok'}
                   </div>
                 </>
               )}
             </div>
 
-            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${stockInfo.color} whitespace-nowrap shrink-0`}>
-              {stockInfo.text}
-            </span>
+            {/* Mikro Stok Rozeti */}
+            <div className="flex items-center gap-1 text-[10px] font-semibold shrink-0">
+              {resolvedStock.isTukendi ? (
+                <span className="text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Tükendi</span>
+              ) : resolvedStock.isSipariseGore ? (
+                <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Sipariş
+                </span>
+              ) : resolvedStock.isKritik ? (
+                <span className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Son {resolvedStock.adet}
+                </span>
+              ) : (
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Stokta
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>
@@ -214,7 +258,7 @@ export default function DiscoverCuratedSections({
                 🔥 Çok Satanlar
               </h3>
             </div>
-            <Link href="/urunler?sirala=fiyat_azalan" className="text-xs font-display font-bold uppercase tracking-wider text-slate-500 hover:text-brand-red flex items-center gap-1">
+            <Link href="/urunler?sirala=cok_satanlar" className="text-xs font-display font-bold uppercase tracking-wider text-slate-500 hover:text-brand-red flex items-center gap-1">
               <span>Tümü</span>
               <ChevronRight size={14} />
             </Link>

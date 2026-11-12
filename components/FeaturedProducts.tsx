@@ -1,15 +1,12 @@
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import Image from 'next/image'
-import SafeProductImage from './SafeProductImage'
 import Link from 'next/link'
-import { Package, ArrowRight, Star } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
-import { StaggerContainer, StaggerItem, AnimatedButton } from './MotionComponents'
-import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
+import { getKur } from '@/lib/kur'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
-import { resolveStock } from '@/lib/product-stock'
+import { ProductCard } from '@/components/ProductGrid'
 
 interface Props {
   title?: string
@@ -18,23 +15,48 @@ interface Props {
   filterByFeatured?: boolean
 }
 
-export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler", sortBy = "created_at", ascending = false, filterByFeatured = true }: Props = {}) {
+export default async function FeaturedProducts({ 
+  title = "Öne Çıkan Ürünler", 
+  sortBy = "created_at", 
+  ascending = false, 
+  filterByFeatured = true 
+}: Props = {}) {
   const supabase = await createAkdagServerClient()
   const sescimDb = await createServerSupabaseClient()
   const kur = await getKur()
+  const isCokSatanlar = title.toLowerCase().includes('satan')
   
+  // Çok satanlar için sipariş geçmişinden popüler ürün ID'lerini al
+  let bestSellerIds: string[] = []
+  if (sescimDb && isCokSatanlar) {
+    try {
+      const { data: kal } = await sescimDb.from('siparis_kalemleri').select('urun_id, adet')
+      if (kal && kal.length > 0) {
+        const counts = new Map<string, number>()
+        kal.forEach((k: any) => {
+          if (k.urun_id) counts.set(k.urun_id, (counts.get(k.urun_id) || 0) + (k.adet || 1))
+        })
+        bestSellerIds = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(entry => entry[0])
+      }
+    } catch (e) {
+      console.error('FeaturedProducts best sellers error:', e)
+    }
+  }
+
   let query = supabase
     .from('urunler')
     .select(LIGHT_PRODUCT_FIELDS)
     .order(sortBy, { ascending })
-    .limit(10)
+    .limit(20)
 
   let sQuery = sescimDb
     ? sescimDb
         .from('urunler')
         .select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
         .order(sortBy, { ascending })
-        .limit(10)
+        .limit(20)
     : null
 
   if (filterByFeatured) {
@@ -70,7 +92,7 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)
       .order(sortBy, { ascending })
-      .limit(10)
+      .limit(20)
     data = fallback.data || []
   }
 
@@ -79,12 +101,13 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
   const urunIds = data.map((p: any) => p.id)
   const pricingMap = await getSescimPricingMap(urunIds)
 
-  const featuredProducts = data.map((p: any) => {
+  let featuredProducts = data.map((p: any) => {
     const pricing = pricingMap.get(p.id)
     return {
       ...p,
       sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
+      sescim_indirimli_fiyat_pb: pricing?.sescim_indirimli_fiyat_pb ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
       sescim_stok: pricing?.sescim_stok ?? p.sescim_stok ?? null,
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
@@ -92,116 +115,50 @@ export default async function FeaturedProducts({ title = "Öne Çıkan Ürünler
     }
   }).filter(p => p.sescim_aktif !== false)
 
-  // 5'li ızgara (lg:grid-cols-5) için son satırda tek/eksik ürün kalmasını önle, tam 5 veya 10 adet göster
+  // Eğer çok satanlar ise, sipariş geçmişindeki ürünleri veya popüler markaları öne sırala
+  if (isCokSatanlar) {
+    const popularBrands = ['SOUNDCRAFT', 'YAMAHA', 'RCF', 'BEHRINGER', 'LD SYSTEMS', 'MARTIN AUDIO', 'KÖNİG', 'ALTO', 'ROOF', 'AUDAC', 'MACKIE']
+    const bSet = new Map(bestSellerIds.map((id, index) => [id, index]))
+    featuredProducts.sort((a, b) => {
+      const idxA = bSet.has(a.id) ? bSet.get(a.id)! : 999
+      const idxB = bSet.has(b.id) ? bSet.get(b.id)! : 999
+      if (idxA !== idxB) return idxA - idxB
+      const brandScoreA = popularBrands.includes(a.marka?.toUpperCase()) ? 1 : 0
+      const brandScoreB = popularBrands.includes(b.marka?.toUpperCase()) ? 1 : 0
+      return brandScoreB - brandScoreA
+    })
+  }
+
+  // 5'li ızgara (lg:grid-cols-5) için tam 5 veya 10 adet göster
   const displayCount = Math.floor(featuredProducts.length / 5) * 5
-  const finalFeatured = displayCount >= 5 ? featuredProducts.slice(0, displayCount) : featuredProducts
+  const finalFeatured = displayCount >= 5 ? featuredProducts.slice(0, Math.min(10, displayCount)) : featuredProducts.slice(0, 10)
 
   if (finalFeatured.length === 0) return null
 
   return (
     <div className="py-16 bg-slate-50">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div>
-            <h2 className="font-bold text-3xl text-slate-800">
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-slate-900 uppercase tracking-tight">
               {title}
             </h2>
             <div className="h-1 w-16 bg-brand-red mt-3 rounded-full" />
           </div>
           
-          <Link href="/urunler" className="text-brand-red font-semibold hover:text-red-700 transition-colors flex items-center gap-1 group">
+          <Link href="/urunler?sirala=cok_satanlar" className="text-brand-red font-display font-bold text-xs uppercase tracking-wider hover:text-red-700 transition-colors flex items-center gap-1 group">
             Tümünü Gör <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
 
-        <StaggerContainer className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {finalFeatured.map((product) => {
-            const pb = product.para_birimi || 'TRY'
-            const aktifFiyat = product.sescim_fiyat ?? product.fiyat
-            const indirimli = product.sescim_indirimli_fiyat ?? null
-            
-            const stockInfo = resolveStock(product)
-            const aktifFiyatTL = aktifFiyat ? dovizToTL(aktifFiyat, pb, kur) : null
-            const normalFiyatTL = dovizToTL(product.fiyat ?? 0, pb, kur)
-
-            return (
-              <StaggerItem key={product.id} className="flex flex-col h-full">
-                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden group hover:shadow-lg transition-all flex flex-col h-full gpu-accelerate">
-                <Link href={`/urun/${product.slug}`} prefetch={true} className="block relative aspect-square bg-slate-50 p-2">
-                  <SafeProductImage
-                    src={product.fotograflar?.[0]}
-                    alt={product.ad}
-                    fill
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
-                    loading="lazy"
-                    placeholderIconSize={48}
-                    className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                    <span className="bg-brand-red text-white px-2 py-1 text-xs font-bold rounded-sm shadow-sm">
-                      YENİ
-                    </span>
-                  </div>
-                </Link>
-                
-                <div className="p-4 flex flex-col flex-1 border-t border-slate-100">
-                  <Link href={`/urun/${product.slug}`} className="flex-1">
-                    <h3 className="text-sm font-medium text-slate-700 line-clamp-2 group-hover:text-brand-red transition-colors">
-                      {product.ad}
-                    </h3>
-                  </Link>
-                  
-                  <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
-                    <span className="font-medium truncate max-w-[110px]">{product.kategori}</span>
-                    {stockInfo.isTukendi ? (
-                      <span className="text-slate-400 font-semibold text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">Tükendi</span>
-                    ) : stockInfo.isSipariseGore ? (
-                      <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 px-1.5 py-0.5 rounded">Siparişe Göre</span>
-                    ) : stockInfo.isKritik ? (
-                      <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Son {stockInfo.adet} Adet</span>
-                    ) : (
-                      <span className="text-emerald-600 font-semibold text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded">Stokta</span>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 flex flex-col justify-end">
-                    {product.fiyat_sorunuz ? (
-                      <div className="flex flex-col min-h-[44px] justify-end">
-                        <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded text-center uppercase tracking-wide">
-                          FİYAT SORUNUZ
-                        </span>
-                      </div>
-                    ) : indirimli ? (
-                      <div className="flex flex-col">
-                        <span className="text-slate-400 text-xs line-through">
-                          {formatFiyat(normalFiyatTL || 0, 'TRY')}
-                        </span>
-                        <span className="text-lg font-bold text-brand-red mt-1">
-                          {formatFiyat(dovizToTL(indirimli, product.sescim_indirimli_fiyat_pb || pb, kur), 'TRY')}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col min-h-[44px] justify-end">
-                        <span className="text-lg font-bold text-brand-red">
-                          {aktifFiyatTL ? formatFiyat(aktifFiyatTL, 'TRY') : 'Fiyat Yok'}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <Link href={`/urun/${product.slug}`} className="block mt-3">
-                      <AnimatedButton className="bg-brand-red text-white w-full py-2 rounded-md font-semibold text-sm hover:bg-red-700 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:translate-y-2 lg:group-hover:translate-y-0 duration-300">
-                        {product.fiyat_sorunuz ? 'Teklif Al' : !stockInfo.isOrderable ? 'Tükendi' : 'İncele'}
-                      </AnimatedButton>
-                    </Link>
-                  </div>
-                </div>
-                </div>
-              </StaggerItem>
-            )
-          })}
-        </StaggerContainer>
+        {/* Aktif Standart Ürün Kartları Izgarası */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+          {finalFeatured.map((product) => (
+            <ProductCard key={product.id} product={product} kur={kur} />
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -19,24 +19,26 @@ export const HIERARCHY_DATA: CategoryNode[] = [
       {
         name: 'Mixer & Amfi',
         slug: 'mixer-amfi',
+        dbName: ['Mixer & Amfi', 'Mikserler ve Kontrol'],
         children: [
           { name: 'Analog Mikserler', slug: 'analog-mikserler' },
           { name: 'Dijital Mikserler', slug: 'dijital-mikserler' },
           { name: 'Power Mikserler', slug: 'power-mikserler' },
-          { name: 'Power Amfileri', slug: 'power-amfileri' },
-          { name: 'Hat Trafolu Kurulum Amfileri', slug: 'hat-trafolu-kurulum-amfileri' },
+          { name: 'Power Amfileri', slug: 'power-amfileri', dbName: ['Power Amfileri', 'Power (Güç) Amfileri'] },
+          { name: 'Hat Trafolu Kurulum Amfileri', slug: 'hat-trafolu-kurulum-amfileri', dbName: ['Hat Trafolu Kurulum Amfileri', 'Hat Trafolu (100V) Kurulum Amfileri'] },
         ],
       },
       {
         name: 'Hoparlörler',
         slug: 'hoparlorler',
+        dbName: ['Hoparlörler', 'Hoparlör Grupları'],
         children: [
           { name: 'Taşınabilir Ses Sistemleri', slug: 'tasinabilir-ses-sistemleri' },
-          { name: 'Aktif Hoparlörler', slug: 'aktif-hoparlorler' },
-          { name: 'Pasif Hoparlörler', slug: 'pasif-hoparlorler' },
-          { name: 'Line Array Sistemler', slug: 'line-array-sistemler' },
-          { name: 'Subwooferlar', slug: 'subwooferlar' },
-          { name: 'Tavan, Sütun ve Duvar Hoparlörleri', slug: 'tavan-sutun-duvar-hoparlorleri' },
+          { name: 'Aktif Hoparlörler', slug: 'aktif-hoparlorler', dbName: ['Aktif Hoparlörler', 'Aktif Hoparlörler (Kabinler)', 'Aktif/Pasif Kabin Hoparlörler'] },
+          { name: 'Pasif Hoparlörler', slug: 'pasif-hoparlorler', dbName: ['Pasif Hoparlörler', 'Pasif Hoparlörler (Kabinler)', 'Aktif/Pasif Kabin Hoparlörler'] },
+          { name: 'Line Array Sistemler', slug: 'line-array-sistemler', dbName: ['Line Array Sistemler', 'Line-Array Sistemler', 'Line Array (Dizi) Sistemler'] },
+          { name: 'Subwooferlar', slug: 'subwooferlar', dbName: ['Subwooferlar', 'Subwooferlar (Bas Kabinleri)'] },
+          { name: 'Tavan, Sütun ve Duvar Hoparlörleri', slug: 'tavan-sutun-duvar-hoparlorleri', dbName: ['Tavan, Sütun ve Duvar Hoparlörleri', 'Tavan, Sütun ve Duvar Hoparlörleri (Kurulum)'] },
         ],
       },
       {
@@ -56,9 +58,9 @@ export const HIERARCHY_DATA: CategoryNode[] = [
         name: 'Sinyal İşleyiciler',
         slug: 'sinyal-isleyiciler',
         children: [
-          { name: 'DSP Ses İşlemcileri', slug: 'dsp-ses-islemcileri' },
+          { name: 'DSP Ses İşlemcileri', slug: 'dsp-ses-islemcileri', dbName: ['DSP Ses İşlemcileri', 'DSP (Dijital Ses İşlemcileri)'] },
           { name: 'Crossover ve Equalizerlar', slug: 'crossover-ve-equalizerlar' },
-          { name: 'Ses Dağıtıcılar (Splitter)', slug: 'ses-dagiticilar' },
+          { name: 'Ses Dağıtıcılar (Splitter)', slug: 'ses-dagiticilar', dbName: ['Ses Dağıtıcılar (Splitter)', 'Dağıtıcılar (Splitter)'] },
         ],
       },
     ],
@@ -89,6 +91,7 @@ export const HIERARCHY_DATA: CategoryNode[] = [
       {
         name: 'Efekt Makineleri',
         slug: 'efekt-makineleri-ve-likitler',
+        dbName: ['Efekt Makineleri', 'Efekt Makineleri ve Likitler'],
         children: [
           { name: 'Sis, Duman ve Hazer Makineleri', slug: 'sis-ve-duman-makineleri' },
           { name: 'Kar, Köpük ve Baloncuk Makineleri', slug: 'kar-ve-kopuk-makineleri' },
@@ -298,6 +301,7 @@ export const HIERARCHY_DATA: CategoryNode[] = [
       {
         name: 'Kablolar',
         slug: 'kablolar',
+        dbName: ['Kablolar', 'Kablolar (Hazır ve Makara)', 'Kablolar ve Konnektörler'],
         children: [
           { name: 'Ses Kabloları (Mikrofon, Enstrüman, Hoparlör)', slug: 'ses-kablolari' },
           { name: 'DMX Işık Kabloları', slug: 'dmx-isik-kablolari' },
@@ -317,9 +321,10 @@ export const HIERARCHY_DATA: CategoryNode[] = [
       {
         name: 'Standlar ve Sehpalar',
         slug: 'standlar-ve-sehpalar',
+        dbName: ['Standlar ve Sehpalar', 'Stand ve Sehpalar'],
         children: [
-          { name: 'Hoparlör Standları', slug: 'hoparlor-standlari' },
-          { name: 'Mikrofon Standları', slug: 'mikrofon-standlari' },
+          { name: 'Hoparlör Standları', slug: 'hoparlor-standlari', dbName: ['Hoparlör Standları', 'Hoparlör Standları (Ayakları)', 'Hoparlör ve Işık Sehpaları'] },
+          { name: 'Mikrofon Standları', slug: 'mikrofon-standlari', dbName: ['Mikrofon Standları', 'Mikrofon Standları (Düz ve Deveboynu)'] },
           { name: 'Işık Standları ve T-Barlar', slug: 'isik-standlari' },
           { name: 'Nota ve Enstrüman Standları', slug: 'nota-ve-enstruman-standlari' },
         ],

@@ -31,7 +31,13 @@ import { PARA_BIRIMLERI, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { createClient } from '@/lib/supabase'
-import { KATEGORILER, KATEGORI_HIYERARSI } from '@/lib/categories'
+import {
+  KATEGORILER,
+  KATEGORI_HIYERARSI,
+  canonicalCategoryLabel,
+  canonicalSubCategoryLabel,
+  canonicalUrunTipiLabel
+} from '@/lib/categories'
 import { compressImage } from './ImageCompressor'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 
@@ -46,6 +52,8 @@ interface Product {
   slug?: string
   ad: string
   kategori: string
+  alt_kategori?: string | null
+  urun_tipi?: string | null
   fotograflar: string[]
   aciklama?: string
   fiyat?: number
@@ -154,8 +162,8 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       }
       const { data: sescimData } = await sescimQuery.order('created_at', { ascending: false })
 
-      // 2. Akdağ ortak kataloğunu çek (salt okunur)
-      let akdagQuery = akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS)
+      // 2. Akdağ ortak kataloğunu çek
+      let akdagQuery = akdagClient.from('urunler').select(LIGHT_PRODUCT_FIELDS + ', alt_kategori, model_kodu')
       if (searchQuery) {
         akdagQuery = akdagQuery.or(
           `ad.ilike.%${searchQuery}%,kategori.ilike.%${searchQuery}%,marka.ilike.%${searchQuery}%`
@@ -241,30 +249,35 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   // Vitrin / Öne Çıkarılan Değiştirici
   const toggleFeatured = async (product: Product) => {
     const newValue = !product.is_featured
-    if (product.kaynak === 'sescim') {
-      try {
-        const sescimDb = createClient()
-        await sescimDb.from('urunler').update({ is_featured: newValue }).eq('id', product.id)
-      } catch (e) {
-        console.error(e)
-      }
-    }
     try {
-      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
-      await upsertSescimPricing(product.id, {
-        sescim_fiyat: product.sescim_fiyat,
-        sescim_aktif: product.sescim_aktif,
-        fiyat_sorunuz: product.fiyat_sorunuz,
-        is_firsat: newValue,
-      })
-      setProducts(products.map(p => (p.id === product.id ? { ...p, is_featured: newValue } : p)))
-      await fetch('/api/revalidate', {
+      const sescimDb = createClient()
+      const { data: { session } } = await sescimDb.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
+      const res = await fetch('/api/admin/urunler', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }),
-      }).catch(() => {})
-    } catch (e) {
-      console.error(e)
+        headers,
+        body: JSON.stringify({
+          action: 'toggle_featured',
+          id: product.id,
+          kaynak: product.kaynak,
+          is_featured: newValue,
+          slug: product.slug || product.id
+        })
+      })
+
+      if (!res.ok) {
+        const errJson = await res.json()
+        throw new Error(errJson.error || 'Vitrin durumu güncellenemedi')
+      }
+
+      setProducts(products.map(p => (p.id === product.id ? { ...p, is_featured: newValue } : p)))
+    } catch (e: any) {
+      console.error('toggleFeatured error:', e)
+      alert(e.message || 'Vitrin durumu değiştirilemedi.')
     }
   }
 
@@ -473,9 +486,12 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     const prod = fullProduct || p
     setEditAd(prod.ad)
     setEditAciklama(prod.aciklama || '')
-    setEditKategori(prod.kategori)
-    setEditAltKategori((prod as any).alt_kategori || '')
-    setEditUrunTipi((prod as any).urun_tipi || '')
+    const cKat = canonicalCategoryLabel(prod.kategori)
+    setEditKategori(cKat)
+    const cAlt = canonicalSubCategoryLabel(cKat, (prod as any).alt_kategori)
+    setEditAltKategori(cAlt)
+    const cTip = canonicalUrunTipiLabel(cKat, cAlt, (prod as any).urun_tipi)
+    setEditUrunTipi(cTip)
     setEditFiyat(prod.fiyat?.toString() || '')
     setEditBayiF(prod.bayi_fiyati?.toString() || '')
     setEditSescimFiyat(((prod as any).sescim_fiyat ?? p.sescim_fiyat)?.toString() || '')
@@ -504,7 +520,6 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     if (!editProduct || !editAd || !editAciklama) return
     setSaving(true)
     const sescimDb = createClient()
-    const fiyatDegisti = editFiyat !== editProduct.fiyat?.toString() || editBayiF !== editProduct.bayi_fiyati?.toString()
     const stokAdedi = Math.max(0, parseInt(editStokAdedi || '0'))
     const kritikStok = Math.max(0, parseInt(editKritikStok || '0'))
     const stokDurumu = editStok !== 'stokta' ? editStok : stokAdedi <= 0 ? 'tukendi' : 'stokta'
@@ -529,59 +544,60 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     }
     const sonFotograflar = [...editFotograflar, ...yeniUrls]
 
-    if (editProduct.kaynak === 'sescim') {
-      const finalPrice = editFiyat ? parseFloat(editFiyat) : null
-      await sescimDb
-        .from('urunler')
-        .update({
+    try {
+      const { data: { session } } = await sescimDb.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
+      const res = await fetch('/api/admin/urunler', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          id: editProduct.id,
+          kaynak: editProduct.kaynak,
           ad: editAd.trim(),
           aciklama: editAciklama.trim(),
-          kategori_id: editKategori,
-          alt_kategori_id: editAltKategori || null,
+          kategori: editKategori,
+          alt_kategori: editAltKategori || null,
+          urun_tipi: editUrunTipi || null,
           fotograflar: sonFotograflar,
-          fiyat: finalPrice,
-          bayi_fiyati: null,
-          sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : finalPrice,
-          sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
+          marka: editMarka.trim() || null,
+          model_kodu: editModelKodu.trim() || null,
+          kullanim_alani: editKullanim.trim() || null,
           is_featured: editIsFeatured,
+          fiyat: editFiyat ? parseFloat(editFiyat) : null,
+          para_birimi: editParaBirimi,
           stok_durumu: stokDurumu,
           stok_adedi: stokAdedi,
           kritik_stok: kritikStok,
-          para_birimi: editParaBirimi,
-          marka: editMarka.trim() || null,
-          kullanim_alani: editKullanim.trim() || null,
-          model_kodu: editModelKodu.trim() || null,
-          ...(fiyatDegisti ? { fiyat_guncelleme: new Date().toISOString() } : {}),
+          sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
+          sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
+          sescim_aktif: editProduct.sescim_aktif ?? true,
+          fiyat_sorunuz: editFiyatSorunuz,
+          sescim_stok: sescimStokAdedi,
+          sescim_stok_durumu: targetSescimDurum,
+          slug: (editProduct as any).slug || editProduct.id
         })
-        .eq('id', editProduct.id)
-    }
-
-    try {
-      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
-      await upsertSescimPricing(editProduct.id, {
-        sescim_fiyat: editSescimFiyat ? parseFloat(editSescimFiyat) : null,
-        sescim_indirimli_fiyat: editSescimIndirimli ? parseFloat(editSescimIndirimli) : null,
-        sescim_aktif: editProduct.sescim_aktif ?? true,
-        fiyat_sorunuz: editFiyatSorunuz,
-        sescim_stok: sescimStokAdedi,
-        sescim_stok_durumu: targetSescimDurum,
       })
-    } catch (e) {
-      console.error('Failed to update sescim_fiyatlar:', e)
-    }
 
-    const targetSlug = (editProduct as any).slug || editProduct.id
-    fetch('/api/revalidate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: `/urun/${targetSlug}` }),
-    }).catch(() => {})
-    setSaving(false)
-    setSaveSuccess(true)
-    setTimeout(() => {
-      setEditProduct(null)
-      loadProducts()
-    }, 800)
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || 'Ürün kaydedilirken sunucu hatası oluştu')
+      }
+
+      setSaving(false)
+      setSaveSuccess(true)
+      setTimeout(() => {
+        setEditProduct(null)
+        loadProducts()
+      }, 800)
+    } catch (err: any) {
+      console.error('handleSave error:', err)
+      setSaving(false)
+      alert(err.message || 'Ürün kaydedilemedi. Lütfen yetkinizi kontrol ediniz.')
+    }
   }
 
   // Ürünü Sil
@@ -975,7 +991,10 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
                             </span>
                           )}
                           <span className="text-slate-400">•</span>
-                          <span className="text-slate-500 truncate">{product.kategori}</span>
+                          <span className="text-slate-500 truncate">
+                            {canonicalCategoryLabel(product.kategori)}
+                            {product.alt_kategori ? ` › ${product.alt_kategori}` : ''}
+                          </span>
                         </div>
                       </div>
                     </div>

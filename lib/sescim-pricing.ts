@@ -82,7 +82,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           indirimliPB = outlet.fiyat_para_birimi || 'TRY'
         } else if (sf && sf.sescim_indirimli_fiyat !== null && sf.sescim_indirimli_fiyat !== undefined) {
           indirimliFiyat = Number(sf.sescim_indirimli_fiyat)
-          indirimliPB = 'TRY'
+          indirimliPB = null
           isFirsat = !!sf.is_firsat
         }
 
@@ -165,7 +165,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
       indirimliPB = outlet.fiyat_para_birimi || 'TRY'
     } else if (sf && sf.sescim_indirimli_fiyat !== null && sf.sescim_indirimli_fiyat !== undefined) {
       indirimliFiyat = Number(sf.sescim_indirimli_fiyat)
-      indirimliPB = 'TRY'
+      indirimliPB = null
       isFirsat = !!sf.is_firsat
     }
 

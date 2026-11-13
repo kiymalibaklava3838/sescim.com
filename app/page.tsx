@@ -64,7 +64,7 @@ export default async function HomePage() {
       <ProTercihSection />
 
       {/* EN ÇOK SATANLAR */}
-      <FeaturedProducts title="En Çok Satanlar" sortBy="fiyat" ascending={false} filterByFeatured={false} />
+      <FeaturedProducts title="En Çok Satanlar" />
 
       {/* İLGİNİZİ ÇEKEBİLECEK ÜRÜNLER (Yeni Eklenenler Yerine - Akıllı Öneri Motoru) */}
       <PersonalizedRecommendationsSection />

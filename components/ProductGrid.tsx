@@ -158,6 +158,16 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
   const isFiyatSorunuz = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
   const aktifFiyat = product.sescim_fiyat ?? product.fiyat
   const normalFiyatTL = (!isFiyatSorunuz && aktifFiyat) ? dovizToTL(aktifFiyat, pb, kurData) : null
+  const indirimPB = product.sescim_indirimli_fiyat_pb || pb
+  const indirimliFiyatTL = (!isFiyatSorunuz && product.sescim_indirimli_fiyat)
+    ? dovizToTL(product.sescim_indirimli_fiyat, indirimPB, kurData)
+    : null
+  const hasDiscount = !isFiyatSorunuz &&
+    indirimliFiyatTL !== null &&
+    indirimliFiyatTL > 0 &&
+    normalFiyatTL !== null &&
+    normalFiyatTL > 0 &&
+    indirimliFiyatTL < normalFiyatTL
 
   const [fav, setFav] = useState(false)
   const [cmp, setCmp] = useState(false)
@@ -192,7 +202,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     kullanim_alani: product.kullanim_alani ?? null,
     fotograf: product.fotograflar?.[0] || null,
     fotograflar: product.fotograflar || [],
-    indirimli_fiyat: product.sescim_indirimli_fiyat ?? null,
+    indirimli_fiyat: hasDiscount ? indirimliFiyatTL : null,
     fiyat_sorunuz: isFiyatSorunuz,
   })
 
@@ -204,29 +214,23 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     if (isFiyatSorunuz || !finalFiyat || !stockInfo.canOrder) return
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
-    // İndirimli fiyatın kendi para birimini kullan (TRY ile girilmişse TRY, USD ise USD)
-    const indirimPB = product.sescim_indirimli_fiyat_pb || pb
-    const indirimliFiyatTL = product.sescim_indirimli_fiyat ? dovizToTL(product.sescim_indirimli_fiyat, indirimPB, kurData) : null
 
     addToCart({
       id: product.id,
       ad: product.ad,
       kategori: product.kategori,
       fotograf: product.fotograflar?.[0] || '',
-      fiyat: fiyatTL,
+      fiyat: normalFiyatTL || fiyatTL,
       fiyat_doviz: finalFiyat,
       para_birimi: pb,
-      indirimli_fiyat: indirimliFiyatTL,
-      indirimli_fiyat_doviz: product.sescim_indirimli_fiyat || null,
+      indirimli_fiyat: hasDiscount ? indirimliFiyatTL : null,
+      indirimli_fiyat_doviz: hasDiscount ? (product.sescim_indirimli_fiyat || null) : null,
       indirimli_fiyat_pb: indirimPB,
     })
     setCartAdded(true)
     setTimeout(() => setCartAdded(false), 2000)
   }
 
-  const indirimliFiyatTL = product.sescim_indirimli_fiyat
-    ? dovizToTL(product.sescim_indirimli_fiyat, product.sescim_indirimli_fiyat_pb || pb, kurData)
-    : null
   const isNewProduct = product.created_at ? (Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000) : false
 
   return (
@@ -260,7 +264,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               kritikStok={product.kritik_stok}
               stokDurumu={stockInfo.durum}
               fiyat={product.fiyat_sorunuz ? undefined : (normalFiyatTL || undefined)}
-              indirimliFiyat={product.fiyat_sorunuz ? undefined : (indirimliFiyatTL || undefined)}
+              indirimliFiyat={hasDiscount ? (indirimliFiyatTL || undefined) : undefined}
               kategori={product.kategori}
               compact
             />
@@ -293,7 +297,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             <Heart size={16} fill={fav ? '#DA291C' : 'none'} className={fav ? 'text-brand-red' : ''} />
           </button>
 
-          {isRecentUpdate && !indirimliFiyatTL && !product.fiyat_sorunuz && (
+          {isRecentUpdate && !hasDiscount && !product.fiyat_sorunuz && (
             <div className="absolute top-2.5 right-2.5 hidden md:block bg-green-600 text-white px-2 py-0.5 font-display font-black text-xs rounded-xs">
               YENİ FİYAT
             </div>
@@ -334,7 +338,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                   Distribütör Özel Teklifi
                 </span>
               </div>
-            ) : indirimliFiyatTL ? (
+            ) : hasDiscount && indirimliFiyatTL ? (
               <div className="flex flex-col">
                 <span className="text-xs text-slate-400 line-through">
                   {formatFiyat(normalFiyatTL || 0, 'TRY')}
@@ -370,8 +374,13 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   Son {stockInfo.adet} Adet
                 </span>
+              ) : stockInfo.adet !== null && stockInfo.adet > 0 ? (
+                <span className="text-emerald-700 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Stokta ({stockInfo.adet} Adet)
+                </span>
               ) : (
-                <span className="text-emerald-600 flex items-center gap-1">
+                <span className="text-emerald-700 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Stokta
                 </span>

@@ -378,6 +378,81 @@ export function getAltKategoriler(anaKategori: string): string[] {
   return ana ? ana.altKategoriler.map((a) => a.label) : []
 }
 
+/**
+ * Veritabanındaki ham ana kategori metnini (örn: 'Ses Sistemleri (Pro Audio)', 'Işık Sistemleri (Pro Lighting)')
+ * HIERARCHY_DATA ve KATEGORI_HIYERARSI içerisindeki standart etiket ile eşleştirir.
+ */
+export function canonicalCategoryLabel(rawCat?: string | null): string {
+  if (!rawCat) return ''
+  const trimmed = rawCat.trim()
+  for (const node of HIERARCHY_DATA) {
+    if (node.name.toLowerCase() === trimmed.toLowerCase()) return node.name
+    if (Array.isArray(node.dbName)) {
+      if (node.dbName.some(d => d.toLowerCase() === trimmed.toLowerCase())) return node.name
+    } else if (node.dbName && node.dbName.toLowerCase() === trimmed.toLowerCase()) {
+      return node.name
+    }
+  }
+  // Eğer tam eşleşme bulunamazsa (örn: 'Ses Sistemleri' başlangıcı):
+  for (const node of HIERARCHY_DATA) {
+    if (trimmed.toLowerCase().startsWith(node.name.toLowerCase())) return node.name
+  }
+  return trimmed
+}
+
+/**
+ * Belirtilen ana kategori altında veritabanındaki ham alt kategori metnini standart alt kategori etiketiyle eşleştirir.
+ */
+export function canonicalSubCategoryLabel(categoryName: string, rawSub?: string | null): string {
+  if (!rawSub) return ''
+  const trimmed = rawSub.trim()
+  const catNode = HIERARCHY_DATA.find(n => n.name.toLowerCase() === categoryName.trim().toLowerCase())
+  if (!catNode || !catNode.children) return trimmed
+
+  for (const sub of catNode.children) {
+    if (sub.name.toLowerCase() === trimmed.toLowerCase()) return sub.name
+    if (Array.isArray(sub.dbName)) {
+      if (sub.dbName.some(d => d.toLowerCase() === trimmed.toLowerCase())) return sub.name
+    } else if (sub.dbName && sub.dbName.toLowerCase() === trimmed.toLowerCase()) {
+      return sub.name
+    }
+  }
+  // Kısmi eşleşme:
+  for (const sub of catNode.children) {
+    if (trimmed.toLowerCase().includes(sub.name.toLowerCase()) || sub.name.toLowerCase().includes(trimmed.toLowerCase())) {
+      return sub.name
+    }
+  }
+  return trimmed
+}
+
+/**
+ * Belirtilen ana ve alt kategori altında veritabanındaki ham ürün tipi metnini standart etiketle eşleştirir.
+ */
+export function canonicalUrunTipiLabel(categoryName: string, subCategoryName: string, rawType?: string | null): string {
+  if (!rawType) return ''
+  const trimmed = rawType.trim()
+  const catNode = HIERARCHY_DATA.find(n => n.name.toLowerCase() === categoryName.trim().toLowerCase())
+  if (!catNode || !catNode.children) return trimmed
+  const subNode = catNode.children.find(s => s.name.toLowerCase() === subCategoryName.trim().toLowerCase())
+  if (!subNode || !subNode.children) return trimmed
+
+  for (const leaf of subNode.children) {
+    if (leaf.name.toLowerCase() === trimmed.toLowerCase()) return leaf.name
+    if (Array.isArray(leaf.dbName)) {
+      if (leaf.dbName.some(d => d.toLowerCase() === trimmed.toLowerCase())) return leaf.name
+    } else if (leaf.dbName && leaf.dbName.toLowerCase() === trimmed.toLowerCase()) {
+      return leaf.name
+    }
+  }
+  for (const leaf of subNode.children) {
+    if (trimmed.toLowerCase().includes(leaf.name.toLowerCase()) || leaf.name.toLowerCase().includes(trimmed.toLowerCase())) {
+      return leaf.name
+    }
+  }
+  return trimmed
+}
+
 export function tumAltKategoriler(): string[] {
   return KATEGORI_HIYERARSI.flatMap((k) => k.altKategoriler.map((a) => a.label))
 }

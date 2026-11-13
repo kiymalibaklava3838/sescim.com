@@ -6,6 +6,7 @@ import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getKur } from '@/lib/kur'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
 import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
+import { resolveStock } from '@/lib/product-stock'
 import { ProductCard } from '@/components/ProductGrid'
 
 interface Props {
@@ -19,89 +20,137 @@ export default async function FeaturedProducts({
   title = "Öne Çıkan Ürünler", 
   sortBy = "created_at", 
   ascending = false, 
-  filterByFeatured = true 
+  filterByFeatured = false 
 }: Props = {}) {
   const supabase = await createAkdagServerClient()
   const sescimDb = await createServerSupabaseClient()
   const kur = await getKur()
   const isCokSatanlar = title.toLowerCase().includes('satan')
-  
-  // Çok satanlar için sipariş geçmişinden popüler ürün ID'lerini al
-  let bestSellerIds: string[] = []
-  if (sescimDb && isCokSatanlar) {
-    try {
-      const { data: kal } = await sescimDb.from('siparis_kalemleri').select('urun_id, adet')
-      if (kal && kal.length > 0) {
-        const counts = new Map<string, number>()
-        kal.forEach((k: any) => {
-          if (k.urun_id) counts.set(k.urun_id, (counts.get(k.urun_id) || 0) + (k.adet || 1))
+
+  const productMap = new Map<string, any>()
+
+  if (isCokSatanlar) {
+    // 1. Sipariş geçmişindeki gerçek çok satan ürünleri al
+    let salesCounts = new Map<string, number>()
+    if (sescimDb) {
+      try {
+        const { data: kal } = await sescimDb.from('siparis_kalemleri').select('urun_id, adet')
+        ;(kal || []).forEach((k: any) => {
+          if (k.urun_id) salesCounts.set(k.urun_id, (salesCounts.get(k.urun_id) || 0) + (k.adet || 1))
         })
-        bestSellerIds = Array.from(counts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .map(entry => entry[0])
+      } catch (e) {
+        console.error('FeaturedProducts sales error:', e)
       }
-    } catch (e) {
-      console.error('FeaturedProducts best sellers error:', e)
     }
-  }
 
-  let query = supabase
-    .from('urunler')
-    .select(LIGHT_PRODUCT_FIELDS)
-    .order(sortBy, { ascending })
-    .limit(20)
+    // 2. Aktif Flaş İndirim ürünlerini al (Çok satan vitrininin en güçlü yıldızları)
+    let flasUrunIds: string[] = []
+    if (sescimDb) {
+      try {
+        const nowIso = new Date().toISOString()
+        const { data: flasRows } = await sescimDb
+          .from('flas_indirimler')
+          .select('urun_id')
+          .eq('aktif', true)
+          .gt('bitis_tarihi', nowIso)
+          .lte('baslangic_tarihi', nowIso)
+        flasUrunIds = (flasRows || []).map((r: any) => r.urun_id)
+      } catch (e) {
+        console.error('FeaturedProducts flas error:', e)
+      }
+    }
 
-  let sQuery = sescimDb
-    ? sescimDb
+    // 3. Akdağ ve Sescim DB'den aday ürün havuzunu çek
+    const [flasRes, featuredRes, inStockRes, sescimRes] = await Promise.all([
+      flasUrunIds.length > 0
+        ? supabase.from('urunler').select(LIGHT_PRODUCT_FIELDS).in('id', flasUrunIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from('urunler').select(LIGHT_PRODUCT_FIELDS).eq('is_featured', true).limit(20),
+      supabase
         .from('urunler')
-        .select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
-        .order(sortBy, { ascending })
-        .limit(20)
-    : null
+        .select(LIGHT_PRODUCT_FIELDS)
+        .eq('stok_durumu', 'stokta')
+        .gt('stok_adedi', 0)
+        .not('fiyat', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      sescimDb
+        ? sescimDb
+            .from('urunler')
+            .select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
+            .limit(20)
+        : Promise.resolve({ data: [] })
+    ])
 
-  if (filterByFeatured) {
-    query = query.eq('is_featured', true)
-    if (sQuery) sQuery = sQuery.eq('is_featured', true)
-  }
+    // KRİTİK: Akdağ ürünleri birincil (canonical) stok ve bilgi kaynağıdır.
+    ;[...(flasRes.data || []), ...(featuredRes.data || []), ...(inStockRes.data || [])].forEach((p: any) => {
+      if (p.id) productMap.set(p.id, p)
+    })
 
-  const [akdagRes, sescimRes] = await Promise.all([
-    query,
-    sQuery ? sQuery : Promise.resolve({ data: [] })
-  ])
-
-  const rawMerged = [
-    ...(sescimRes.data || []).map((p: any) => ({
-      ...p,
-      sescim_fiyat: p.sescim_fiyat ?? p.fiyat ?? null,
-      sescim_aktif: p.sescim_aktif !== false
-    })),
-    ...(akdagRes.data || [])
-  ]
-
-  const pDedupMap = new Map<string, any>()
-  for (const item of rawMerged) {
-    if (item.id && !pDedupMap.has(item.id)) {
-      pDedupMap.set(item.id, item)
-    }
-  }
-  let data = Array.from(pDedupMap.values())
-
-  // Eğer özel olarak öne çıkarılan ürün işaretlenmemişse, boş kalmaması için popüler ürünleri göster
-  if (data.length === 0 && filterByFeatured) {
-    const fallback = await supabase
+    ;(sescimRes.data || []).forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
+  } else {
+    // Normal sıralama (Örn: Yeni Gelenler)
+    let query = supabase
       .from('urunler')
       .select(LIGHT_PRODUCT_FIELDS)
       .order(sortBy, { ascending })
-      .limit(20)
-    data = fallback.data || []
+      .limit(30)
+
+    let sQuery = sescimDb
+      ? sescimDb
+          .from('urunler')
+          .select('id, slug, ad, kategori:kategori_id, alt_kategori:alt_kategori_id, fotograflar, fiyat, indirimli_fiyat, bayi_fiyati, para_birimi, stok_durumu, stok_adedi, kritik_stok, marka, kullanim_alani, is_featured, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, created_at')
+          .order(sortBy, { ascending })
+          .limit(30)
+      : null
+
+    if (filterByFeatured) {
+      query = query.eq('is_featured', true)
+      if (sQuery) sQuery = sQuery.eq('is_featured', true)
+    }
+
+    const [akdagRes, sescimRes] = await Promise.all([
+      query,
+      sQuery ? sQuery : Promise.resolve({ data: [] })
+    ])
+
+    ;(akdagRes.data || []).forEach((p: any) => {
+      if (p.id) productMap.set(p.id, p)
+    })
+
+    ;(sescimRes.data || []).forEach((p: any) => {
+      if (!productMap.has(p.id)) {
+        productMap.set(p.id, p)
+      } else {
+        const existing = productMap.get(p.id)
+        productMap.set(p.id, {
+          ...existing,
+          sescim_fiyat: p.sescim_fiyat ?? existing.sescim_fiyat,
+          sescim_indirimli_fiyat: p.sescim_indirimli_fiyat ?? existing.sescim_indirimli_fiyat,
+        })
+      }
+    })
   }
 
-  if (!data || data.length === 0) return null
+  const rawProducts = Array.from(productMap.values())
+  if (rawProducts.length === 0) return null
 
-  const urunIds = data.map((p: any) => p.id)
+  // Sescim Pricing & Stok Kotası tablosunu uygula
+  const urunIds = rawProducts.map((p: any) => p.id)
   const pricingMap = await getSescimPricingMap(urunIds)
 
-  let featuredProducts = data.map((p: any) => {
+  let featuredProducts = rawProducts.map((p: any) => {
     const pricing = pricingMap.get(p.id)
     return {
       ...p,
@@ -113,19 +162,56 @@ export default async function FeaturedProducts({
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
       fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing ? pricing.fiyat_sorunuz : p.fiyat_sorunuz })
     }
-  }).filter(p => p.sescim_aktif !== false)
+  }).filter((p: any) => p.sescim_aktif !== false)
 
-  // Eğer çok satanlar ise, sipariş geçmişindeki ürünleri veya popüler markaları öne sırala
   if (isCokSatanlar) {
-    const popularBrands = ['SOUNDCRAFT', 'YAMAHA', 'RCF', 'BEHRINGER', 'LD SYSTEMS', 'MARTIN AUDIO', 'KÖNİG', 'ALTO', 'ROOF', 'AUDAC', 'MACKIE']
-    const bSet = new Map(bestSellerIds.map((id, index) => [id, index]))
+    const popularBrands = [
+      'KÖNİG', 'ROOF', 'SPEKON', 'WESTA', 'BEHRINGER', 'YAMAHA', 
+      'RCF', 'SHURE', 'FENİX', 'CAROL', 'STUDIO PLUS', 'STUDIOPLUS', 
+      'WÖLLER', 'SOUNDCRAFT', 'LD SYSTEMS', 'MARTIN AUDIO', 'ALTO'
+    ]
+
     featuredProducts.sort((a, b) => {
-      const idxA = bSet.has(a.id) ? bSet.get(a.id)! : 999
-      const idxB = bSet.has(b.id) ? bSet.get(b.id)! : 999
-      if (idxA !== idxB) return idxA - idxB
-      const brandScoreA = popularBrands.includes(a.marka?.toUpperCase()) ? 1 : 0
-      const brandScoreB = popularBrands.includes(b.marka?.toUpperCase()) ? 1 : 0
-      return brandScoreB - brandScoreA
+      const aStock = resolveStock({
+        stok_durumu: a.stok_durumu,
+        stok_adedi: a.stok_adedi,
+        kritik_stok: a.kritik_stok,
+        sescim_stok: a.sescim_stok,
+        sescim_stok_durumu: a.sescim_stok_durumu,
+      })
+      const bStock = resolveStock({
+        stok_durumu: b.stok_durumu,
+        stok_adedi: b.stok_adedi,
+        kritik_stok: b.kritik_stok,
+        sescim_stok: b.sescim_stok,
+        sescim_stok_durumu: b.sescim_stok_durumu,
+      })
+
+      // 1. Tükendi olanları vitrinde en sona at
+      if (aStock.isTukendi && !bStock.isTukendi) return 1
+      if (!aStock.isTukendi && bStock.isTukendi) return -1
+
+      // 2. Flaş indirim / Fırsat ürünleri en öne (+10)
+      const aHasDiscount = (a.sescim_indirimli_fiyat && Number(a.sescim_indirimli_fiyat) > 0) ? 10 : 0
+      const bHasDiscount = (b.sescim_indirimli_fiyat && Number(b.sescim_indirimli_fiyat) > 0) ? 10 : 0
+
+      // 3. Öne çıkarılan (+5)
+      const aFeatured = a.is_featured ? 5 : 0
+      const bFeatured = b.is_featured ? 5 : 0
+
+      // 4. Popüler çok satan markalar (+3)
+      const aBrand = popularBrands.includes(a.marka?.toUpperCase()) ? 3 : 0
+      const bBrand = popularBrands.includes(b.marka?.toUpperCase()) ? 3 : 0
+
+      // 5. Stokta olan (+2)
+      const aStokta = aStock.isStokta ? 2 : 0
+      const bStokta = bStock.isStokta ? 2 : 0
+
+      const scoreA = aHasDiscount + aFeatured + aBrand + aStokta
+      const scoreB = bHasDiscount + bFeatured + bBrand + bStokta
+      if (scoreB !== scoreA) return scoreB - scoreA
+
+      return 0
     })
   }
 
@@ -163,4 +249,3 @@ export default async function FeaturedProducts({
     </div>
   )
 }
-

@@ -230,7 +230,7 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                   indirimliPB = flas.fiyat_para_birimi || 'TRY'
                 } else if (s?.sescim_indirimli_fiyat !== null && s?.sescim_indirimli_fiyat !== undefined) {
                   indirimliFiyat = Number(s.sescim_indirimli_fiyat)
-                  indirimliPB = 'TRY'
+                  indirimliPB = null
                 } else if (p.indirimli_fiyat !== null && p.indirimli_fiyat !== undefined) {
                   indirimliFiyat = Number(p.indirimli_fiyat)
                   indirimliPB = p.para_birimi || 'TRY'

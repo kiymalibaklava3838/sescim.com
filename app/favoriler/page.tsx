@@ -27,7 +27,7 @@ export default function FavorilerPage() {
     if (item.fiyat_sorunuz || !item.fiyat) return
     const pb = item.para_birimi || 'TRY'
     const fiyatTL = dovizToTL(item.fiyat, pb, kur)
-    const indirimPB = (item as any).indirimli_fiyat_pb || (item.indirimli_fiyat ? 'TRY' : pb)
+    const indirimPB = (item as any).indirimli_fiyat_pb || (item as any).sescim_indirimli_fiyat_pb || pb
     const indirimliTL = item.indirimli_fiyat ? dovizToTL(item.indirimli_fiyat, indirimPB, kur) : null
 
     addToCart({

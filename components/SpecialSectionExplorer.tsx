@@ -23,6 +23,7 @@ interface Product {
   kullanim_alani?: string | null
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
+  sescim_indirimli_fiyat_pb?: string | null
   sescim_aktif?: boolean
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null

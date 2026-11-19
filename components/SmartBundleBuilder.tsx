@@ -19,6 +19,7 @@ export interface BundleProduct {
   para_birimi?: string
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number | null
+  sescim_indirimli_fiyat_pb?: string | null
   marka?: string | null
   fiyat_sorunuz?: boolean | null
 }
@@ -61,7 +62,10 @@ export default function SmartBundleBuilder({ mainProduct, accessories, kur }: Pr
 
   const getProductTLPrice = (p: BundleProduct) => {
     const rawPrice = p.sescim_indirimli_fiyat ?? p.sescim_fiyat ?? p.indirimli_fiyat ?? p.fiyat
-    return dovizToTL(rawPrice, p.para_birimi || 'TRY', kur)
+    const pb = (p.sescim_indirimli_fiyat !== null && p.sescim_indirimli_fiyat !== undefined)
+      ? (p.sescim_indirimli_fiyat_pb || p.para_birimi || 'TRY')
+      : (p.para_birimi || 'TRY')
+    return dovizToTL(rawPrice, pb, kur)
   }
 
   const mainTL = getProductTLPrice(mainProduct)

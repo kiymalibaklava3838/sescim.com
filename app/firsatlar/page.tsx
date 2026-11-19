@@ -118,7 +118,7 @@ export default async function FirsatlarPage() {
       const indirimliFiyat = flasItem ? Number(flasItem.indirimli_fiyat) : (pricing?.sescim_indirimli_fiyat ?? p.indirimli_fiyat ?? null)
       // Flaş indirim fiyatı hangi para birimiyle kaydedildiyse onu kullan.
       // Bu sayede TL ile girilmiş fiyatlar kur dönüşümünden etkilenmez.
-      const indirimliPB = flasItem?.fiyat_para_birimi ?? null
+      const indirimliPB = flasItem?.fiyat_para_birimi ?? pricing?.sescim_indirimli_fiyat_pb ?? null
       return {
         ...p,
         sescim_fiyat: pricing?.sescim_fiyat ?? null,

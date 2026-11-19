@@ -242,7 +242,7 @@ export default function SepetPage() {
 
   const livePrice = (i: CartItem): number => {
     const pb = i.para_birimi || 'TRY'
-    const indirimPB = (i as any).indirimli_fiyat_pb || (i.indirimli_fiyat ? 'TRY' : pb)
+    const indirimPB = (i as any).indirimli_fiyat_pb || (i.indirimli_fiyat_doviz ? pb : 'TRY')
 
     // 1. İndirimli fiyat varsa (Flaş indirim, outlet veya genel indirim):
     if (i.indirimli_fiyat !== null && i.indirimli_fiyat !== undefined && Number(i.indirimli_fiyat) > 0) {

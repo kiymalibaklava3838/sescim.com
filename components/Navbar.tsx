@@ -340,7 +340,7 @@ export default function Navbar() {
             <div className="flex items-center gap-6 lg:gap-8">
               <Link href="/firsatlar" className="flex items-center gap-2 font-semibold text-[13px] lg:text-[14px] text-slate-700 hover:text-brand-red transition-all duration-200 group/link">
                 <Sparkles size={16} className="text-amber-500 group-hover/link:animate-pulse" />
-                Günün Fırsatları
+                Sescim Haftası
               </Link>
               <Link href="/kampanyalar" className="flex items-center gap-2 font-semibold text-[13px] lg:text-[14px] text-slate-700 hover:text-brand-red transition-all duration-200 group/link">
                 <Gift size={16} className="text-brand-red group-hover/link:-translate-y-0.5 transition-transform" />

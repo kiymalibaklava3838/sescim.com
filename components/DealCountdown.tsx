@@ -8,7 +8,7 @@ interface Props {
   title?: string
 }
 
-export default function DealCountdown({ targetDate, title = "Günün Fırsatları Bitişine Kalan:" }: Props) {
+export default function DealCountdown({ targetDate, title = "Sescim Haftası Bitişine Kalan:" }: Props) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null)
 
   useEffect(() => {
@@ -48,13 +48,13 @@ export default function DealCountdown({ targetDate, title = "Günün Fırsatlar�
         <div className="text-center md:text-left">
           <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-display font-bold uppercase tracking-wider mb-2 border border-white/30">
             <Flame size={14} className="text-amber-300 animate-bounce" />
-            Sınırlı Süre & Flaş Fırsat
+            Her Cuma 20.00&apos;da &amp; Haftalık Fırsat
           </div>
           <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight text-white">
-            Günün Özel İndirimleri
+            Sescim Haftası Her Cuma 20.00&apos;da
           </h2>
           <p className="text-white/80 text-xs sm:text-sm mt-1 font-body">
-            Seçili profesyonel ses, stüdyo ve ışık ekipmanlarında geçerli süper fırsatlar.
+            Her Cuma 20.00&apos;da yenilenen seçili profesyonel ses, stüdyo ve ışık ekipmanlarında haftalık özel indirimler.
           </p>
         </div>
 

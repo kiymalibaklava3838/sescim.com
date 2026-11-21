@@ -14,10 +14,15 @@ import { getSiteUrl } from '@/lib/site-url'
 export const revalidate = 1800 // 30 dakika Vercel Edge CDN önbelleği
 
 export const metadata: Metadata = {
-  title: 'Günün Fırsatları & Flaş İndirimler | Sescim',
-  description: 'Seçili profesyonel ses sistemleri, stüdyo monitörleri, sahne ışıkları ve DJ ekipmanlarında günün fırsatları ve flaş indirimler.',
+  title: "Sescim Haftası - Her Cuma 20.00'da Haftalık İndirimler | Sescim",
+  description: "Her Cuma 20.00'da başlayan Sescim Haftası ile seçili profesyonel ses sistemleri, stüdyo monitörleri, sahne ışıkları ve DJ ekipmanlarında haftalık özel indirimler.",
   alternates: {
     canonical: `${getSiteUrl()}/firsatlar`,
+  },
+  openGraph: {
+    title: "Sescim Haftası - Her Cuma 20.00'da Haftalık İndirimler | Sescim",
+    description: "Her Cuma 20.00'da başlayan Sescim Haftası ile seçili profesyonel ses, stüdyo ve sahne ekipmanlarında haftalık özel indirimler.",
+    url: `${getSiteUrl()}/firsatlar`,
   },
 }
 
@@ -147,7 +152,7 @@ export default async function FirsatlarPage() {
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Günün Fırsatları',
+        name: 'Sescim Haftası',
         item: `${baseUrl}/firsatlar`,
       },
     ],
@@ -165,7 +170,7 @@ export default async function FirsatlarPage() {
         <div className="flex items-center gap-2 text-xs font-display font-semibold uppercase tracking-widest text-slate-400 mb-6">
           <Link href="/" className="hover:text-brand-red transition-colors">Ana Sayfa</Link>
           <span>/</span>
-          <span className="text-brand-red">Günün Fırsatları</span>
+          <span className="text-brand-red">Sescim Haftası</span>
         </div>
 
         {/* Flaş İndirim Geri Sayım Bandı */}
@@ -216,10 +221,10 @@ export default async function FirsatlarPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
             <div>
               <h1 className="font-display font-black text-2xl uppercase text-slate-900">
-                Fırsat Ürünleri ({products.length})
+                Sescim Haftası Fırsat Ürünleri ({products.length})
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                Stoklarla sınırlı güncel kampanya ve fırsat ürünleri.
+                Her Cuma 20.00&apos;da yenilenen, stoklarla sınırlı haftalık kampanya ve fırsat ürünleri.
               </p>
             </div>
             <Link 
@@ -233,7 +238,7 @@ export default async function FirsatlarPage() {
           <SpecialSectionExplorer 
             products={products} 
             sectionType="firsatlar" 
-            sectionTitle="Günün Fırsatları" 
+            sectionTitle="Sescim Haftası" 
           />
         </div>
       </div>

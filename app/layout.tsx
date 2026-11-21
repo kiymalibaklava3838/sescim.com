@@ -142,8 +142,8 @@ const siteNavigationJsonLd = {
     {
       '@type': 'SiteNavigationElement',
       position: 6,
-      name: 'Günün Fırsatları',
-      description: 'Özel indirimli ses ve ışık ekipmanı fırsatları ve flaş indirimler',
+      name: 'Sescim Haftası',
+      description: "Her Cuma 20.00'da başlayan haftalık özel indirimli ses ve ışık ekipmanı fırsatları",
       url: `${siteUrl}/firsatlar`
     },
     {

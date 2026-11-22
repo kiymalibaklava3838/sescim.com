@@ -572,7 +572,7 @@ export const getApprovedProductReviews = unstable_cache(
       if (!supabase) return []
       const { data } = await supabase
         .from('urun_yorumlari')
-        .select('id, urun_id, puan, yorum, ad_soyad, fotograflar, created_at, user_id, onaylandi')
+        .select('id, urun_id, puan, yorum, ad_soyad, created_at, user_id, onaylandi')
         .eq('urun_id', productId)
         .eq('onaylandi', true)
         .order('created_at', { ascending: false })

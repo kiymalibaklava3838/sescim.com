@@ -81,9 +81,9 @@ export const SHIPPING_CONFIG = {
   // Standart Kargo Ücreti (TL) - 1.999 ₺ altı siparişler için
   STANDARD_SHIPPING_FEE: 149,
 
-  // İade Anlaşmalı Kargo ve Kod
-  RETURN_SHIPPING_CARRIER: 'Yurtiçi Kargo',
-  RETURN_AGREEMENT_CODE: '452918231',
+  // İade Anlaşmalı Kargo (Basit Kargo üzerinden onay sonrası dinamik kod atanır)
+  RETURN_SHIPPING_CARRIER: 'Basit Kargo',
+  RETURN_AGREEMENT_CODE: '',
 
   // Varsayılan Gönderi Kargo Firması
   DEFAULT_CARRIER: 'HepsiJet',

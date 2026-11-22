@@ -7,8 +7,9 @@ import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
 import { getCarrierTrackingUrl } from '@/lib/shipping'
 import Link from 'next/link'
 import SafeProductImage from '@/components/SafeProductImage'
-import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map as MapIcon, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
+import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map as MapIcon, Plus, Trash2, Pencil, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
 import OrderTimeline from '@/components/OrderTimeline'
+import { parseReviewContent } from '@/components/ProductReviews'
 import { IL_ISIMLERI, getIlcelerByIl } from '@/lib/turkey-locations'
 import type { User } from '@supabase/supabase-js'
 
@@ -38,6 +39,7 @@ interface Kupon {
   ozel_mi?: boolean
   kaynak?: 'tanimli' | 'genel'
   kategori?: string | null
+  kullanildi?: boolean
 }
 
 interface UyeProfil {
@@ -110,8 +112,10 @@ export default function HesabimPage() {
   const [tanimlamaMesaj, setTanimlamaMesaj] = useState<{ tip: 'basari' | 'hata'; metin: string } | null>(null)
   const [kuponFiltre, setKuponFiltre] = useState<'tumu' | 'tanimli' | 'genel'>('tumu')
   const [tanimliKuponKodlari, setTanimliKuponKodlari] = useState<string[]>([])
+  const [kullanilanKuponKodlari, setKullanilanKuponKodlari] = useState<string[]>([])
   
   // İade & Değişim Talebi States
+  const [iadeTalepleri, setIadeTalepleri] = useState<any[]>([])
   const [iadeModalOpen, setIadeModalOpen] = useState(false)
   const [iadeOrder, setIadeOrder] = useState<Siparis | null>(null)
   const [iadeTip, setIadeTip] = useState<'iade' | 'degisim'>('iade')
@@ -137,7 +141,7 @@ export default function HesabimPage() {
   // Address States
   const [showAddAddress, setShowAddAddress] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
-  const [selectedAddress, setSelectedAddress] = useState<Adres | null>(null)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [adresBasligi, setAdresBasligi] = useState('')
   const [adresAdSoyad, setAdresAdSoyad] = useState('')
   const [adresTelefon, setAdresTelefon] = useState('')
@@ -254,7 +258,7 @@ export default function HesabimPage() {
         .from('kullanici_adresleri')
         .select('*')
         .eq('user_id', session.user.id)
-        .order('id', { ascending: false })
+        .order('created_at', { ascending: false })
         
       setAdresler(addresses || [])
     })()
@@ -322,11 +326,12 @@ export default function HesabimPage() {
 
           const formattedReviews = reviews.map((r: any) => {
             const u = urunlerMap.get(r.urun_id)
+            const { cleanYorum } = parseReviewContent(r.yorum || '')
             return {
               id: r.id,
               urun_id: r.urun_id,
               puan: r.puan,
-              yorum: r.yorum,
+              yorum: cleanYorum,
               durum: r.onaylandi ? 'onaylandi' : 'bekliyor',
               created_at: r.created_at,
               urun: {
@@ -347,24 +352,64 @@ export default function HesabimPage() {
 
     const couponsPromise = (async () => {
       let savedCodes: string[] = []
+      const usedCodesSet = new Set<string>()
+
       try {
-        const { data: userCoupons } = await supabase
-          .from('kullanici_kuponlari')
-          .select('kupon_kodu')
-          .eq('user_id', session.user.id)
-        if (userCoupons && userCoupons.length > 0) {
-          savedCodes = userCoupons.map((uc: any) => uc.kupon_kodu)
+        const [userCouponsRes, usedCouponsRes, usedOrdersRes] = await Promise.all([
+          supabase
+            .from('kullanici_kuponlari')
+            .select('kupon_kodu')
+            .eq('user_id', session.user.id),
+          supabase
+            .from('kupon_kullanimlari')
+            .select('kupon_kodu, durum, created_at')
+            .eq('user_id', session.user.id)
+            .neq('durum', 'iptal'),
+          supabase
+            .from('siparisler')
+            .select('kupon_kodu, durum, odeme_durumu')
+            .eq('user_id', session.user.id)
+            .not('kupon_kodu', 'is', null)
+            .neq('durum', 'iptal')
+            .neq('odeme_durumu', 'odeme_hatasi'),
+        ])
+
+        if (userCouponsRes.data && userCouponsRes.data.length > 0) {
+          savedCodes = userCouponsRes.data.map((uc: any) => String(uc.kupon_kodu || '').trim().toUpperCase()).filter(Boolean)
         }
+
+        const PENDING_TIMEOUT_MS = 30 * 60 * 1000
+        const now = Date.now()
+        ;(usedCouponsRes.data || []).forEach((u: any) => {
+          const code = String(u.kupon_kodu || '').trim().toUpperCase()
+          if (!code) return
+          if (u.durum === 'onaylandi') {
+            usedCodesSet.add(code)
+          } else if (u.durum === 'beklemede') {
+            const createdAt = u.created_at ? new Date(u.created_at).getTime() : 0
+            if (now - createdAt <= PENDING_TIMEOUT_MS) {
+              usedCodesSet.add(code)
+            }
+          } else {
+            usedCodesSet.add(code)
+          }
+        })
+
+        ;(usedOrdersRes.data || []).forEach((o: any) => {
+          const code = String(o.kupon_kodu || '').trim().toUpperCase()
+          if (code) usedCodesSet.add(code)
+        })
       } catch {}
 
       try {
         const localSaved = JSON.parse(localStorage.getItem(`sescim_user_coupons_${session.user.id}`) || '[]')
         if (Array.isArray(localSaved)) {
-          savedCodes = Array.from(new Set([...savedCodes, ...localSaved]))
+          savedCodes = Array.from(new Set([...savedCodes, ...localSaved.map((c: any) => String(c || '').trim().toUpperCase()).filter(Boolean)]))
         }
       } catch {}
 
       setTanimliKuponKodlari(savedCodes)
+      setKullanilanKuponKodlari(Array.from(usedCodesSet))
 
       const { data: coupons } = await supabase
         .from('kuponlar')
@@ -375,22 +420,44 @@ export default function HesabimPage() {
       if (coupons) {
         const formatted = coupons
           .filter((c: any) => {
+            const codeUpper = String(c.kod || '').trim().toUpperCase()
             if (c.ozel_mi === true) {
-              return savedCodes.includes(c.kod)
+              return savedCodes.includes(codeUpper) || usedCodesSet.has(codeUpper)
             }
             return true
           })
-          .map((c: any) => ({
-            ...c,
-            kaynak: savedCodes.includes(c.kod) ? ('tanimli' as const) : ('genel' as const),
-          }))
+          .map((c: any) => {
+            const codeUpper = String(c.kod || '').trim().toUpperCase()
+            return {
+              ...c,
+              kaynak: savedCodes.includes(codeUpper) ? ('tanimli' as const) : ('genel' as const),
+              kullanildi: usedCodesSet.has(codeUpper),
+            }
+          })
+          .sort((a: any, b: any) => Number(!!a.kullanildi) - Number(!!b.kullanildi))
         setKuponlar(formatted)
       } else {
         setKuponlar([])
       }
     })()
 
-      await Promise.allSettled([ordersPromise, addressPromise, profilePromise, reviewsPromise, couponsPromise])
+    const returnsPromise = (async () => {
+      try {
+        if (session?.access_token) {
+          const res = await fetch('/api/iade', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data)) {
+              setIadeTalepleri(data)
+            }
+          }
+        }
+      } catch {}
+    })()
+
+      await Promise.allSettled([ordersPromise, addressPromise, profilePromise, reviewsPromise, couponsPromise, returnsPromise])
     } catch (err) {
       console.error('Hesabim veri yukleme hatasi:', err)
     } finally {
@@ -412,6 +479,12 @@ export default function HesabimPage() {
       return
     }
 
+    if (kullanilanKuponKodlari.includes(cleanCode)) {
+      setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kupon kodu hesabınız tarafından daha önce kullanılmıştır. Her kupon hesap başına yalnızca 1 kez kullanılabilir.` })
+      setTanimlamaLoading(false)
+      return
+    }
+
     if (tanimliKuponKodlari.includes(cleanCode)) {
       setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kupon kodu zaten hesabınızda tanımlı.` })
       setTanimlamaLoading(false)
@@ -419,38 +492,40 @@ export default function HesabimPage() {
     }
 
     try {
-      const { data: kuponData, error: kErr } = await supabase
-        .from('kuponlar')
-        .select('*')
-        .ilike('kod', cleanCode)
-        .maybeSingle()
+      // Sunucu tarafında tek-kullanım, süre, kota ve aktiflik doğrulaması (/api/kupon-dogrula)
+      let token = accessTokenRef.current || ''
+      if (!token) {
+        const { data: sessData } = await supabase.auth.getSession()
+        token = sessData?.session?.access_token || ''
+      }
 
-      if (kErr || !kuponData) {
-        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" geçerli bir kupon kodu bulunamadı. Lütfen kodu kontrol edin.` })
+      const verifyRes = await fetch('/api/kupon-dogrula', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ kod: cleanCode }),
+      })
+      const verifyJson = await verifyRes.json()
+
+      if (!verifyRes.ok || !verifyJson.valid || !verifyJson.kupon) {
+        if (verifyJson.alreadyUsed) {
+          setKullanilanKuponKodlari((prev) => Array.from(new Set([...prev, cleanCode])))
+        }
+        setTanimlamaMesaj({
+          tip: 'hata',
+          metin: verifyJson.error || `"${cleanCode}" geçerli bir kupon kodu bulunamadı. Lütfen kodu kontrol edin.`,
+        })
         setTanimlamaLoading(false)
         return
       }
 
-      if (!kuponData.aktif) {
-        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponu şu anda aktif değildir.` })
-        setTanimlamaLoading(false)
-        return
-      }
-
-      if (kuponData.gecerlilik_tarihi && new Date(kuponData.gecerlilik_tarihi).getTime() < Date.now()) {
-        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponunun son kullanma süresi dolmuştur.` })
-        setTanimlamaLoading(false)
-        return
-      }
-
-      if (kuponData.max_kullanim && kuponData.kullanim_sayisi >= kuponData.max_kullanim) {
-        setTanimlamaMesaj({ tip: 'hata', metin: `"${cleanCode}" kuponunun toplam kullanım kotası dolmuştur.` })
-        setTanimlamaLoading(false)
-        return
-      }
+      const kuponData = verifyJson.kupon
+      const normalizedKod = String(kuponData.kod || cleanCode).trim().toUpperCase()
 
       // Başarılı: Hesaba ve localStorage'a ekle
-      const updatedSaved = Array.from(new Set([...tanimliKuponKodlari, kuponData.kod]))
+      const updatedSaved = Array.from(new Set([...tanimliKuponKodlari, normalizedKod]))
       setTanimliKuponKodlari(updatedSaved)
 
       try {
@@ -461,21 +536,34 @@ export default function HesabimPage() {
         await supabase.from('kullanici_kuponlari').insert({
           user_id: user.id,
           kupon_id: kuponData.id,
-          kupon_kodu: kuponData.kod,
+          kupon_kodu: normalizedKod,
         })
       } catch {}
 
-      setKuponlar(prev => {
-        const exists = prev.some(k => k.id === kuponData.id)
-        const formatted = { ...kuponData, kaynak: 'tanimli' as const }
-        return exists ? prev.map(k => (k.id === kuponData.id ? formatted : k)) : [formatted, ...prev]
+      setKuponlar((prev) => {
+        const exists = prev.some((k) => k.id === kuponData.id)
+        const formatted: Kupon = {
+          id: kuponData.id,
+          kod: normalizedKod,
+          indirim_tipi: kuponData.indirim_tipi,
+          indirim_miktari: Number(kuponData.indirim_miktari),
+          min_tutar: kuponData.min_tutar ?? null,
+          gecerlilik_tarihi: kuponData.gecerlilik_tarihi ?? null,
+          aktif: true,
+          aciklama: kuponData.aciklama ?? null,
+          ozel_mi: kuponData.ozel_mi ?? false,
+          kategori: kuponData.kategori ?? null,
+          kaynak: 'tanimli',
+          kullanildi: false,
+        }
+        return exists ? prev.map((k) => (k.id === kuponData.id ? formatted : k)) : [formatted, ...prev]
       })
 
       setTanimlanacakKod('')
       const indirimStr = kuponData.indirim_tipi === 'yuzde' ? `%${kuponData.indirim_miktari}` : `${kuponData.indirim_miktari} TL`
       setTanimlamaMesaj({
         tip: 'basari',
-        metin: `🎉 Harika! "${kuponData.kod}" (${indirimStr} İndirim) hesabınıza başarıyla tanımlandı. Alışverişlerinizde hemen kullanabilirsiniz.`
+        metin: `🎉 Harika! "${normalizedKod}" (${indirimStr} İndirim) hesabınıza başarıyla tanımlandı. Alışverişlerinizde 1 kez kullanabilirsiniz.`,
       })
     } catch (err: any) {
       setTanimlamaMesaj({ tip: 'hata', metin: 'Kupon kontrol edilirken bir hata oluştu: ' + (err.message || 'Lütfen tekrar deneyin.') })
@@ -545,47 +633,110 @@ export default function HesabimPage() {
     }
   }
 
-  const handleAddAddress = async (e: React.FormEvent) => {
+  const resetAddressForm = () => {
+    setShowAddAddress(false)
+    setEditingAddressId(null)
+    setAdresBasligi('')
+    setAdresAdSoyad('')
+    setAdresTelefon('')
+    setAdresSehir('')
+    setAdresIlce('')
+    setAcikAdres('')
+  }
+
+  const openNewAddressForm = () => {
+    if (showAddAddress && !editingAddressId) {
+      resetAddressForm()
+      return
+    }
+    setEditingAddressId(null)
+    setAdresBasligi('')
+    setAdresAdSoyad(`${ad} ${soyad}`.trim())
+    setAdresTelefon(telefon || '')
+    setAdresSehir('')
+    setAdresIlce('')
+    setAcikAdres('')
+    setShowAddAddress(true)
+  }
+
+  const openEditAddressForm = (adres: Adres) => {
+    setEditingAddressId(adres.id)
+    setAdresBasligi(adres.adres_basligi || '')
+    setAdresAdSoyad(adres.ad_soyad || '')
+    setAdresTelefon(adres.telefon || '')
+    setAdresSehir(adres.sehir || '')
+    setAdresIlce(adres.ilce || '')
+    setAcikAdres(adres.acik_adres || '')
+    setShowAddAddress(true)
+  }
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
 
     setSavingAddress(true)
     try {
-      const { error } = await supabase.from('kullanici_adresleri').insert({
-        user_id: user.id,
-        adres_basligi: adresBasligi,
-        ad_soyad: adresAdSoyad,
-        telefon: adresTelefon,
-        sehir: adresSehir,
-        ilce: adresIlce,
-        acik_adres: acikAdres
-      })
+      const payload = {
+        adres_basligi: adresBasligi.trim(),
+        ad_soyad: adresAdSoyad.trim(),
+        telefon: adresTelefon.trim(),
+        sehir: adresSehir.trim(),
+        ilce: adresIlce.trim(),
+        acik_adres: acikAdres.trim(),
+      }
 
-      if (error) throw error
-      
-      setShowAddAddress(false)
-      setAdresBasligi('')
-      setAdresAdSoyad('')
-      setAdresTelefon('')
-      setAdresSehir('')
-      setAdresIlce('')
-      setAcikAdres('')
-      
-      loadUserAndData()
+      if (editingAddressId) {
+        const { data, error } = await supabase
+          .from('kullanici_adresleri')
+          .update(payload)
+          .eq('id', editingAddressId)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+
+        if (error) throw error
+        if (data) {
+          setAdresler((prev) => prev.map((a) => (a.id === editingAddressId ? data : a)))
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('kullanici_adresleri')
+          .insert({
+            user_id: user.id,
+            ...payload,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+        if (data) {
+          setAdresler((prev) => [data, ...prev])
+        }
+      }
+
+      resetAddressForm()
     } catch (err: any) {
-      alert(`Adres eklenemedi: ${err.message}`)
+      alert(`Adres kaydedilemedi: ${err.message}`)
     } finally {
       setSavingAddress(false)
     }
   }
 
   const handleDeleteAddress = async (id: string) => {
+    if (!user) return
     if (!confirm('Bu adresi silmek istediğinize emin misiniz?')) return
-    
+
     try {
-      const { error } = await supabase.from('kullanici_adresleri').delete().eq('id', id)
+      const { error } = await supabase
+        .from('kullanici_adresleri')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
       if (error) throw error
-      setAdresler(prev => prev.filter(a => a.id !== id))
+      setAdresler((prev) => prev.filter((a) => a.id !== id))
+      if (editingAddressId === id) {
+        resetAddressForm()
+      }
     } catch (err: any) {
       alert(`Adres silinemedi: ${err.message}`)
     }
@@ -612,16 +763,25 @@ export default function HesabimPage() {
     if (!iadeOrder) return
     setIadeLoading(true)
     try {
+      let token = accessTokenRef.current || ''
+      if (!token) {
+        const { data: sessData } = await supabase.auth.getSession()
+        token = sessData?.session?.access_token || ''
+      }
+
       const res = await fetch('/api/iade', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
+          siparis_id: iadeOrder.id,
           siparis_no: iadeOrder.siparis_no,
-          user_id: user?.id,
           ad_soyad: profil ? `${profil.ad} ${profil.soyad}`.trim() : (user?.user_metadata?.full_name || user?.email || 'Müşteri'),
           email: user?.email,
           telefon: profil?.telefon || '',
-          tip: iadeTip,
+          talep_tipi: iadeTip,
           sebep: iadeSebep,
           aciklama: iadeAciklama,
           iban: iadeIban,
@@ -630,7 +790,14 @@ export default function HesabimPage() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        setIadeResult(data.iade)
+        setIadeResult({
+          iade_kodu: data.iade_kodu,
+          message: data.message,
+          talep_tipi: iadeTip,
+        })
+        if (data.talep) {
+          setIadeTalepleri((prev) => [data.talep, ...prev])
+        }
       } else {
         alert(data.error || 'İade talebi oluşturulurken bir sorun oluştu.')
       }
@@ -853,6 +1020,73 @@ export default function HesabimPage() {
                           {expandedOrders.includes(s.id) && (
                             <div className="mt-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
                               
+                              {/* Canlı İade / Değişim Talep Durumu Kartı (Varsa) */}
+                              {(() => {
+                                const orderReturn = iadeTalepleri.find(
+                                  (r) => r.siparis_id === s.id || r.siparis_no === s.siparis_no
+                                )
+                                if (!orderReturn) return null
+                                const tipLabel = orderReturn.talep_tipi === 'degisim' ? 'Değişim' : 'İade'
+                                const durumLabels: Record<string, { text: string; cls: string }> = {
+                                  inceleniyor: { text: 'İnceleniyor', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+                                  onaylandi: { text: 'Onaylandı', cls: 'bg-blue-100 text-blue-800 border-blue-200' },
+                                  tamamlandi: { text: 'Tamamlandı', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+                                  reddedildi: { text: 'Reddedildi', cls: 'bg-rose-100 text-rose-800 border-rose-200' },
+                                }
+                                const stInfo = durumLabels[orderReturn.durum] || durumLabels.inceleniyor
+
+                                return (
+                                  <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <RotateCcw size={16} className="text-brand-red" />
+                                        <span className="font-display font-bold text-xs uppercase tracking-wider text-slate-800">
+                                          {tipLabel} Talebiniz ({orderReturn.iade_kodu})
+                                        </span>
+                                      </div>
+                                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${stInfo.cls}`}>
+                                        {stInfo.text}
+                                      </span>
+                                    </div>
+
+                                    {orderReturn.kargo_iade_kodu && orderReturn.durum === 'onaylandi' && (
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                          <div className="text-[11px] font-bold text-blue-900 uppercase">
+                                            {orderReturn.kargo_firmasi || 'Basit Kargo'} İade Gönderim Kodunuz:
+                                          </div>
+                                          <div className="font-mono font-black text-base text-blue-700 mt-0.5">
+                                            {orderReturn.kargo_iade_kodu}
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(orderReturn.kargo_iade_kodu)
+                                            alert('İade kargo kodu kopyalandı!')
+                                          }}
+                                          className="px-3 py-1.5 bg-white border border-blue-300 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                        >
+                                          <Copy size={12} /> Kopyala
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {!orderReturn.kargo_iade_kodu && orderReturn.durum === 'inceleniyor' && (
+                                      <p className="text-xs text-slate-500">
+                                        Talebiniz ekibimiz tarafından incelenmektedir. Onaylandığında anlaşmalı kargo gönderim kodunuz burada görüntülenecek ve e-posta ile iletilecektir.
+                                      </p>
+                                    )}
+
+                                    {orderReturn.admin_notu && (
+                                      <div className="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5">
+                                        <strong className="text-slate-900">Ekibimizin Notu:</strong> {orderReturn.admin_notu}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+
                               {/* Canlı Sipariş Zaman Çizelgesi (Timeline) */}
                               <div className="mb-6">
                                 <OrderTimeline 
@@ -1000,16 +1234,37 @@ export default function HesabimPage() {
                                     Sipariş Fişi / PDF
                                   </Link>
 
-                                  {/* İade / Değişim Talebi */}
-                                  {(s.durum === 'teslim_edildi' || s.durum === 'tamamlandi' || s.durum === 'kargolandi') && (
-                                    <button
-                                      onClick={() => openIadeModal(s)}
-                                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
-                                    >
-                                      <RotateCcw size={14} className="text-amber-600" />
-                                      İade / Değişim Talebi
-                                    </button>
-                                  )}
+                                  {/* İade / Değişim Talebi Durumu veya Başlatma Butonu */}
+                                  {(s.durum === 'teslim_edildi' || s.durum === 'tamamlandi' || s.durum === 'kargolandi') && (() => {
+                                    const activeReturn = iadeTalepleri.find(
+                                      (r) =>
+                                        (r.siparis_id === s.id || r.siparis_no === s.siparis_no) &&
+                                        r.durum !== 'reddedildi'
+                                    )
+                                    if (activeReturn) {
+                                      const statusText: Record<string, string> = {
+                                        inceleniyor: 'İnceleniyor',
+                                        onaylandi: 'Onaylandı',
+                                        tamamlandi: 'Tamamlandı',
+                                      }
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 font-display font-bold text-xs uppercase tracking-wider">
+                                          <RotateCcw size={13} />
+                                          {activeReturn.talep_tipi === 'degisim' ? 'Değişim' : 'İade'}: {statusText[activeReturn.durum] || activeReturn.durum}
+                                        </span>
+                                      )
+                                    }
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => openIadeModal(s)}
+                                        className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                                      >
+                                        <RotateCcw size={14} className="text-amber-600" />
+                                        İade / Değişim Talebi
+                                      </button>
+                                    )
+                                  })()}
 
                                   {s.kargo_takip_no && (() => {
                                     const carrierUrl = getCarrierTrackingUrl(s.kargo_firmasi, s.kargo_takip_no)
@@ -1157,18 +1412,31 @@ export default function HesabimPage() {
                     Kayıtlı Adreslerim
                   </h2>
                   <button 
-                    onClick={() => setShowAddAddress(!showAddAddress)}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand-red/10 text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-display font-bold text-sm transition-colors"
+                    type="button"
+                    onClick={openNewAddressForm}
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-red/10 text-brand-red hover:bg-brand-red hover:text-white rounded-lg font-display font-bold text-sm transition-colors cursor-pointer"
                   >
-                    {showAddAddress ? <XCircle size={16} /> : <Plus size={16} />}
-                    {showAddAddress ? 'Kapat' : 'Yeni Adres Ekle'}
+                    {showAddAddress && !editingAddressId ? <XCircle size={16} /> : <Plus size={16} />}
+                    {showAddAddress && !editingAddressId ? 'Kapat' : 'Yeni Adres Ekle'}
                   </button>
                 </div>
 
                 {showAddAddress && (
                   <div className="bg-white border border-brand-red/20 rounded-2xl p-6 md:p-8 shadow-sm mb-6 animate-in fade-in zoom-in-95 duration-200">
-                    <h3 className="font-display font-bold text-lg text-slate-800 mb-6">Yeni Adres Bilgileri</h3>
-                    <form onSubmit={handleAddAddress} className="space-y-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-display font-bold text-lg text-slate-800">
+                        {editingAddressId ? 'Adresi Düzenle' : 'Yeni Adres Bilgileri'}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={resetAddressForm}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
+                        aria-label="Formu Kapat"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <form onSubmit={handleSaveAddress} className="space-y-4">
                       
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
@@ -1225,10 +1493,17 @@ export default function HesabimPage() {
                         <textarea required rows={3} value={acikAdres} onChange={e => setAcikAdres(e.target.value)} className="input-base resize-none"></textarea>
                       </div>
 
-                      <div className="flex justify-end pt-2">
-                        <button type="submit" disabled={savingAddress} className="flex items-center gap-2 bg-brand-red text-white px-6 py-2.5 rounded-xl font-display font-bold text-sm hover:bg-brand-red/90 transition-all disabled:opacity-50">
+                      <div className="flex justify-end gap-2.5 pt-2">
+                        <button
+                          type="button"
+                          onClick={resetAddressForm}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-display font-bold text-sm transition-colors cursor-pointer"
+                        >
+                          Vazgeç
+                        </button>
+                        <button type="submit" disabled={savingAddress} className="flex items-center gap-2 bg-brand-red text-white px-6 py-2.5 rounded-xl font-display font-bold text-sm hover:bg-brand-red/90 transition-all disabled:opacity-50 cursor-pointer">
                           {savingAddress ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          Kaydet
+                          {editingAddressId ? 'Güncelle' : 'Kaydet'}
                         </button>
                       </div>
                     </form>
@@ -1250,19 +1525,30 @@ export default function HesabimPage() {
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
                     {adresler.map(adres => (
-                      <div key={adres.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:border-slate-300 transition-all relative group">
+                      <div key={adres.id} className={`bg-white border rounded-2xl p-5 shadow-sm hover:border-slate-300 transition-all relative group ${editingAddressId === adres.id ? 'border-brand-red ring-1 ring-brand-red/20' : 'border-slate-200'}`}>
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-2 text-brand-red font-display font-bold text-sm">
                             <MapPin size={16} />
                             {adres.adres_basligi}
                           </div>
-                          <button 
-                            onClick={() => handleDeleteAddress(adres.id)}
-                            className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                            title="Adresi Sil"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEditAddressForm(adres)}
+                              className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors p-1.5 cursor-pointer"
+                              title="Adresi Düzenle"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteAddress(adres.id)}
+                              className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-1.5 cursor-pointer"
+                              title="Adresi Sil"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
                         
                         <div className="space-y-1 mb-4">
@@ -1531,11 +1817,19 @@ export default function HesabimPage() {
                         return (
                           <div
                             key={kupon.id}
-                            className="bg-white border border-slate-200 hover:border-brand-red/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative group"
+                            className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all flex flex-col justify-between relative group ${
+                              kupon.kullanildi
+                                ? 'border-slate-200 opacity-75 grayscale-[25%]'
+                                : 'border-slate-200 hover:border-brand-red/40 hover:shadow-md'
+                            }`}
                           >
                             <div className="flex h-full">
                               {/* Sol Bilet Başlığı */}
-                              <div className="w-28 sm:w-32 flex-shrink-0 bg-gradient-to-b from-brand-red to-red-700 text-white p-3 sm:p-4 flex flex-col justify-center items-center text-center relative border-r border-dashed border-white/40 select-none">
+                              <div className={`w-28 sm:w-32 flex-shrink-0 text-white p-3 sm:p-4 flex flex-col justify-center items-center text-center relative border-r border-dashed border-white/40 select-none ${
+                                kupon.kullanildi
+                                  ? 'bg-gradient-to-b from-slate-500 to-slate-600'
+                                  : 'bg-gradient-to-b from-brand-red to-red-700'
+                              }`}>
                                 {/* Kupon Bilet Çentikleri (Ticket Notches) */}
                                 <div className="absolute -top-3 -right-3 w-6 h-6 bg-slate-50 rounded-full border border-slate-200 pointer-events-none" />
                                 <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-slate-50 rounded-full border border-slate-200 pointer-events-none" />
@@ -1545,7 +1839,7 @@ export default function HesabimPage() {
                                   {kupon.indirim_tipi === 'yuzde' ? `%${kupon.indirim_miktari}` : `₺${kupon.indirim_miktari}`}
                                 </div>
                                 <span className="text-[9px] font-display font-bold uppercase tracking-widest mt-1 opacity-90">
-                                  İNDİRİM
+                                  {kupon.kullanildi ? 'KULLANILDI' : 'İNDİRİM'}
                                 </span>
                               </div>
 
@@ -1553,6 +1847,11 @@ export default function HesabimPage() {
                               <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                                    {kupon.kullanildi && (
+                                      <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                        <Check size={10} /> Kullanıldı (1/1)
+                                      </span>
+                                    )}
                                     {kupon.kaynak === 'tanimli' ? (
                                       <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                                         🔒 Hesabıma Özel
@@ -1631,13 +1930,20 @@ export default function HesabimPage() {
                                     </button>
                                   </div>
 
-                                  <Link
-                                    href={`/sepet?kupon=${encodeURIComponent(kupon.kod)}`}
-                                    className="w-full py-2 px-3 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
-                                  >
-                                    <span>Sepette Kullan</span>
-                                    <ArrowRight size={13} />
-                                  </Link>
+                                  {kupon.kullanildi ? (
+                                    <div className="w-full py-2 px-3 bg-slate-100 text-slate-500 border border-slate-200 text-xs font-display font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 text-center select-none">
+                                      <CheckCircle2 size={13} />
+                                      <span>Kullanım Hakkı Doldu (1/1)</span>
+                                    </div>
+                                  ) : (
+                                    <Link
+                                      href={`/sepet?kupon=${encodeURIComponent(kupon.kod)}`}
+                                      className="w-full py-2 px-3 bg-slate-900 hover:bg-brand-red text-white text-xs font-display font-bold uppercase tracking-wider rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm text-center"
+                                    >
+                                      <span>Sepette Kullan</span>
+                                      <ArrowRight size={13} />
+                                    </Link>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1727,45 +2033,40 @@ export default function HesabimPage() {
                 <div>
                   <h4 className="font-display font-black text-xl text-slate-800">Talebiniz Alındı!</h4>
                   <p className="text-xs text-slate-500 font-body mt-1">
-                    İade/değişim kaydınız başarıyla oluşturuldu.
+                    {iadeResult.talep_tipi === 'degisim' ? 'Değişim' : 'İade'} başvurunuz ekibimize başarıyla iletildi.
                   </p>
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left space-y-2">
-                  <div className="font-display font-bold text-xs uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    <Truck size={14} /> Ücretsiz Yurtiçi Kargo Gönderim Kodu
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-2">
+                  <div className="font-display font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <RotateCcw size={14} className="text-brand-red" /> Talep Takip Kodunuz
                   </div>
-                  <div className="flex items-center justify-between bg-white border border-amber-300 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between bg-white border border-slate-300 rounded-lg px-3 py-2">
                     <span className="font-mono font-black text-base text-brand-red">
-                      {iadeResult.kargo_kodu || '452918231'}
+                      {iadeResult.iade_kodu}
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(iadeResult.kargo_kodu || '452918231')
-                        alert('Kargo kodu kopyalandı!')
+                        navigator.clipboard.writeText(iadeResult.iade_kodu || '')
+                        alert('Takip kodu kopyalandı!')
                       }}
-                      className="text-xs font-display font-bold text-slate-600 hover:text-brand-red flex items-center gap-1"
+                      className="text-xs font-display font-bold text-slate-600 hover:text-brand-red flex items-center gap-1 cursor-pointer"
                     >
                       <Copy size={12} /> Kopyala
                     </button>
                   </div>
-                  <p className="text-[11px] text-amber-800 font-body leading-relaxed">
-                    En yakın Yurtiçi Kargo şubesine giderek yukarıdaki anlaşma kodunu vermeniz yeterlidir. Kargo ücreti tarafımızca karşılanmaktadır.
+                  <p className="text-[11px] text-slate-600 font-body leading-relaxed">
+                    Ekibimiz talebinizi inceleyip onayladıktan sonra anlaşmalı kargo gönderim kodunuz (<strong>Basit Kargo</strong>) hem <strong>Hesabım &rarr; Siparişlerim</strong> ekranında hem de e-posta adresinizde paylaşılacaktır.
                   </p>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left">
-                  <div className="text-[11px] text-slate-500 font-medium">Takip Numarası:</div>
-                  <div className="font-mono font-bold text-xs text-slate-800">{iadeResult.takip_kodu}</div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setIadeModalOpen(false)}
-                  className="w-full btn-primary text-xs py-3 rounded-xl font-display font-bold uppercase tracking-wider"
+                  className="w-full btn-primary text-xs py-3 rounded-xl font-display font-bold uppercase tracking-wider cursor-pointer"
                 >
-                  Kapat
+                  Tamam, Kapat
                 </button>
               </div>
             ) : (

@@ -149,7 +149,7 @@ export default function ProductReviews({ urun_id, initialReviews }: Props) {
     try {
       const { data, error } = await supabase
         .from('urun_yorumlari')
-        .select('id, urun_id, puan, yorum, ad_soyad, fotograflar, created_at, user_id, onaylandi')
+        .select('id, urun_id, puan, yorum, ad_soyad, created_at, user_id, onaylandi')
         .eq('urun_id', urun_id)
         .eq('onaylandi', true)
         .order('created_at', { ascending: false })
@@ -232,10 +232,14 @@ export default function ProductReviews({ urun_id, initialReviews }: Props) {
 
       // 1. Fotoğrafları doğrudan Supabase Storage'a yükle
       if (selectedPhotos.length > 0) {
+        const accessToken = session?.access_token || ''
         for (const item of selectedPhotos) {
           const signRes = await fetch('/api/reviews/upload-url', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
             body: JSON.stringify({ filename: item.file.name, contentType: 'image/webp' }),
           })
 

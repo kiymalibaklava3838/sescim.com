@@ -150,7 +150,11 @@ export default function SepetPage() {
         }
 
         // Adresleri Çek
-        const { data: adrs } = await supabase.from('kullanici_adresleri').select('*').eq('user_id', currentUser.id)
+        const { data: adrs } = await supabase
+          .from('kullanici_adresleri')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })
         if (adrs && adrs.length > 0) {
           setAdresler(adrs)
         }
@@ -966,6 +970,8 @@ export default function SepetPage() {
                                 type="button"
                                 onClick={() => {
                                   setSeciliAdresId(a.id)
+                                  if (a.ad_soyad) setAdSoyad(a.ad_soyad)
+                                  if (a.telefon) setTelefon(a.telefon)
                                   setSehir(a.sehir || '')
                                   setIlce(a.ilce || '')
                                   setAcikAdresDetay(a.acik_adres || '')

@@ -27,8 +27,10 @@ import {
   Sparkles,
   Tag
 } from 'lucide-react'
-import { PARA_BIRIMLERI, DEFAULT_KUR, type KurData } from '@/lib/kur'
+import { PARA_BIRIMLERI, DEFAULT_KUR, dovizToTL, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
+import { resolveStock } from '@/lib/product-stock'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { createAkdagBrowserClient } from '@/lib/supabase-akdag'
 import { createClient } from '@/lib/supabase'
 import {
@@ -668,6 +670,7 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   }
 
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -679,31 +682,74 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const workbook = XLSX.read(data, { type: 'array' })
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
       const jsonData = XLSX.utils.sheet_to_json<any>(worksheet)
+
+      const parseOptNum = (val: any): number | null => {
+        if (val === undefined || val === null || val === '' || val === '-') return null
+        const n = parseFloat(String(val).replace(',', '.'))
+        return Number.isFinite(n) ? n : null
+      }
+
+      const sescimPricingUpserts: any[] = []
       const upsertData = jsonData
-        .map(row => ({
-          ...(row['ID'] || row['ID (SİSTEM)'] ? { id: row['ID'] || row['ID (SİSTEM)'] } : {}),
-          ad: row['ÜRÜN ADI'] || row['Ürün Adı'],
-          kategori: row['KATEGORİ'] || row['Kategori'],
-          marka: (row['MARKA'] || row['Marka']) !== '-' ? row['MARKA'] || row['Marka'] : null,
-          model_kodu: row['STOK KODU'] || row['Stok Kodu'] || row['MODEL KODU'] || null,
-          fiyat: parseFloat(row['FİYAT'] || row['Fiyat']) || 0,
-          para_birimi: row['PARA BİRİMİ'] || row['Para Birimi'] || 'TRY',
-          bayi_fiyati: parseFloat(row['BAYİ FİYATI'] || row['Bayi Fiyatı']) || null,
-          bayi_para_birimi: row['BAYİ PARA BİRİMİ'] || row['Bayi Para Birimi'] || 'TRY',
-          stok_adedi: parseInt(row['STOK ADEDİ'] || row['Stok Adedi']) || 0,
-          stok_durumu:
-            (row['STOK DURUMU'] || row['Stok Durumu']) === 'Stokta'
+        .map(row => {
+          const id = row['ID'] || row['ID (SİSTEM)']
+          const rawStokDurum = String(row['STOK DURUMU'] || row['Stok Durumu'] || '').trim()
+          const stokDurumNorm =
+            rawStokDurum === 'Stokta' || rawStokDurum === 'Kritik Stok'
               ? 'stokta'
-              : (row['STOK DURUMU'] || row['Stok Durumu']) === 'Tükendi'
+              : rawStokDurum === 'Tükendi'
               ? 'tukendi'
-              : 'siparise_gore',
-          fiyat_guncelleme: new Date().toISOString(),
-        }))
+              : 'siparise_gore'
+
+          const sescimFiyat = parseOptNum(row['SESCİM ÖZEL FİYATI'])
+          const sescimIndirimli = parseOptNum(row['SESCİM İNDİRİMLİ FİYAT'])
+          const rawYayin = row['SESCİM YAYIN DURUMU']
+          const rawFiyatSor = row['FİYAT SORUNUZ']
+
+          if (
+            id &&
+            (sescimFiyat !== null ||
+              sescimIndirimli !== null ||
+              rawYayin !== undefined ||
+              rawFiyatSor !== undefined)
+          ) {
+            sescimPricingUpserts.push({
+              urun_id: id,
+              ...(sescimFiyat !== null ? { sescim_fiyat: sescimFiyat } : {}),
+              ...(sescimIndirimli !== null ? { sescim_indirimli_fiyat: sescimIndirimli } : {}),
+              ...(rawYayin !== undefined ? { sescim_aktif: String(rawYayin).trim() !== 'Gizli' } : {}),
+              ...(rawFiyatSor !== undefined ? { fiyat_sorunuz: String(rawFiyatSor).trim() === 'Evet' } : {}),
+              updated_at: new Date().toISOString(),
+            })
+          }
+
+          return {
+            ...(id ? { id } : {}),
+            ad: row['ÜRÜN ADI'] || row['Ürün Adı'],
+            kategori: row['KATEGORİ'] || row['Kategori'],
+            marka: (row['MARKA'] || row['Marka']) !== '-' ? row['MARKA'] || row['Marka'] : null,
+            model_kodu: (row['STOK KODU'] || row['Stok Kodu'] || row['MODEL KODU']) !== '-'
+              ? row['STOK KODU'] || row['Stok Kodu'] || row['MODEL KODU'] || null
+              : null,
+            fiyat: parseOptNum(row['LİSTE FİYATI'] ?? row['FİYAT'] ?? row['Fiyat']) ?? 0,
+            para_birimi: row['PARA BİRİMİ'] || row['Para Birimi'] || 'TRY',
+            stok_adedi: parseInt(row['STOK ADEDİ'] || row['Stok Adedi']) || 0,
+            stok_durumu: stokDurumNorm,
+            fiyat_guncelleme: new Date().toISOString(),
+          }
+        })
         .filter(item => item.ad && item.kategori)
+
       if (upsertData.length > 0) {
-        const supabase = createAkdagBrowserClient()
-        const { error } = await supabase.from('urunler').upsert(upsertData, { onConflict: 'id' })
+        const akdagDb = createAkdagBrowserClient()
+        const { error } = await akdagDb.from('urunler').upsert(upsertData, { onConflict: 'id' })
         if (error) throw error
+
+        if (sescimPricingUpserts.length > 0) {
+          const sescimDb = createClient()
+          await sescimDb.from('sescim_fiyatlar').upsert(sescimPricingUpserts, { onConflict: 'urun_id' })
+        }
+
         alert(`${upsertData.length} ürün başarıyla güncellendi/eklendi!`)
         loadProducts()
       }
@@ -716,51 +762,174 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
   }
 
   const exportToExcel = async () => {
-    const supabase = createAkdagBrowserClient()
-    const { data: allProducts } = await supabase
-      .from('urunler')
-      .select(
-        'id, model_kodu, ad, kategori, marka, fiyat, para_birimi, bayi_fiyati, bayi_para_birimi, stok_adedi, stok_durumu, fiyat_guncelleme'
-      )
-      .order('ad')
-    if (!allProducts) return
+    setExporting(true)
+    try {
+      const akdagDb = createAkdagBrowserClient()
+      const sescimDb = createClient()
+      const nowIso = new Date().toISOString()
 
-    const XLSX = await import('xlsx')
+      const [akdagRes, sfRes, flasRes, liveKur] = await Promise.all([
+        akdagDb
+          .from('urunler')
+          .select('id, slug, model_kodu, ad, kategori, alt_kategori, marka, fiyat, indirimli_fiyat, para_birimi, stok_adedi, kritik_stok, stok_durumu, fiyat_guncelleme')
+          .order('ad'),
+        sescimDb
+          .from('sescim_fiyatlar')
+          .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, fiyat_sorunuz, sescim_stok, sescim_stok_durumu, updated_at'),
+        sescimDb
+          .from('flas_indirimler')
+          .select('urun_id, indirimli_fiyat, fiyat_para_birimi')
+          .eq('aktif', true)
+          .gt('bitis_tarihi', nowIso)
+          .lte('baslangic_tarihi', nowIso),
+        getKurClient().catch(() => DEFAULT_KUR),
+      ])
 
-    const dataToExport = (allProducts || []).map((p: any) => ({
-      'STOK KODU': p.model_kodu || '-',
-      'ÜRÜN ADI': p.ad,
-      'KATEGORİ': p.kategori,
-      'MARKA': p.marka || '-',
-      'FİYAT': p.fiyat || 0,
-      'PARA BİRİMİ': p.para_birimi || 'TRY',
-      'BAYİ FİYATI': p.bayi_fiyati || 0,
-      'BAYİ PARA BİRİMİ': p.bayi_para_birimi || 'TRY',
-      'STOK ADEDİ': p.stok_adedi || 0,
-      'STOK DURUMU':
-        p.stok_durumu === 'stokta' ? 'Stokta' : p.stok_durumu === 'tukendi' ? 'Tükendi' : 'Siparişe Göre',
-      'SON GÜNCELLEME': p.fiyat_guncelleme ? new Date(p.fiyat_guncelleme).toLocaleDateString('tr-TR') : '-',
-      'ID (SİSTEM)': p.id,
-    }))
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport)
-    worksheet['!cols'] = [
-      { wch: 18 },
-      { wch: 60 },
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 18 },
-      { wch: 38 },
-    ]
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Akdağ Elektronik Ürün Listesi')
-    const dateStr = new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')
-    XLSX.writeFile(workbook, `Akdag_Elektronik_Fiyat_Listesi_${dateStr}.xlsx`)
+      const allProducts = akdagRes.data || []
+      if (allProducts.length === 0) {
+        alert('Dışa aktarılacak ürün bulunamadı.')
+        return
+      }
+
+      const sfMap = new Map<string, any>((sfRes.data || []).map((x: any) => [x.urun_id, x]))
+      const flasMap = new Map<string, any>((flasRes.data || []).map((x: any) => [x.urun_id, x]))
+
+      const XLSX = await import('xlsx')
+
+      let yayindaSayisi = 0
+      let stoktaSayisi = 0
+      let tukendiSayisi = 0
+      let indirimliSayisi = 0
+
+      const dataToExport = allProducts.map((p: any) => {
+        const sf = sfMap.get(p.id)
+        const flas = flasMap.get(p.id)
+
+        const pb = p.para_birimi || 'TRY'
+        const sescimAktif = sf ? sf.sescim_aktif !== false : true
+        const quoteOnly = isQuoteOnlyProduct({
+          marka: p.marka,
+          ad: p.ad,
+          fiyat_sorunuz: sf?.fiyat_sorunuz ?? false,
+        })
+
+        const baseRaw = Number(sf?.sescim_fiyat ?? p.fiyat ?? 0)
+        const baseTL = !quoteOnly && baseRaw > 0 ? dovizToTL(baseRaw, pb, liveKur) : 0
+
+        let indirimRaw: number | null = null
+        let indirimPB = pb
+        let indirimTipi = '-'
+
+        if (flas && flas.indirimli_fiyat !== null && flas.indirimli_fiyat !== undefined) {
+          indirimRaw = Number(flas.indirimli_fiyat)
+          indirimPB = flas.fiyat_para_birimi || 'TRY'
+          indirimTipi = 'Sescim Haftası / Flaş'
+        } else if (sf && sf.sescim_indirimli_fiyat !== null && sf.sescim_indirimli_fiyat !== undefined) {
+          indirimRaw = Number(sf.sescim_indirimli_fiyat)
+          indirimPB = pb
+          indirimTipi = 'Sescim Özel İndirim'
+        } else if (p.indirimli_fiyat !== null && p.indirimli_fiyat !== undefined && Number(p.indirimli_fiyat) > 0) {
+          indirimRaw = Number(p.indirimli_fiyat)
+          indirimPB = pb
+          indirimTipi = 'Katalog İndirimi'
+        }
+
+        const indirimTL = !quoteOnly && indirimRaw && indirimRaw > 0 ? dovizToTL(indirimRaw, indirimPB, liveKur) : null
+        const hasDiscount = indirimTL !== null && indirimTL > 0 && baseTL > 0 && indirimTL < baseTL
+        const finalSellingTL = quoteOnly ? 'Fiyat Sorunuz' : hasDiscount && indirimTL ? indirimTL : baseTL
+
+        const stockInfo = resolveStock({
+          stok_durumu: p.stok_durumu,
+          stok_adedi: p.stok_adedi,
+          kritik_stok: p.kritik_stok,
+          sescim_stok: sf?.sescim_stok ?? null,
+          sescim_stok_durumu: sf?.sescim_stok_durumu ?? null,
+        })
+
+        const stokDurumMetni = stockInfo.isTukendi
+          ? 'Tükendi'
+          : stockInfo.isSipariseGore
+          ? 'Siparişe Göre'
+          : stockInfo.isKritik
+          ? 'Kritik Stok'
+          : 'Stokta'
+
+        if (sescimAktif) yayindaSayisi++
+        if (stockInfo.isTukendi) tukendiSayisi++
+        else stoktaSayisi++
+        if (hasDiscount) indirimliSayisi++
+
+        const sonGuncelleme = sf?.updated_at || p.fiyat_guncelleme
+
+        return {
+          'STOK KODU': p.model_kodu || '-',
+          'ÜRÜN ADI': p.ad,
+          'MARKA': p.marka || '-',
+          'KATEGORİ': p.kategori || '-',
+          'ALT KATEGORİ': p.alt_kategori || '-',
+          'LİSTE FİYATI': p.fiyat || 0,
+          'SESCİM ÖZEL FİYATI': sf?.sescim_fiyat ?? '',
+          'SESCİM İNDİRİMLİ FİYAT': indirimRaw ?? '',
+          'İNDİRİM TÜRÜ': hasDiscount ? indirimTipi : '-',
+          'PARA BİRİMİ': pb,
+          'GÜNCEL SATIŞ FİYATI (TL)': finalSellingTL,
+          'SESCİM YAYIN DURUMU': sescimAktif ? 'Yayında' : 'Gizli',
+          'FİYAT SORUNUZ': quoteOnly ? 'Evet' : 'Hayır',
+          'STOK ADEDİ': stockInfo.adet ?? 0,
+          'STOK DURUMU': stokDurumMetni,
+          'ÜRÜN LİNKİ': `https://sescim.com/urun/${p.slug || p.id}`,
+          'SON GÜNCELLEME': sonGuncelleme ? new Date(sonGuncelleme).toLocaleDateString('tr-TR') : '-',
+          'ID (SİSTEM)': p.id,
+        }
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport)
+      worksheet['!cols'] = [
+        { wch: 18 }, // STOK KODU
+        { wch: 52 }, // ÜRÜN ADI
+        { wch: 16 }, // MARKA
+        { wch: 24 }, // KATEGORİ
+        { wch: 24 }, // ALT KATEGORİ
+        { wch: 14 }, // LİSTE FİYATI
+        { wch: 18 }, // SESCİM ÖZEL FİYATI
+        { wch: 20 }, // SESCİM İNDİRİMLİ FİYAT
+        { wch: 20 }, // İNDİRİM TÜRÜ
+        { wch: 12 }, // PARA BİRİMİ
+        { wch: 22 }, // GÜNCEL SATIŞ FİYATI (TL)
+        { wch: 18 }, // SESCİM YAYIN DURUMU
+        { wch: 14 }, // FİYAT SORUNUZ
+        { wch: 12 }, // STOK ADEDİ
+        { wch: 15 }, // STOK DURUMU
+        { wch: 45 }, // ÜRÜN LİNKİ
+        { wch: 16 }, // SON GÜNCELLEME
+        { wch: 38 }, // ID (SİSTEM)
+      ]
+
+      const summarySheet = XLSX.utils.json_to_sheet([
+        { 'BİLGİ': 'Platform', 'DEĞER': 'Sescim.com (B2C Ürün & Fiyat Listesi)' },
+        { 'BİLGİ': 'Oluşturma Tarihi', 'DEĞER': new Date().toLocaleString('tr-TR') },
+        { 'BİLGİ': 'Kullanılan USD Kuru', 'DEĞER': `${liveKur.USD} TL` },
+        { 'BİLGİ': 'Kullanılan EUR Kuru', 'DEĞER': `${liveKur.EUR} TL` },
+        { 'BİLGİ': 'Toplam Ürün Sayısı', 'DEĞER': allProducts.length },
+        { 'BİLGİ': 'Sescim Yayındaki Ürünler', 'DEĞER': yayindaSayisi },
+        { 'BİLGİ': 'Stokta / Siparişe Açık', 'DEĞER': stoktaSayisi },
+        { 'BİLGİ': 'Tükenen Ürünler', 'DEĞER': tukendiSayisi },
+        { 'BİLGİ': 'Aktif İndirimli Ürünler', 'DEĞER': indirimliSayisi },
+      ])
+      summarySheet['!cols'] = [{ wch: 28 }, { wch: 40 }]
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sescim Ürün Listesi')
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Özet & Kur Bilgisi')
+
+      const dateStr = new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')
+      XLSX.writeFile(workbook, `Sescim_Urun_ve_Fiyat_Listesi_${dateStr}.xlsx`)
+    } catch (err: any) {
+      console.error('Excel dışa aktarma hatası:', err)
+      alert('Excel hazırlanırken bir hata oluştu: ' + (err.message || err))
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -804,10 +973,11 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
             <button
               type="button"
               onClick={exportToExcel}
-              className="bg-white border border-slate-200 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs"
+              disabled={exporting}
+              className="bg-white border border-slate-200 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <Download size={13} className="text-emerald-600" />
-              <span>Excel&apos;e Aktar</span>
+              <span>{exporting ? 'Hazırlanıyor...' : "Excel'e Aktar"}</span>
             </button>
           </div>
         </div>

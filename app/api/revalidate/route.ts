@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { path } = body
+    const { path, tag } = body
 
     if (path) {
       try {
@@ -26,11 +26,18 @@ export async function POST(request: Request) {
       } catch {}
     }
 
-    // Ürün önbelleklerini anında temizle (Detay sayfaları vb.)
+    if (tag && typeof tag === 'string') {
+      try {
+        revalidateTag(tag)
+      } catch {}
+    }
+
+    // Ürün ve yorum önbelleklerini anında temizle (Detay sayfaları vb.)
     try {
       revalidateTag('products')
       revalidateTag('product-detail')
       revalidateTag('product-detail-slug')
+      revalidateTag('reviews')
     } catch (e) {
       console.warn('revalidateTag error:', e)
     }

@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
         indirim_tipi: kupon.indirim_tipi,
         indirim_miktari: Number(kupon.indirim_miktari),
         min_tutar: kupon.min_tutar ? Number(kupon.min_tutar) : null,
+        gecerlilik_tarihi: kupon.gecerlilik_tarihi || null,
         kategori: kupon.kategori || null,
         aciklama: kupon.aciklama || null,
         ozel_mi: kupon.ozel_mi || false,

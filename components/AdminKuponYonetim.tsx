@@ -44,7 +44,13 @@ export default function AdminKuponYonetim() {
 
   const loadKuponlar = async () => {
     setLoading(true)
-    const { data } = await supabase.from('kuponlar').select('id, kod, indirim_tipi, indirim_miktari, min_tutar, max_kullanim, kullanim_sayisi, gecerlilik_tarihi, aktif, aciklama, ozel_mi, kategori, created_at').order('created_at', { ascending: false })
+    const { data, error: loadErr } = await supabase
+      .from('kuponlar')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (loadErr) {
+      console.error('Kuponlar yüklenemedi:', loadErr)
+    }
     setKuponlar(data || [])
     setLoading(false)
   }
@@ -107,12 +113,12 @@ export default function AdminKuponYonetim() {
 
     let { error: err } = await supabase.from('kuponlar').insert(payload)
 
-    // Eğer veritabanında aciklama, ozel_mi veya kategori kolonu henüz eklenmemişse uyumlu fallback yap
-    if (err && (err.message.includes('column') || err.code === '42703')) {
-      delete payload.aciklama
-      delete payload.ozel_mi
-      delete payload.kategori
-      const res = await supabase.from('kuponlar').insert(payload)
+    // Eğer veritabanında kategori kolonu henüz eklenmemişse SADECE kategori alanını çıkarıp tekrar dene
+    // (ozel_mi ve aciklama alanları kesinlikle korunur — sponsor kuponunun herkese açık sızması önlenir!)
+    if (err && (err.message.includes('kategori') || err.code === '42703')) {
+      const retryPayload = { ...payload }
+      delete retryPayload.kategori
+      const res = await supabase.from('kuponlar').insert(retryPayload)
       err = res.error
     }
 

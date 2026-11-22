@@ -565,46 +565,127 @@ export function iadeTalebiAlindiHTML(data: {
   siparis_no: string
   ad_soyad: string
   iade_kodu: string
-  kargo_kodu: string
+  kargo_kodu?: string | null
+  kargo_firmasi?: string | null
   talep_tipi?: string
 }): string {
   const tip = data.talep_tipi === 'degisim' ? 'Değişim' : 'İade'
+  const hasShippingCode = Boolean(data.kargo_kodu && data.kargo_kodu.trim())
+  const carrierLabel = data.kargo_firmasi || 'Anlaşmalı Kargo (Basit Kargo)'
 
   return emailShell(`
     ${header(`${tip} Talebiniz Alındı 🔄`, `Sipariş No: <strong style="color:#DA291C">#${data.siparis_no}</strong>`)}
-    ${statusBadge('#3b82f6', '📦', `${tip} talebiniz işleme alınmış ve ücretsiz kargo anlaşma kodunuz oluşturulmuştur.`)}
+    ${statusBadge('#3b82f6', '📦', `${tip} talebiniz kayıt altına alınmış ve inceleme sürecine alınmıştır.`)}
 
     ${infoBox(`
       <div style="color:#ddd;font-size:14px;line-height:1.8">
         Sayın <strong style="color:#fff">${data.ad_soyad}</strong>,<br><br>
-        <strong>#${data.siparis_no}</strong> numaralı siparişiniz için oluşturduğunuz ${tip.toLowerCase()} talebi kayıt altına alınmıştır.
+        <strong>#${data.siparis_no}</strong> numaralı siparişiniz için oluşturduğunuz ${tip.toLowerCase()} talebi ekibimize iletilmiştir.
       </div>
     `)}
 
     <div style="background-color:rgba(218,41,28,0.08);border:1px dashed #DA291C;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center">
       <div style="color:#a3a3a3;font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:0.1em;margin-bottom:6px">
-        Yurtiçi Kargo Ücretsiz Gönderi Anlaşma Kodunuz
+        ${hasShippingCode ? `${carrierLabel} İade Gönderim Kodunuz` : 'Sescim İade / Değişim Takip Kodunuz'}
       </div>
-      <div style="color:#ffffff;font-size:26px;font-weight:900;letter-spacing:2px;font-family:monospace;margin:6px 0">
-        ${data.kargo_kodu}
+      <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;font-family:monospace;margin:6px 0">
+        ${hasShippingCode ? data.kargo_kodu : data.iade_kodu}
       </div>
       <div style="color:#888;font-size:12px">
-        Sescim İade Takip No: <strong style="color:#DA291C">${data.iade_kodu}</strong>
+        ${hasShippingCode
+          ? `Talep Takip No: <strong style="color:#DA291C">${data.iade_kodu}</strong>`
+          : `Durum: <strong style="color:#f59e0b">İnceleniyor</strong> — Onay sonrası anlaşmalı kargo gönderim kodunuz Hesabım sayfanızda paylaşılacaktır.`}
       </div>
     </div>
 
     ${infoBox(`
-      ${label('Kargo Teslimat Adımları')}
+      ${label('Süreç Nasıl İşler?')}
       <ol style="margin:0;padding-left:20px;color:#ccc;font-size:13px;line-height:1.8">
-        <li>Ürünü orijinal ambalajı, kutusu, aksesuarları ve faturasıyla birlikte güvenli şekilde paketleyin.</li>
-        <li>Size en yakın <strong style="color:#fff">Yurtiçi Kargo</strong> şubesine gidin.</li>
-        <li>Görevliye yukarıdaki <strong style="color:#DA291C">${data.kargo_kodu}</strong> nolu Sescim anlaşma kodunu belirtin.</li>
-        <li>Kargo görevlisine herhangi bir ücret ödemeden paketinizi teslim edin.</li>
+        <li>Talebiniz destek ekibimiz tarafından en kısa sürede incelenerek onaylanır.</li>
+        <li>Onay sonrası anlaşmalı kargo gönderim kodunuz <strong style="color:#fff">Hesabım &rarr; Siparişlerim</strong> ekranında ve e-posta/WhatsApp üzerinden paylaşılır.</li>
+        <li>Ürünü orijinal ambalajı, kutusu, aksesuarları ve faturasıyla birlikte güvenli şekilde paketleyip kodla birlikte teslim edebilirsiniz.</li>
+        <li>Ürün depomuza ulaştığında kontrolü tamamlanır ve ücret iadesi / ürün değişimi gerçekleştirilir.</li>
       </ol>
     `)}
 
     <div style="color:#737373;font-size:11px;line-height:1.6;text-align:center">
-      Ürün depomuza ulaştığında teknik kontrolü sağlanır ve 2 iş günü içerisinde ücret iadesi / ürün değişimi tamamlanır.
+      Hızlı destek için <strong style="color:#ccc">0850 305 38 70</strong> numaralı WhatsApp hattımızdan bize ulaşabilirsiniz.
+    </div>
+  `)
+}
+
+export function iadeDurumGuncellendiHTML(data: {
+  siparis_no: string
+  ad_soyad: string
+  iade_kodu: string
+  durum: 'inceleniyor' | 'onaylandi' | 'reddedildi' | 'tamamlandi'
+  talep_tipi?: string
+  kargo_kodu?: string | null
+  kargo_firmasi?: string | null
+  admin_notu?: string | null
+}): string {
+  const tip = data.talep_tipi === 'degisim' ? 'Değişim' : 'İade'
+  const statusMap: Record<string, { title: string; color: string; icon: string; desc: string }> = {
+    onaylandi: {
+      title: `${tip} Talebiniz Onaylandı`,
+      color: '#2563eb',
+      icon: '✅',
+      desc: `${tip} talebiniz onaylanmıştır. Aşağıdaki bilgiler doğrultusunda gönderinizi gerçekleştirebilirsiniz.`,
+    },
+    tamamlandi: {
+      title: `${tip} Süreciniz Tamamlandı`,
+      color: '#10b981',
+      icon: '🎉',
+      desc: `${tip} işleminiz başarıyla tamamlanmıştır.`,
+    },
+    reddedildi: {
+      title: `${tip} Talebiniz Hakkında Bilgilendirme`,
+      color: '#ef4444',
+      icon: 'ℹ️',
+      desc: `${tip} talebiniz incelenmiş olup aşağıdaki gerekçe ile onaylanamamıştır.`,
+    },
+    inceleniyor: {
+      title: `${tip} Talebiniz İnceleniyor`,
+      color: '#f59e0b',
+      icon: '⏳',
+      desc: `${tip} talebiniz inceleme aşamasındadır.`,
+    },
+  }
+  const st = statusMap[data.durum] || statusMap.inceleniyor
+  const hasCode = Boolean(data.kargo_kodu && data.kargo_kodu.trim())
+
+  return emailShell(`
+    ${header(st.title, `Sipariş No: <strong style="color:#DA291C">#${data.siparis_no}</strong> | Talep: ${data.iade_kodu}`)}
+    ${statusBadge(st.color, st.icon, st.desc)}
+
+    ${infoBox(`
+      <div style="color:#ddd;font-size:14px;line-height:1.8">
+        Sayın <strong style="color:#fff">${data.ad_soyad}</strong>,<br><br>
+        <strong>#${data.siparis_no}</strong> numaralı siparişinize ait <strong>${data.iade_kodu}</strong> kodlu ${tip.toLowerCase()} talebinizin durumu güncellenmiştir.
+      </div>
+    `)}
+
+    ${hasCode && data.durum === 'onaylandi' ? `
+      <div style="background-color:rgba(37,99,235,0.1);border:1px dashed #3b82f6;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center">
+        <div style="color:#93c5fd;font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:0.1em;margin-bottom:6px">
+          ${data.kargo_firmasi || 'Anlaşmalı Kargo'} Gönderim Kodunuz
+        </div>
+        <div style="color:#ffffff;font-size:26px;font-weight:900;letter-spacing:2px;font-family:monospace;margin:6px 0">
+          ${data.kargo_kodu}
+        </div>
+        <div style="color:#cbd5e1;font-size:12px">
+          Paketinizi bu gönderim koduyla anlaşmalı kargo şubesine ücretsiz teslim edebilirsiniz.
+        </div>
+      </div>
+    ` : ''}
+
+    ${data.admin_notu ? infoBox(`
+      ${label('Ekibimizin Notu')}
+      <div style="color:#e5e5e5;font-size:13px;line-height:1.7">${data.admin_notu}</div>
+    `) : ''}
+
+    <div style="color:#737373;font-size:11px;line-height:1.6;text-align:center">
+      Güncel durumunuzu dilediğiniz zaman <strong style="color:#fff">sescim.com/hesabim</strong> sayfasından takip edebilirsiniz.
     </div>
   `)
 }

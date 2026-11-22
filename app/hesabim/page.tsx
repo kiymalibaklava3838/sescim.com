@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { BANK_ACCOUNTS } from '@/lib/bank-accounts'
-import KargoTakip from '@/components/KargoTakip'
+import { getCarrierTrackingUrl } from '@/lib/shipping'
 import Link from 'next/link'
 import SafeProductImage from '@/components/SafeProductImage'
 import { Package, Truck, Clock, CheckCircle, XCircle, LogOut, Upload, Check, Loader2, FileText, User as UserIcon, Phone, MapPin, Save, RefreshCw, Info, ExternalLink, Map as MapIcon, Plus, Trash2, Star, Ticket, Copy, MessageSquare, Sparkles, ArrowRight, Tag, Gift, AlertCircle, ShoppingBag, RotateCcw, CheckCircle2, X } from 'lucide-react'
@@ -89,18 +89,6 @@ const DURUM_MAP: Record<string, { label: string, color: string, bg: string, bord
   tamamlandi:    { label: 'Tamamlandı',     color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle },
 }
 
-const getKargoLink = (firma?: string, no?: string) => {
-  if (!no) return '#'
-  const f = firma?.toLowerCase() || ''
-  if (f.includes('hepsijet')) return `https://www.hepsijet.com/gonderi-takibi/${no}`
-  if (f.includes('yurtiçi') || f.includes('yurtici')) return `https://yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=${no}`
-  if (f.includes('aras')) return `https://www.araskargo.com.tr/kargo-takip?KargoTakipNo=${no}`
-  if (f.includes('mng')) return `https://kargotakip.mngkargo.com.tr/?takipNo=${no}`
-  if (f.includes('sürat') || f.includes('surat')) return `https://suratkargo.com.tr/KargoTakip/?kargotakipno=${no}`
-  if (f.includes('ptt')) return `https://gonderitakip.ptt.gov.tr/Track/Verify?q=${no}`
-  return '#'
-}
-
 export default function HesabimPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -112,6 +100,7 @@ export default function HesabimPage() {
   const [kuponlar, setKuponlar] = useState<Kupon[]>([])
   const [activeTab, setActiveTab] = useState<'siparisler' | 'profil' | 'adresler' | 'degerlendirmeler' | 'kuponlar'>('siparisler')
   const [expandedOrders, setExpandedOrders] = useState<string[]>([])
+  const [autoOpenCargoIds, setAutoOpenCargoIds] = useState<string[]>([])
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null)
   
@@ -840,23 +829,21 @@ export default function HesabimPage() {
                               </button>
                               
                               {(s.durum === 'kargolandi' || s.durum === 'teslim_edildi') && s.kargo_takip_no && (
-                                <div className="mt-1">
-                                  <button 
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      const el = document.getElementById(`kargo-takip-${s.id}`)
-                                      if (el) {
-                                        el.classList.toggle('hidden')
-                                      }
-                                    }}
-                                    className="text-xs font-display font-bold text-brand-red hover:bg-brand-red hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-brand-red/5 rounded-lg border border-brand-red/20 w-full justify-center"
-                                  >
-                                    <Truck size={14} /> Kargo Hareketleri
-                                  </button>
-                                  <div id={`kargo-takip-${s.id}`} className="hidden">
-                                    <KargoTakip firma={s.kargo_firmasi || 'Bilinmiyor'} takipNo={s.kargo_takip_no} />
-                                  </div>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    if (!expandedOrders.includes(s.id)) {
+                                      setExpandedOrders((prev) => [...prev, s.id])
+                                    }
+                                    if (!autoOpenCargoIds.includes(s.id)) {
+                                      setAutoOpenCargoIds((prev) => [...prev, s.id])
+                                    }
+                                  }}
+                                  className="text-xs font-display font-bold text-brand-red hover:bg-brand-red hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-brand-red/5 rounded-lg border border-brand-red/20 w-full justify-center cursor-pointer"
+                                >
+                                  <Truck size={14} /> Canlı Kargo Takibi
+                                </button>
                               )}
                             </div>
 
@@ -872,7 +859,15 @@ export default function HesabimPage() {
                                   durum={s.durum} 
                                   kargoTakipNo={s.kargo_takip_no} 
                                   kargoFirmasi={s.kargo_firmasi} 
-                                  createdAt={s.created_at} 
+                                  createdAt={s.created_at}
+                                  defaultOpenMovements={autoOpenCargoIds.includes(s.id)}
+                                  onStatusSync={(newStatus) => {
+                                    setSiparisler((prev) =>
+                                      prev.map((item) =>
+                                        item.id === s.id ? { ...item, durum: newStatus } : item
+                                      )
+                                    )
+                                  }}
                                 />
                               </div>
 
@@ -1016,18 +1011,21 @@ export default function HesabimPage() {
                                     </button>
                                   )}
 
-                                  {s.kargo_takip_no && (
-                                    <a
-                                      href={`https://www.google.com/search?q=${encodeURIComponent(s.kargo_takip_no + ' kargo takip sorgula')}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center justify-center gap-2 text-slate-700 text-xs font-display font-bold uppercase tracking-wider bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-                                    >
-                                      <Truck size={14} className="text-slate-400" />
-                                      Kargo Takip
-                                      <ExternalLink size={12} className="text-slate-400" />
-                                    </a>
-                                  )}
+                                  {s.kargo_takip_no && (() => {
+                                    const carrierUrl = getCarrierTrackingUrl(s.kargo_firmasi, s.kargo_takip_no)
+                                    return carrierUrl ? (
+                                      <a
+                                        href={carrierUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center gap-2 text-slate-700 text-xs font-display font-bold uppercase tracking-wider bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-brand-red/30 hover:text-brand-red transition-all shadow-sm"
+                                      >
+                                        <Truck size={14} className="text-brand-red" />
+                                        {s.kargo_firmasi ? `${s.kargo_firmasi} Takip` : 'Resmi Kargo Takip'}
+                                        <ExternalLink size={12} className="text-slate-400" />
+                                      </a>
+                                    ) : null
+                                  })()}
                                 </div>
                               </div>
 

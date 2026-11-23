@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { sendEmail } from '@/lib/send-email'
 import { iadeTalebiAlindiHTML, iadeDurumGuncellendiHTML } from '@/lib/email'
+import { updateOrderStatus } from '@/lib/order-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export interface NormalizedReturnRequest {
   siparis_id: string
   siparis_no: string
   user_id: string | null
-  talep_tipi: 'iade' | 'degisim'
+  talep_tipi: 'iade' | 'degisim' | 'iptal'
   iade_kodu: string
   kargo_iade_kodu: string
   kargo_firmasi: string
@@ -38,6 +39,12 @@ export interface NormalizedReturnRequest {
   telefon: string
   created_at: string
   updated_at?: string
+  odeme_tipi?: string
+  odeme_durumu?: string
+  toplam_tutar?: number
+  siparis_durumu?: string
+  paytr_iade_ref?: string
+  iade_edilen_tutar?: number
 }
 
 async function getAuthenticatedUser(req: NextRequest) {
@@ -85,7 +92,12 @@ function parseDestekRow(row: any): NormalizedReturnRequest {
       siparis_id: meta.siparis_id || '',
       siparis_no: meta.siparis_no || '',
       user_id: row.user_id || meta.user_id || null,
-      talep_tipi: meta.talep_tipi === 'degisim' ? 'degisim' : 'iade',
+      talep_tipi:
+        meta.talep_tipi === 'degisim'
+          ? 'degisim'
+          : meta.talep_tipi === 'iptal'
+          ? 'iptal'
+          : 'iade',
       iade_kodu: meta.iade_kodu || `SES-IADE-${String(row.id).slice(0, 6).toUpperCase()}`,
       kargo_iade_kodu: meta.kargo_iade_kodu || '',
       kargo_firmasi: meta.kargo_firmasi || 'Basit Kargo',
@@ -100,6 +112,8 @@ function parseDestekRow(row: any): NormalizedReturnRequest {
       telefon: row.telefon || meta.telefon || '',
       created_at: row.created_at,
       updated_at: meta.updated_at || row.created_at,
+      paytr_iade_ref: meta.paytr_iade_ref || undefined,
+      iade_edilen_tutar: meta.iade_edilen_tutar || undefined,
     }
   }
 
@@ -107,6 +121,7 @@ function parseDestekRow(row: any): NormalizedReturnRequest {
   const konu = String(row.konu || '')
   const mesaj = String(row.mesaj || '')
   const isDegisim = konu.toUpperCase().includes('[DEGISIM]')
+  const isIptal = konu.toUpperCase().includes('[IPTAL]')
   const siparisMatch = konu.match(/#([^\s(]+)/)
   const kodMatch = konu.match(/\((SES-IADE-[^)]+)\)/) || mesaj.match(/İade Kodu:\s*([^\n]+)/)
   const sebepMatch = mesaj.match(/Sebep:\s*([^\n]+)/)
@@ -127,7 +142,7 @@ function parseDestekRow(row: any): NormalizedReturnRequest {
     siparis_id: '',
     siparis_no: siparisMatch ? siparisMatch[1].trim() : '',
     user_id: row.user_id || null,
-    talep_tipi: isDegisim ? 'degisim' : 'iade',
+    talep_tipi: isDegisim ? 'degisim' : isIptal ? 'iptal' : 'iade',
     iade_kodu: kodMatch ? kodMatch[1].trim() : `SES-IADE-${String(row.id).slice(0, 6).toUpperCase()}`,
     kargo_iade_kodu: '',
     kargo_firmasi: 'Basit Kargo',
@@ -182,7 +197,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lütfen iade/değişim sebebini belirtin.' }, { status: 400 })
     }
 
-    const cleanTip: 'iade' | 'degisim' = talep_tipi === 'degisim' ? 'degisim' : 'iade'
     const db = supabaseAdmin()
 
     // 2. Siparişi Doğrula ve Sahiplik (IDOR) Kontrolü Yap
@@ -201,23 +215,33 @@ export async function POST(req: NextRequest) {
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json(
-        { error: 'Bu sipariş için iade/değişim talebi oluşturma yetkiniz bulunmuyor.' },
+        { error: 'Bu sipariş için iptal/iade talebi oluşturma yetkiniz bulunmuyor.' },
         { status: 403 }
       )
     }
 
-    if (!['kargolandi', 'teslim_edildi', 'tamamlandi'].includes(order.durum)) {
+    const isPreShipment = ['beklemede', 'onaylandi', 'hazirlaniyor'].includes(order.durum)
+    const isPostShipment = ['kargolandi', 'teslim_edildi', 'tamamlandi'].includes(order.durum)
+
+    if (!isPreShipment && !isPostShipment) {
       return NextResponse.json(
-        { error: 'Yalnızca kargolanmış veya teslim edilmiş siparişler için iade/değişim talebi açılabilir.' },
+        { error: 'Bu durumdaki sipariş için iptal veya iade talebi oluşturulamaz.' },
         { status: 400 }
       )
     }
+
+    // Kargolanmamış siparişlerde talep tipi her zaman 'iptal' (iptal & para iadesi) olur
+    const cleanTip: 'iade' | 'degisim' | 'iptal' = isPreShipment
+      ? 'iptal'
+      : talep_tipi === 'degisim'
+      ? 'degisim'
+      : 'iade'
 
     // 3. Mükerrer Aktif Talep Kontrolü
     const { data: existingRows } = await db
       .from('destek_talepleri')
       .select('*')
-      .or('konu.ilike.%[IADE]%,konu.ilike.%[DEGISIM]%')
+      .or('konu.ilike.%[IADE]%,konu.ilike.%[DEGISIM]%,konu.ilike.%[IPTAL]%')
       .eq('user_id', user.id)
 
     const existingForOrder = (existingRows || [])
@@ -229,18 +253,26 @@ export async function POST(req: NextRequest) {
       )
 
     if (existingForOrder) {
+      const exLabel =
+        existingForOrder.talep_tipi === 'degisim'
+          ? 'değişim'
+          : existingForOrder.talep_tipi === 'iptal'
+          ? 'iptal'
+          : 'iade'
       return NextResponse.json(
         {
-          error: `Bu sipariş için zaten aktif bir ${existingForOrder.talep_tipi === 'degisim' ? 'değişim' : 'iade'} talebiniz (${existingForOrder.iade_kodu}) bulunmaktadır.`,
+          error: `Bu sipariş için zaten aktif bir ${exLabel} talebiniz (${existingForOrder.iade_kodu}) bulunmaktadır.`,
           existing: existingForOrder,
         },
         { status: 409 }
       )
     }
 
-    // 4. Benzersiz İade / Değişim Takip Kodu Oluştur
+    // 4. Benzersiz İptal / İade / Değişim Takip Kodu Oluştur
     const randomSuffix = Math.floor(100000 + Math.random() * 900000)
-    const iadeKodu = `SES-${cleanTip === 'degisim' ? 'DEG' : 'IADE'}-${randomSuffix}`
+    const codePrefix = cleanTip === 'degisim' ? 'DEG' : cleanTip === 'iptal' ? 'IPT' : 'IADE'
+    const konuPrefix = cleanTip === 'degisim' ? 'DEGISIM' : cleanTip === 'iptal' ? 'IPTAL' : 'IADE'
+    const iadeKodu = `SES-${codePrefix}-${randomSuffix}`
     const nowIso = new Date().toISOString()
 
     const structuredPayload = {
@@ -251,10 +283,10 @@ export async function POST(req: NextRequest) {
       talep_tipi: cleanTip,
       iade_kodu: iadeKodu,
       kargo_iade_kodu: '',
-      kargo_firmasi: 'Basit Kargo',
+      kargo_firmasi: cleanTip === 'iptal' ? 'Kargolanmadı (İptal)' : 'Basit Kargo',
       sebep: sebep.trim(),
       aciklama: (aciklama || '').trim(),
-      iban: cleanTip === 'iade' && iban ? String(iban).trim() : null,
+      iban: (cleanTip === 'iade' || cleanTip === 'iptal') && iban ? String(iban).trim() : null,
       durum: 'inceleniyor' as ReturnStatus,
       admin_notu: '',
       urunler: Array.isArray(urunler) ? urunler : [],
@@ -272,7 +304,7 @@ export async function POST(req: NextRequest) {
           ad_soyad: structuredPayload.ad_soyad,
           email: structuredPayload.email,
           telefon: structuredPayload.telefon,
-          konu: `[${cleanTip === 'degisim' ? 'DEGISIM' : 'IADE'}] Sipariş #${order.siparis_no} (${iadeKodu})`,
+          konu: `[${konuPrefix}] Sipariş #${order.siparis_no} (${iadeKodu})`,
           mesaj: JSON.stringify(structuredPayload),
           durum: 'inceleniyor',
           created_at: nowIso,
@@ -289,7 +321,7 @@ export async function POST(req: NextRequest) {
     const normalized = parseDestekRow(insertedRow)
 
     // 5. Müşteriye ve Mağaza Adminine Bilgilendirme E-postası Gönder
-    const tipLabel = cleanTip === 'degisim' ? 'Değişim' : 'İade'
+    const tipLabel = cleanTip === 'degisim' ? 'Değişim' : cleanTip === 'iptal' ? 'Sipariş İptal & İade' : 'İade'
     try {
       if (structuredPayload.email) {
         await sendEmail(
@@ -358,7 +390,7 @@ export async function GET(req: NextRequest) {
     let query = db
       .from('destek_talepleri')
       .select('*')
-      .or('konu.ilike.%[IADE]%,konu.ilike.%[DEGISIM]%')
+      .or('konu.ilike.%[IADE]%,konu.ilike.%[DEGISIM]%,konu.ilike.%[IPTAL]%')
       .order('created_at', { ascending: false })
 
     // Normal üye SADECE kendi taleplerini görebilir (IDOR koruması)
@@ -377,6 +409,28 @@ export async function GET(req: NextRequest) {
       list = list.filter((item) => item.siparis_id === siparisId)
     }
 
+    // Sipariş ödeme bilgilerini (odeme_tipi, odeme_durumu, toplam_tutar) ekle (PayTR iade butonu için)
+    const orderNos = Array.from(new Set(list.map((i) => i.siparis_no).filter(Boolean)))
+    if (orderNos.length > 0) {
+      const { data: orderRows } = await db
+        .from('siparisler')
+        .select('id, siparis_no, durum, odeme_tipi, odeme_durumu, toplam_tutar')
+        .in('siparis_no', orderNos)
+      const orderByNo = new Map<string, any>((orderRows || []).map((o: any) => [o.siparis_no, o]))
+      list = list.map((item) => {
+        const ord = orderByNo.get(item.siparis_no)
+        if (!ord) return item
+        return {
+          ...item,
+          siparis_id: item.siparis_id || ord.id,
+          odeme_tipi: ord.odeme_tipi,
+          odeme_durumu: ord.odeme_durumu,
+          toplam_tutar: Number(ord.toplam_tutar || 0),
+          siparis_durumu: ord.durum,
+        }
+      })
+    }
+
     return NextResponse.json(list)
   } catch (error: any) {
     console.error('[api/iade] GET beklenmeyen hata:', error)
@@ -392,7 +446,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}))
-    const { id, durum, admin_notu, kargo_iade_kodu, kargo_firmasi } = body
+    const { id, durum, admin_notu, kargo_iade_kodu, kargo_firmasi, cancel_order } = body
 
     if (!id || !durum || !ALLOWED_STATUSES.includes(durum)) {
       return NextResponse.json({ error: 'Geçerli ID ve durum gereklidir.' }, { status: 400 })
@@ -452,6 +506,20 @@ export async function PATCH(req: NextRequest) {
     }
 
     const normalized = parseDestekRow(updatedRow)
+
+    // İsteğe bağlı: Admin iptal/iade tamamlandığında siparişi iptal edip stok & kuponu iade edebilir
+    if (cancel_order && current.siparis_id && (durum === 'tamamlandi' || durum === 'onaylandi')) {
+      try {
+        await updateOrderStatus({
+          orderId: current.siparis_id,
+          newStatus: 'iptal',
+          auditNote: `${current.iade_kodu} talebi kapsamında sipariş iptal edilip stok ve kupon iade edildi.`,
+          updatedBy: 'admin (iade-yonetimi)',
+        })
+      } catch (cancelErr) {
+        console.warn('[api/iade] Sipariş iptal senkronizasyon uyarısı:', cancelErr)
+      }
+    }
 
     // Müşteriye durum güncelleme e-postası gönder
     try {

@@ -118,7 +118,7 @@ export default function HesabimPage() {
   const [iadeTalepleri, setIadeTalepleri] = useState<any[]>([])
   const [iadeModalOpen, setIadeModalOpen] = useState(false)
   const [iadeOrder, setIadeOrder] = useState<Siparis | null>(null)
-  const [iadeTip, setIadeTip] = useState<'iade' | 'degisim'>('iade')
+  const [iadeTip, setIadeTip] = useState<'iade' | 'degisim' | 'iptal'>('iade')
   const [iadeSebep, setIadeSebep] = useState('Ürün Arızalı / Kusurlu Çıktı')
   const [iadeAciklama, setIadeAciklama] = useState('')
   const [iadeIban, setIadeIban] = useState('')
@@ -749,9 +749,10 @@ export default function HesabimPage() {
   }
 
   const openIadeModal = (s: Siparis) => {
+    const isPreShipment = ['beklemede', 'onaylandi', 'hazirlaniyor'].includes(s.durum)
     setIadeOrder(s)
-    setIadeTip('iade')
-    setIadeSebep('Ürün Arızalı / Kusurlu Çıktı')
+    setIadeTip(isPreShipment ? 'iptal' : 'iade')
+    setIadeSebep(isPreShipment ? 'Siparişten vazgeçtim' : 'Ürün Arızalı / Kusurlu Çıktı')
     setIadeAciklama('')
     setIadeIban('')
     setIadeResult(null)
@@ -1026,7 +1027,12 @@ export default function HesabimPage() {
                                   (r) => r.siparis_id === s.id || r.siparis_no === s.siparis_no
                                 )
                                 if (!orderReturn) return null
-                                const tipLabel = orderReturn.talep_tipi === 'degisim' ? 'Değişim' : 'İade'
+                                const tipLabel =
+                                  orderReturn.talep_tipi === 'degisim'
+                                    ? 'Değişim'
+                                    : orderReturn.talep_tipi === 'iptal'
+                                    ? 'Sipariş İptal'
+                                    : 'İade'
                                 const durumLabels: Record<string, { text: string; cls: string }> = {
                                   inceleniyor: { text: 'İnceleniyor', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
                                   onaylandi: { text: 'Onaylandı', cls: 'bg-blue-100 text-blue-800 border-blue-200' },
@@ -1234,8 +1240,8 @@ export default function HesabimPage() {
                                     Sipariş Fişi / PDF
                                   </Link>
 
-                                  {/* İade / Değişim Talebi Durumu veya Başlatma Butonu */}
-                                  {(s.durum === 'teslim_edildi' || s.durum === 'tamamlandi' || s.durum === 'kargolandi') && (() => {
+                                  {/* İptal / İade / Değişim Talebi Durumu veya Başlatma Butonu */}
+                                  {['beklemede', 'onaylandi', 'hazirlaniyor', 'kargolandi', 'teslim_edildi', 'tamamlandi'].includes(s.durum) && (() => {
                                     const activeReturn = iadeTalepleri.find(
                                       (r) =>
                                         (r.siparis_id === s.id || r.siparis_no === s.siparis_no) &&
@@ -1247,21 +1253,32 @@ export default function HesabimPage() {
                                         onaylandi: 'Onaylandı',
                                         tamamlandi: 'Tamamlandı',
                                       }
+                                      const tLabel =
+                                        activeReturn.talep_tipi === 'degisim'
+                                          ? 'Değişim'
+                                          : activeReturn.talep_tipi === 'iptal'
+                                          ? 'İptal'
+                                          : 'İade'
                                       return (
                                         <span className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 font-display font-bold text-xs uppercase tracking-wider">
                                           <RotateCcw size={13} />
-                                          {activeReturn.talep_tipi === 'degisim' ? 'Değişim' : 'İade'}: {statusText[activeReturn.durum] || activeReturn.durum}
+                                          {tLabel}: {statusText[activeReturn.durum] || activeReturn.durum}
                                         </span>
                                       )
                                     }
+                                    const isPreShip = ['beklemede', 'onaylandi', 'hazirlaniyor'].includes(s.durum)
                                     return (
                                       <button
                                         type="button"
                                         onClick={() => openIadeModal(s)}
-                                        className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                                        className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border font-display font-bold text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer ${
+                                          isPreShip
+                                            ? 'border-rose-300 bg-rose-50/80 text-rose-800 hover:bg-rose-100'
+                                            : 'border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100'
+                                        }`}
                                       >
-                                        <RotateCcw size={14} className="text-amber-600" />
-                                        İade / Değişim Talebi
+                                        <RotateCcw size={14} className={isPreShip ? 'text-rose-600' : 'text-amber-600'} />
+                                        {isPreShip ? 'Sipariş İptal / İade' : 'İade / Değişim Talebi'}
                                       </button>
                                     )
                                   })()}
@@ -2010,7 +2027,7 @@ export default function HesabimPage() {
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-slate-800 uppercase">
-                    İade &amp; Değişim Talebi
+                    {iadeTip === 'iptal' ? 'Sipariş İptal & Para İadesi' : 'İade & Değişim Talebi'}
                   </h3>
                   <p className="text-xs text-slate-500 font-body">Sipariş No: {iadeOrder.siparis_no}</p>
                 </div>
@@ -2033,7 +2050,12 @@ export default function HesabimPage() {
                 <div>
                   <h4 className="font-display font-black text-xl text-slate-800">Talebiniz Alındı!</h4>
                   <p className="text-xs text-slate-500 font-body mt-1">
-                    {iadeResult.talep_tipi === 'degisim' ? 'Değişim' : 'İade'} başvurunuz ekibimize başarıyla iletildi.
+                    {iadeResult.talep_tipi === 'degisim'
+                      ? 'Değişim'
+                      : iadeResult.talep_tipi === 'iptal'
+                      ? 'Sipariş iptal ve para iadesi'
+                      : 'İade'}{' '}
+                    başvurunuz ekibimize başarıyla iletildi.
                   </p>
                 </div>
 
@@ -2057,7 +2079,9 @@ export default function HesabimPage() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-600 font-body leading-relaxed">
-                    Ekibimiz talebinizi inceleyip onayladıktan sonra anlaşmalı kargo gönderim kodunuz (<strong>Basit Kargo</strong>) hem <strong>Hesabım &rarr; Siparişlerim</strong> ekranında hem de e-posta adresinizde paylaşılacaktır.
+                    {iadeResult.talep_tipi === 'iptal'
+                      ? 'Siparişiniz henüz kargolanmadığı için herhangi bir kargo gönderimi yapmanıza gerek yoktur. Ekibimiz iptal talebinizi onayladığında ödemeniz PayTR üzerinden kartınıza (veya Havale/EFT ise IBAN hesabınıza) iade edilecektir.'
+                      : 'Ekibimiz talebinizi inceleyip onayladıktan sonra anlaşmalı kargo gönderim kodunuz (Basit Kargo) hem Hesabım → Siparişlerim ekranında hem de e-posta adresinizde paylaşılacaktır.'}
                   </p>
                 </div>
 
@@ -2072,58 +2096,77 @@ export default function HesabimPage() {
             ) : (
               /* Form */
               <form onSubmit={handleIadeSubmit} className="p-6 space-y-5">
-                {/* Talep Tipi Seçimi */}
-                <div>
-                  <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
-                    Talep Türü *
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIadeTip('iade')}
-                      className={`p-3 rounded-xl border text-center transition-all ${
-                        iadeTip === 'iade'
-                          ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
-                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
-                      }`}
-                    >
-                      Para İadesi (Geri Ödeme)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIadeTip('degisim')}
-                      className={`p-3 rounded-xl border text-center transition-all ${
-                        iadeTip === 'degisim'
-                          ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
-                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
-                      }`}
-                    >
-                      Ürün Değişimi
-                    </button>
+                {iadeTip === 'iptal' ? (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-900 leading-relaxed">
+                    <strong className="block text-rose-950 mb-0.5">Kargolanmamış Sipariş İptali</strong>
+                    Siparişiniz henüz kargoya verilmemiştir. İptal talebiniz onaylandığında kredi kartı ödemeleri <strong>PayTR</strong> üzerinden doğrudan kartınıza, Havale/EFT ödemeleri belirttiğiniz IBAN&apos;a iade edilir.
                   </div>
-                </div>
+                ) : (
+                  /* Talep Tipi Seçimi */
+                  <div>
+                    <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
+                      Talep Türü *
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIadeTip('iade')}
+                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                          iadeTip === 'iade'
+                            ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
+                        }`}
+                      >
+                        Para İadesi (Geri Ödeme)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIadeTip('degisim')}
+                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                          iadeTip === 'degisim'
+                            ? 'border-brand-red bg-brand-red/5 text-brand-red font-display font-bold text-xs shadow-sm'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white text-xs font-medium'
+                        }`}
+                      >
+                        Ürün Değişimi
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                {/* İade Nedeni */}
+                {/* İptal / İade Nedeni */}
                 <div>
                   <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-2">
                     Nedeni Belirtin *
                   </label>
                   <select
-                    className="input-base text-sm py-2.5"
+                    className="input-base text-sm py-2.5 bg-white"
                     value={iadeSebep}
                     onChange={(e) => setIadeSebep(e.target.value)}
                   >
-                    <option value="Ürün Arızalı / Kusurlu Çıktı">Ürün Arızalı / Kusurlu Çıktı</option>
-                    <option value="Yanlış veya Eksik Ürün Gönderildi">Yanlış veya Eksik Ürün Gönderildi</option>
-                    <option value="Beklentimi Karşılamadı / Cayma Hakkı">Beklentimi Karşılamadı / Cayma Hakkı</option>
-                    <option value="Farklı Model ile Değişim">Farklı Model ile Değişim</option>
-                    <option value="Kargo Sırasında Hasar Görmüş">Kargo Sırasında Hasar Görmüş</option>
-                    <option value="Diğer">Diğer</option>
+                    {iadeTip === 'iptal' ? (
+                      <>
+                        <option value="Siparişten vazgeçtim">Siparişten vazgeçtim</option>
+                        <option value="Yanlış ürün veya adet seçtim">Yanlış ürün veya adet seçtim</option>
+                        <option value="Adres veya fatura bilgisi değiştireceğim">Adres veya fatura bilgisi değiştireceğim</option>
+                        <option value="Teslimat süresi nedeniyle iptal">Teslimat süresi nedeniyle iptal</option>
+                        <option value="Diğer">Diğer</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Ürün Arızalı / Kusurlu Çıktı">Ürün Arızalı / Kusurlu Çıktı</option>
+                        <option value="Yanlış veya Eksik Ürün Gönderildi">Yanlış veya Eksik Ürün Gönderildi</option>
+                        <option value="Beklentimi Karşılamadı / Cayma Hakkı">Beklentimi Karşılamadı / Cayma Hakkı</option>
+                        <option value="Farklı Model ile Değişim">Farklı Model ile Değişim</option>
+                        <option value="Kargo Sırasında Hasar Görmüş">Kargo Sırasında Hasar Görmüş</option>
+                        <option value="Diğer">Diğer</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
                 {/* IBAN */}
-                {iadeTip === 'iade' && (
+                {(iadeTip === 'iade' || iadeTip === 'iptal') && (
                   <div>
                     <label className="font-display font-bold text-xs uppercase text-slate-600 block mb-1">
                       IBAN Bilginiz (Havale / İade İçin)

@@ -77,8 +77,9 @@ export default function MobileStickyAddToCart({ product }: Props) {
   const handleAdd = () => {
     if (isTukendi || isFiyatSorunuz) return
 
-    addToCart({
+    const res = addToCart({
       id: product.id,
+      slug: product.slug,
       ad: product.ad,
       kategori: product.kategori,
       fotograf: product.fotograflar?.[0] || '',
@@ -88,10 +89,15 @@ export default function MobileStickyAddToCart({ product }: Props) {
       indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
       indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
       indirimli_fiyat_pb: hasDiscount ? indirimPB : null,
+      stok_adedi: stockInfo.adet,
+      marka: product.marka,
+      fiyat_sorunuz: isFiyatSorunuz,
     })
 
-    setAdded(true)
-    setTimeout(() => setAdded(false), 2000)
+    if (res.ok) {
+      setAdded(true)
+      setTimeout(() => setAdded(false), 2000)
+    }
   }
 
   const shareText = encodeURIComponent(

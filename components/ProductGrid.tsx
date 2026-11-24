@@ -215,8 +215,9 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
 
     const fiyatTL = dovizToTL(finalFiyat, pb, kurData)
 
-    addToCart({
+    const res = addToCart({
       id: product.id,
+      slug: product.slug,
       ad: product.ad,
       kategori: product.kategori,
       fotograf: product.fotograflar?.[0] || '',
@@ -226,9 +227,14 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       indirimli_fiyat: hasDiscount ? indirimliFiyatTL : null,
       indirimli_fiyat_doviz: hasDiscount ? (product.sescim_indirimli_fiyat || null) : null,
       indirimli_fiyat_pb: indirimPB,
+      stok_adedi: stockInfo.adet,
+      marka: product.marka,
+      fiyat_sorunuz: isFiyatSorunuz,
     })
-    setCartAdded(true)
-    setTimeout(() => setCartAdded(false), 2000)
+    if (res.ok) {
+      setCartAdded(true)
+      setTimeout(() => setCartAdded(false), 2000)
+    }
   }
 
   const isNewProduct = product.created_at ? (Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000) : false

@@ -69,23 +69,15 @@ export async function POST(req: NextRequest) {
 
     // 2. uye_profiller tablosuna profili kaydet
     try {
-      await supabaseAdmin.from('uye_profiller').upsert({
-        user_id: newUser.user.id,
-        ad: cleanAd,
-        soyad: cleanSoyad,
-        telefon: cleanTel,
-      })
-
-      // Geriye dönük uyumluluk için profiles tablosuna da kaydet
-      try {
-        await supabaseAdmin.from('profiles').upsert({
-          id: newUser.user.id,
+      await supabaseAdmin.from('uye_profiller').upsert(
+        {
+          user_id: newUser.user.id,
           ad: cleanAd,
           soyad: cleanSoyad,
           telefon: cleanTel,
-          rol: 'user',
-        })
-      } catch {}
+        },
+        { onConflict: 'user_id' }
+      )
     } catch (profErr) {
       console.warn('Profile creation non-fatal warning:', profErr)
     }

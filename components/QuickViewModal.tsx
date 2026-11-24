@@ -9,6 +9,7 @@ import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { isFavorite, toggleFavorite, isCompared, toggleCompare } from '@/lib/product-lists'
 import { resolveStock } from '@/lib/product-stock'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export interface QuickViewProduct {
   id: string
@@ -87,29 +88,48 @@ export default function QuickViewModal() {
   })
   const isOutOfStock = !stockInfo.canOrder
 
+  const isFiyatSorunuz = isQuoteOnlyProduct({
+    marka: product.marka,
+    ad: product.ad,
+    fiyat_sorunuz: product.fiyat_sorunuz,
+  })
+  const maxStock =
+    typeof stockInfo.adet === 'number' && Number.isFinite(stockInfo.adet) && stockInfo.adet > 0
+      ? Math.floor(stockInfo.adet)
+      : null
+
   const photos = Array.isArray(product.fotograflar) && product.fotograflar.length > 0
     ? product.fotograflar
     : []
 
   const handleAddToCart = () => {
     const effectivePriceTL = hasDiscount ? indirimliPriceTL : priceTL
-    if (isOutOfStock || !effectivePriceTL) return
+    if (isOutOfStock || isFiyatSorunuz || !effectivePriceTL) return
 
-    addToCart({
-      id: product.id,
-      ad: product.ad,
-      kategori: product.kategori,
-      fotograf: photos[0] || '',
-      fiyat: priceTL,
-      fiyat_doviz: rawPrice,
-      para_birimi: pb,
-      indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
-      indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
-      indirimli_fiyat_pb: hasDiscount ? indirimPB : null,
-    })
+    const res = addToCart(
+      {
+        id: product.id,
+        slug: product.slug,
+        ad: product.ad,
+        kategori: product.kategori,
+        fotograf: photos[0] || '',
+        fiyat: priceTL,
+        fiyat_doviz: rawPrice,
+        para_birimi: pb,
+        indirimli_fiyat: hasDiscount ? indirimliPriceTL : null,
+        indirimli_fiyat_doviz: hasDiscount ? rawIndirimli : null,
+        indirimli_fiyat_pb: hasDiscount ? indirimPB : null,
+        stok_adedi: maxStock,
+        marka: product.marka,
+        fiyat_sorunuz: isFiyatSorunuz,
+      },
+      adet
+    )
 
-    setCartAdded(true)
-    setTimeout(() => setCartAdded(false), 2200)
+    if (res.ok) {
+      setCartAdded(true)
+      setTimeout(() => setCartAdded(false), 2200)
+    }
   }
 
   const asSaved = () => ({
@@ -191,7 +211,7 @@ export default function QuickViewModal() {
           </h2>
 
           {/* Fiyat Alanı */}
-          {product.fiyat_sorunuz ? (
+          {isFiyatSorunuz ? (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
               <div className="text-[10px] font-display font-black tracking-widest uppercase text-amber-800 mb-1">
                 DİSTRİBÜTÖR SATIŞ KURALI
@@ -245,8 +265,8 @@ export default function QuickViewModal() {
 
           {/* Adet ve Sepete Ekle */}
           <div className="mt-auto pt-4 border-t border-slate-200 space-y-3">
-            <div className="flex items-center gap-3">
-              {product.fiyat_sorunuz ? (
+            <div className="flex items-center gap-2.5">
+              {isFiyatSorunuz ? (
                 <a
                   href={`https://wa.me/908503053870?text=${encodeURIComponent(
                     `Merhaba, sescim.com'da incelediğim "${product.ad}" ürünü için distribütör özel fiyat teklifi almak istiyorum.\nÜrün: https://www.sescim.com/urun/${product.slug || product.id}`
@@ -258,20 +278,48 @@ export default function QuickViewModal() {
                   WhatsApp ile Fiyat Teklifi Al
                 </a>
               ) : (
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock}
-                  className={`flex-1 py-3.5 px-6 font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-md shadow transition-all ${
-                    isOutOfStock
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : cartAdded
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-brand-red hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {cartAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
-                  {isOutOfStock ? 'Tükendi' : cartAdded ? 'Sepete Eklendi ✓' : 'Sepete Ekle'}
-                </button>
+                <>
+                  {!isOutOfStock && (
+                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-md h-12 px-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAdet((p) => Math.max(1, p - 1))}
+                        disabled={adet <= 1}
+                        aria-label="Adet azalt"
+                        className="w-8 h-full flex items-center justify-center text-slate-600 hover:text-brand-red disabled:opacity-35 transition-colors"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-7 text-center font-display font-bold text-sm text-slate-800 select-none">
+                        {adet}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAdet((p) => (maxStock !== null ? Math.min(maxStock, p + 1) : p + 1))}
+                        disabled={maxStock !== null && adet >= maxStock}
+                        aria-label="Adet artır"
+                        className="w-8 h-full flex items-center justify-center text-slate-600 hover:text-brand-red disabled:opacity-35 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={isOutOfStock}
+                    className={`flex-1 h-12 px-5 font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 rounded-md shadow transition-all ${
+                      isOutOfStock
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        : cartAdded
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-brand-red hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {cartAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
+                    {isOutOfStock ? 'Tükendi' : cartAdded ? 'Sepete Eklendi ✓' : 'Sepete Ekle'}
+                  </button>
+                </>
               )}
 
               <button

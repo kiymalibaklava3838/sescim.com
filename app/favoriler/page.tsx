@@ -9,6 +9,7 @@ import { formatFiyat, dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { getKurClient } from '@/lib/kur-client'
 import { addToCart } from '@/lib/cart'
 import { resolveStock } from '@/lib/product-stock'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 
 export default function FavorilerPage() {
   const [items, setItems] = useState<SavedProduct[]>([])
@@ -24,14 +25,22 @@ export default function FavorilerPage() {
   }, [])
 
   const handleAddToCart = (item: SavedProduct) => {
-    if (item.fiyat_sorunuz || !item.fiyat) return
+    const isQuote = isQuoteOnlyProduct({ marka: item.marka, ad: item.ad, fiyat_sorunuz: item.fiyat_sorunuz })
+    const stockInfo = resolveStock({
+      stok_durumu: item.stok_durumu,
+      stok_adedi: item.stok_adedi,
+      kritik_stok: item.kritik_stok,
+    })
+    if (isQuote || !stockInfo.canOrder || !item.fiyat) return
+
     const pb = item.para_birimi || 'TRY'
     const fiyatTL = dovizToTL(item.fiyat, pb, kur)
     const indirimPB = (item as any).indirimli_fiyat_pb || (item as any).sescim_indirimli_fiyat_pb || pb
     const indirimliTL = item.indirimli_fiyat ? dovizToTL(item.indirimli_fiyat, indirimPB, kur) : null
 
-    addToCart({
+    const res = addToCart({
       id: item.id,
+      slug: item.slug,
       ad: item.ad,
       kategori: item.kategori,
       fotograf: item.fotograf || item.fotograflar?.[0] || '',
@@ -41,12 +50,17 @@ export default function FavorilerPage() {
       indirimli_fiyat: indirimliTL,
       indirimli_fiyat_doviz: item.indirimli_fiyat || null,
       indirimli_fiyat_pb: indirimPB,
+      stok_adedi: stockInfo.adet,
+      marka: item.marka,
+      fiyat_sorunuz: isQuote,
     })
 
-    setAddedMap((prev) => ({ ...prev, [item.id]: true }))
-    setTimeout(() => {
-      setAddedMap((prev) => ({ ...prev, [item.id]: false }))
-    }, 2000)
+    if (res.ok) {
+      setAddedMap((prev) => ({ ...prev, [item.id]: true }))
+      setTimeout(() => {
+        setAddedMap((prev) => ({ ...prev, [item.id]: false }))
+      }, 2000)
+    }
   }
 
   return (

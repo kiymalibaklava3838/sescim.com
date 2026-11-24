@@ -16,7 +16,7 @@ const STORAGE_CATEGORY_AFFINITY = 'sescim_category_affinity'
 const STORAGE_EXPLORED_CATEGORIES = 'sescim_explored_categories'
 
 export const DISCOVER_TARGET = 3
-export const DISCOVER_COUPON_CODE = 'SESCIM5'
+export const DISCOVER_COUPON_CODE = 'HOSGELDIN'
 
 export interface VibeChip {
   id: string

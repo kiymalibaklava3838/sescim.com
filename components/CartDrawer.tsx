@@ -119,9 +119,18 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    const atMaxStock =
+                      typeof item.stok_adedi === 'number' &&
+                      item.stok_adedi > 0 &&
+                      item.adet >= item.stok_adedi
+                    return (
                     <div key={item.id} className="flex gap-3 bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-colors">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 relative border border-slate-100 overflow-hidden">
+                      <Link
+                        href={`/urun/${item.slug || item.id}`}
+                        onClick={toggleDrawer}
+                        className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-lg flex-shrink-0 relative border border-slate-100 overflow-hidden"
+                      >
                         <SafeProductImage
                           src={item.fotograf}
                           alt={item.ad}
@@ -132,12 +141,16 @@ export default function CartDrawer() {
                           placeholderIconSize={20}
                           className="object-contain p-1.5"
                         />
-                      </div>
+                      </Link>
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
-                          <h3 className="font-display font-bold text-xs sm:text-sm text-slate-800 line-clamp-2 leading-snug">
+                          <Link
+                            href={`/urun/${item.slug || item.id}`}
+                            onClick={toggleDrawer}
+                            className="block font-display font-bold text-xs sm:text-sm text-slate-800 hover:text-brand-red line-clamp-2 leading-snug transition-colors"
+                          >
                             {item.ad}
-                          </h3>
+                          </Link>
                           <div className="flex items-baseline gap-2 mt-1">
                             <span className="font-display font-black text-xs sm:text-sm text-brand-red">
                               {Math.ceil(item.indirimli_fiyat ? item.indirimli_fiyat : item.fiyat).toLocaleString('tr-TR')} ₺
@@ -166,7 +179,9 @@ export default function CartDrawer() {
                             <button
                               type="button"
                               onClick={() => updateQty(item.id, item.adet + 1)}
-                              className="w-7 h-7 sm:w-6 sm:h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer"
+                              disabled={atMaxStock}
+                              title={atMaxStock ? `Stoktaki maksimum adet (${item.stok_adedi})` : 'Adet Artır'}
+                              className="w-7 h-7 sm:w-6 sm:h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                               aria-label="Adet Artır"
                             >
                               <Plus size={13} />
@@ -185,7 +200,7 @@ export default function CartDrawer() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 

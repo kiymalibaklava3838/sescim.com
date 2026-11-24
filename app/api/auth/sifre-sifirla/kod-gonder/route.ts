@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 
@@ -11,6 +12,10 @@ const getSupabaseAdmin = () =>
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
+
+function hashOtp(userId: string, code: string): string {
+  return crypto.createHash('sha256').update(`${userId}:${code}`).digest('hex')
+}
 
 async function findUserByEmail(supabaseAdmin: any, email: string) {
   const targetEmail = email.toLowerCase().trim()
@@ -51,6 +56,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lütfen geçerli bir e-posta adresi girin.' }, { status: 400 })
     }
 
+    // E-posta başına 15 dakikada en fazla 5 kod talebi
+    if (!(await rateLimit(`pwd-reset-email:${cleanEmail}`, 5, 15 * 60_000))) {
+      return NextResponse.json(
+        { error: 'Bu e-posta adresi için çok sık kod istendi. Lütfen biraz bekleyin.' },
+        { status: 429 }
+      )
+    }
+
     const supabaseAdmin = getSupabaseAdmin()
     const user = await findUserByEmail(supabaseAdmin, cleanEmail)
 
@@ -62,16 +75,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 6 haneli rastgele kod üret
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    // Kriptografik olarak güvenli 6 haneli kod üret ve hashle
+    const code = crypto.randomInt(100000, 1000000).toString()
+    const codeHash = hashOtp(user.id, code)
     const expiresAt = Date.now() + 15 * 60 * 1000 // 15 dakika geçerli
 
-    // user_metadata içine kodu kaydet
-    const existingMeta = user.user_metadata || {}
+    // Yalnızca sunucunun erişebildiği app_metadata içine hash olarak kaydet
+    const existingAppMeta = user.app_metadata || {}
     await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...existingMeta,
-        recovery_otp: code,
+      app_metadata: {
+        ...existingAppMeta,
+        recovery_otp_hash: codeHash,
         recovery_otp_expires_at: expiresAt,
         recovery_otp_attempts: 0,
       },
@@ -129,7 +143,7 @@ export async function POST(req: NextRequest) {
       const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendApiKey.trim()}`,
+          Authorization: `Bearer ${resendApiKey.trim()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -147,7 +161,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin.' }, { status: 500 })
       }
     } else {
-      console.warn('RESEND_API_KEY tanımlı değil, kod konsola yazıldı:', code)
+      console.warn('RESEND_API_KEY tanımlı değil; e-posta gönderilemedi.')
     }
 
     return NextResponse.json({

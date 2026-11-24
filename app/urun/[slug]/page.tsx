@@ -510,6 +510,7 @@ export default async function UrunDetayPage({ params }: Props) {
                   <div className="sm:col-span-3">
                     <AddToCartButton urun={{
                       id: product.id,
+                      slug: product.slug,
                       ad: product.ad,
                       kategori: product.kategori,
                       fotograflar: product.fotograflar || [],
@@ -517,6 +518,9 @@ export default async function UrunDetayPage({ params }: Props) {
                       indirimli_fiyat: hasDiscount ? rawDiscountPrice : null,
                       indirimli_fiyat_doviz: hasDiscount ? indirimPB : null,
                       para_birimi: pb,
+                      stok_adedi: stockInfo.adet,
+                      marka: product.marka,
+                      fiyat_sorunuz: isFiyatSorunuz,
                     }} />
                   </div>
                   <div className="sm:col-span-1">

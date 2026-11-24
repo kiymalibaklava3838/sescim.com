@@ -128,7 +128,7 @@ async function handleAbandonedCarts(req: NextRequest) {
         urunler: formattedUrunler,
         toplam_tutar: totalTL,
         sepet_url: `${baseUrl}/sepet`,
-        kupon_kodu: 'SESCIM5',
+        kupon_kodu: 'HOSGELDIN',
       })
 
       await sendEmail(

@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Mail, Lock, Eye, EyeOff, KeyRound, AlertCircle, Loader2, ArrowLeft, RefreshCw } from 'lucide-react'
 
-export default function SifreSifirlaPage() {
+function SifreSifirlaContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<'email' | 'otp'>('email')
-  
+
   // Step 1 states
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,6 +26,37 @@ export default function SifreSifirlaPage() {
   const [resetLoading, setResetLoading] = useState(false)
 
   const supabase = useRef(createClient()).current
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    const urlError = searchParams.get('error')
+    if (urlError === 'link_suresi_doldu') {
+      setError('Şifre sıfırlama bağlantısının süresi dolmuş veya geçersiz. Lütfen yeni bir doğrulama kodu isteyin.')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [])
+
+  const startResendCountdown = () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setResendTimer(60)
+    timerRef.current = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
 
   // Adım 1: Sescim markalı e-posta ile 6 haneli doğrulama kodu gönder
   const handleSendCode = async (e: React.FormEvent) => {
@@ -52,16 +84,7 @@ export default function SifreSifirlaPage() {
       }
 
       setStep('otp')
-      setResendTimer(60)
-      const timerInterval = setInterval(() => {
-        setResendTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(timerInterval)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+      startResendCountdown()
     } catch (e: any) {
       setError(e.message || 'Bir hata oluştu.')
     } finally {
@@ -86,16 +109,7 @@ export default function SifreSifirlaPage() {
       if (!res.ok) {
         setError(data.error || 'Kod gönderilemedi.')
       } else {
-        setResendTimer(60)
-        const timerInterval = setInterval(() => {
-          setResendTimer(prev => {
-            if (prev <= 1) {
-              clearInterval(timerInterval)
-              return 0
-            }
-            return prev - 1
-          })
-        }, 1000)
+        startResendCountdown()
       }
     } catch (e: any) {
       setError(e.message || 'Bir hata oluştu.')
@@ -153,9 +167,10 @@ export default function SifreSifirlaPage() {
       })
 
       if (loginErr) {
-        router.push('/uye')
+        router.replace('/uye')
       } else {
-        router.push('/hesabim')
+        router.replace('/hesabim')
+        router.refresh()
       }
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu. Lütfen tekrar deneyin.')
@@ -188,7 +203,6 @@ export default function SifreSifirlaPage() {
         </div>
 
         {step === 'email' ? (
-          /* Adım 1: E-posta Giriş Formu */
           <form onSubmit={handleSendCode} className="space-y-4 animate-in fade-in duration-300">
             {error && (
               <div className="flex items-center gap-2 p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm font-body">
@@ -205,6 +219,7 @@ export default function SifreSifirlaPage() {
                 <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -239,7 +254,6 @@ export default function SifreSifirlaPage() {
             </div>
           </form>
         ) : (
-          /* Adım 2: OTP Kod & Yeni Şifre Formu */
           <form onSubmit={handleVerifyAndReset} className="space-y-4 animate-in fade-in duration-300">
             {error && (
               <div className="flex items-center gap-2 p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm font-body">
@@ -267,6 +281,8 @@ export default function SifreSifirlaPage() {
                 <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
@@ -285,14 +301,17 @@ export default function SifreSifirlaPage() {
                 <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPass ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
+                  minLength={6}
                   placeholder="En az 6 karakter"
                   className="w-full pl-11 pr-12 py-3 text-sm text-slate-800 placeholder-slate-300 bg-transparent focus:outline-none"
                 />
                 <button
                   type="button"
+                  aria-label={showPass ? 'Şifreyi gizle' : 'Şifreyi göster'}
                   onClick={() => setShowPass(!showPass)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
@@ -309,9 +328,11 @@ export default function SifreSifirlaPage() {
                 <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPass ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  minLength={6}
                   placeholder="Şifreyi tekrar girin"
                   className="w-full pl-11 pr-12 py-3 text-sm text-slate-800 placeholder-slate-300 bg-transparent focus:outline-none"
                 />
@@ -349,5 +370,19 @@ export default function SifreSifirlaPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function SifreSifirlaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[calc(100vh-150px)] flex items-center justify-center bg-slate-50">
+          <Loader2 className="w-8 h-8 text-brand-red animate-spin" />
+        </div>
+      }
+    >
+      <SifreSifirlaContent />
+    </Suspense>
   )
 }

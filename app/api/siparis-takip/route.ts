@@ -12,6 +12,13 @@ const supabaseAdmin = () =>
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
+const akdagAdmin = () =>
+  createClient(
+    process.env.NEXT_PUBLIC_AKDAG_SUPABASE_URL!,
+    process.env.AKDAG_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req)
@@ -62,29 +69,42 @@ export async function POST(req: NextRequest) {
       .select('urun_id, urun_adi, adet, birim_fiyat')
       .eq('siparis_id', siparis.id)
 
-    // Kalemlerin fotoğraflarını getirmek için urunler tablosundan sorgula
-    const urunIds = (kalemler || []).map((k: any) => k.urun_id).filter(Boolean)
-    let fotograflarMap = new Map<string, string>()
+    // Kalemlerin fotoğraflarını getirmek için hem Sescim hem Akdağ ana kataloğundan sorgula
+    const urunIds = Array.from(new Set((kalemler || []).map((k: any) => k.urun_id).filter(Boolean))) as string[]
+    const urunAdlari = Array.from(new Set((kalemler || []).map((k: any) => k.urun_adi).filter(Boolean))) as string[]
+    const fotograflarMap = new Map<string, string>()
 
-    if (urunIds.length > 0) {
-      const { data: urunRes } = await db
-        .from('urunler')
-        .select('id, slug, fotograflar')
-        .in('id', urunIds)
+    try {
+      const akdagDb = akdagAdmin()
+      const [sescimRes, akdagIdRes, akdagAdRes] = await Promise.all([
+        urunIds.length > 0
+          ? db.from('urunler').select('id, ad, fotograflar').in('id', urunIds)
+          : Promise.resolve({ data: [] }),
+        urunIds.length > 0
+          ? akdagDb.from('urunler').select('id, ad, fotograflar').in('id', urunIds)
+          : Promise.resolve({ data: [] }),
+        urunAdlari.length > 0
+          ? akdagDb.from('urunler').select('id, ad, fotograflar').in('ad', urunAdlari.slice(0, 50))
+          : Promise.resolve({ data: [] }),
+      ])
 
-      ;(urunRes || []).forEach((u: any) => {
+      ;[...(akdagAdRes.data || []), ...(akdagIdRes.data || []), ...(sescimRes.data || [])].forEach((u: any) => {
         if (Array.isArray(u.fotograflar) && u.fotograflar.length > 0) {
-          fotograflarMap.set(u.id, u.fotograflar[0])
+          if (u.id) fotograflarMap.set(u.id, u.fotograflar[0])
+          if (u.ad) fotograflarMap.set(u.ad, u.fotograflar[0])
         }
       })
-    }
+    } catch {}
 
     const urunler = (kalemler || []).map((k: any) => ({
       urun_id: k.urun_id,
       ad: k.urun_adi,
       adet: Number(k.adet || 1),
       fiyat: Number(k.birim_fiyat || 0),
-      fotograf: k.urun_id ? (fotograflarMap.get(k.urun_id) || null) : null,
+      fotograf:
+        (k.urun_id ? fotograflarMap.get(k.urun_id) : null) ||
+        (k.urun_adi ? fotograflarMap.get(k.urun_adi) : null) ||
+        null,
     }))
 
     return NextResponse.json({

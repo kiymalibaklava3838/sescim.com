@@ -104,7 +104,8 @@ export default function MobileDrawer({
   }, [isOpen, onClose])
 
   const handleCopyCoupon = () => {
-    const code = announcementCoupon?.kod || 'SESCIM5'
+    const code = announcementCoupon?.kod
+    if (!code) return
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(code)
     }
@@ -178,8 +179,8 @@ export default function MobileDrawer({
     return `/urunler/${segments.join('/')}`
   }
 
-  const couponCode = announcementCoupon?.kod || 'SESCIM5'
-  const couponDiscount = announcementCoupon?.miktar || '%5'
+  const couponCode = announcementCoupon?.kod || ''
+  const couponDiscount = announcementCoupon?.miktar || ''
 
   return createPortal(
     <AnimatePresence>
@@ -297,7 +298,8 @@ export default function MobileDrawer({
               </Link>
             </div>
 
-            {/* 4. GÜNÜN KUPONU KARTI (Tek Dokunuşla Kopyalama) */}
+            {/* 4. GÜNÜN KUPONU KARTI (Yalnızca DB'de aktif genel kupon varsa gösterilir) */}
+            {couponCode && (
             <div className="px-3 pt-2.5 pb-2 bg-white border-b border-slate-100 shrink-0">
               <div 
                 onClick={handleCopyCoupon}
@@ -340,6 +342,7 @@ export default function MobileDrawer({
                 </div>
               </div>
             </div>
+            )}
 
             {/* 5. SEKMELER (TABS: Kategoriler | Markalar | Hizmetler) */}
             <div className="flex items-center bg-slate-100/90 border-b border-slate-200 shrink-0 p-1 gap-1">

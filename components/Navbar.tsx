@@ -72,7 +72,7 @@ export default function Navbar() {
   const [isVisible, setIsVisible] = useState(true)
   const lastScrollY = useRef(0)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [announcementCoupon, setAnnouncementCoupon] = useState<{ kod: string; miktar: string } | null>({ kod: 'SESCIM5', miktar: '%5' })
+  const [announcementCoupon, setAnnouncementCoupon] = useState<{ kod: string; miktar: string } | null>(null)
 
   useEffect(() => {
     const supabase = createClient()

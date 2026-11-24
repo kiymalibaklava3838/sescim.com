@@ -17,6 +17,7 @@ export default function Footer() {
   
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
+  const [subscribedCoupon, setSubscribedCoupon] = useState<string | null>(null)
   const [couponCopied, setCouponCopied] = useState(false)
   const [newsletterLoading, setNewsletterLoading] = useState(false)
   const [newsletterError, setNewsletterError] = useState('')
@@ -34,6 +35,7 @@ export default function Footer() {
       })
       const data = await res.json()
       if (res.ok) {
+        setSubscribedCoupon(data.coupon || null)
         setNewsletterSubscribed(true)
       } else {
         setNewsletterError(data.error || 'Abonelik oluşturulamadı.')
@@ -46,7 +48,8 @@ export default function Footer() {
   }
 
   const copyCoupon = () => {
-    navigator.clipboard.writeText('SESCIM5')
+    if (!subscribedCoupon) return
+    navigator.clipboard.writeText(subscribedCoupon)
     setCouponCopied(true)
     setTimeout(() => setCouponCopied(false), 2000)
   }
@@ -71,22 +74,28 @@ export default function Footer() {
             <div className="bg-white border border-emerald-300 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center gap-3 animate-in fade-in duration-300">
               <div className="flex items-center gap-2 text-emerald-700 text-sm font-semibold">
                 <Check size={18} className="text-emerald-500" />
-                <span>Hoş Geldin! İlk siparişinde geçerli kuponun:</span>
+                <span>
+                  {subscribedCoupon
+                    ? 'Hoş Geldin! Güncel indirim kuponun:'
+                    : 'Hoş Geldin! Bülten aboneliğin başarıyla tamamlandı.'}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <code className="bg-amber-50 border border-amber-300 text-brand-red font-mono font-black px-2.5 py-1 rounded text-sm tracking-wider">
-                  SESCIM5
-                </code>
-                <button
-                  type="button"
-                  onClick={copyCoupon}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
-                  title="Kuponu Kopyala"
-                >
-                  {couponCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                  <span>{couponCopied ? 'Kopyalandı' : 'Kopyala'}</span>
-                </button>
-              </div>
+              {subscribedCoupon && (
+                <div className="flex items-center gap-2">
+                  <code className="bg-amber-50 border border-amber-300 text-brand-red font-mono font-black px-2.5 py-1 rounded text-sm tracking-wider">
+                    {subscribedCoupon}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyCoupon}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Kuponu Kopyala"
+                  >
+                    {couponCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    <span>{couponCopied ? 'Kopyalandı' : 'Kopyala'}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="w-full max-w-md flex flex-col items-start">

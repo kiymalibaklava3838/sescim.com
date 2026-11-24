@@ -628,7 +628,20 @@ export default function SepetPage() {
                     <div className="flex items-center gap-1.5 sm:gap-2.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
                       <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => { updateQty(i.id, i.adet - 1); refreshCart() }} aria-label="Azalt"><Minus size={13} /></button>
                       <span className="w-6 text-center font-display font-bold text-xs sm:text-sm text-slate-800">{i.adet}</span>
-                      <button type="button" className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer" onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }} aria-label="Artır"><Plus size={13} /></button>
+                      <button
+                        type="button"
+                        disabled={typeof i.stok_adedi === 'number' && i.stok_adedi > 0 && i.adet >= i.stok_adedi}
+                        title={
+                          typeof i.stok_adedi === 'number' && i.stok_adedi > 0 && i.adet >= i.stok_adedi
+                            ? `Stoktaki maksimum adet (${i.stok_adedi})`
+                            : 'Artır'
+                        }
+                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-brand-red active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => { updateQty(i.id, i.adet + 1); refreshCart() }}
+                        aria-label="Artır"
+                      >
+                        <Plus size={13} />
+                      </button>
                       <div className="w-px h-5 bg-slate-200 mx-0.5" />
                       <button type="button" className="text-slate-400 hover:text-red-500 p-1.5 transition-colors cursor-pointer" title="Ürünü Sil" onClick={() => { removeFromCart(i.id); refreshCart() }} aria-label="Sil"><Trash2 size={15} /></button>
                     </div>

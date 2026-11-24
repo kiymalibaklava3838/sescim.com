@@ -162,9 +162,17 @@ export default function AdminAddProduct({ onAdded, initialData }: Props) {
     setScrapeError('')
     setSuggestedImages([])
     try {
+      const { createClient: createSescimClient } = await import('@/lib/supabase')
+      const sescimSb = createSescimClient()
+      const { data: sessData } = await sescimSb.auth.getSession()
+      const token = sessData?.session?.access_token || ''
+
       const res = await fetch('/api/scrape-image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ query }),
       })
       const data = await res.json()

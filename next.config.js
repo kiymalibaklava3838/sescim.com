@@ -12,13 +12,9 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   images: {
-    // unoptimized: false → Next.js Image Optimizer aktif, WebP/AVIF otomatik üretilir.
-    // SafeProductImage bileşeni 3 aşamalı fallback ile yükleme hatalarını yönetir:
-    //   Aşama 1: Next.js optimize (WebP/AVIF, lazy-load, LCP iyileştirmesi)
-    //   Aşama 2: Supabase CDN doğrudan (optimizer hata verirse)
-    //   Aşama 3: Paket ikonu (CDN de erişilemezse)
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 2592000, // 30 gün — optimize görseller uzun süre önbellekte kalır
+    // Vercel Image Optimization kotası dolduğunda oluşan 402 PAYMENT_REQUIRED hatasını kalıcı olarak önler.
+    // Tüm görseller doğrudan Supabase CDN'den yüklenir (lazy-load, layout-shift koruması ve shimmer aynen çalışır).
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

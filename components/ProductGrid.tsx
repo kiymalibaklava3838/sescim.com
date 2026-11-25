@@ -10,6 +10,8 @@ import { motion } from 'framer-motion'
 import { dovizToTL, formatFiyat, DEFAULT_KUR, type KurData } from '@/lib/kur'
 import { addToCart } from '@/lib/cart'
 import ProductBadges from './ProductBadges'
+import CampaignBadge from './CampaignBadge'
+import type { FlashCampaignMeta } from '@/lib/flash-campaign'
 import {
   getCompareList,
   isCompared,
@@ -41,6 +43,7 @@ interface Product {
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
   sescim_indirimli_fiyat_pb?: string | null  // Flaş indirim fiyatının kaydedildiği para birimi (TRY, USD, EUR)
+  flas_kampanya?: FlashCampaignMeta | null
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
   sescim_stok?: number | null
@@ -258,9 +261,20 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
             className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
           />
 
-          {/* Dinamik Rozetler (İndirim / YENİ / Stok) */}
-          <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
-            {isNewProduct && (
+          {/* Dinamik Rozetler (Kampanya / İndirim / YENİ / Stok) */}
+          <div className="absolute top-2.5 left-2.5 z-10 flex flex-col items-start gap-1 max-w-[calc(100%-3rem)]">
+            {hasDiscount && product.flas_kampanya && !product.fiyat_sorunuz && (
+              <CampaignBadge
+                kampanya={product.flas_kampanya}
+                discountPercent={
+                  normalFiyatTL && indirimliFiyatTL && normalFiyatTL > indirimliFiyatTL
+                    ? Math.round(((normalFiyatTL - indirimliFiyatTL) / normalFiyatTL) * 100)
+                    : null
+                }
+                size="xs"
+              />
+            )}
+            {isNewProduct && !product.flas_kampanya && (
               <span className="bg-blue-600 text-white text-[9px] font-display font-black uppercase px-2 py-0.5 rounded tracking-wider shadow-xs">
                 YENİ
               </span>
@@ -269,8 +283,8 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
               stokAdedi={stockInfo.adet}
               kritikStok={product.kritik_stok}
               stokDurumu={stockInfo.durum}
-              fiyat={product.fiyat_sorunuz ? undefined : (normalFiyatTL || undefined)}
-              indirimliFiyat={hasDiscount ? (indirimliFiyatTL || undefined) : undefined}
+              fiyat={product.fiyat_sorunuz || product.flas_kampanya ? undefined : (normalFiyatTL || undefined)}
+              indirimliFiyat={hasDiscount && !product.flas_kampanya ? (indirimliFiyatTL || undefined) : undefined}
               kategori={product.kategori}
               compact
             />

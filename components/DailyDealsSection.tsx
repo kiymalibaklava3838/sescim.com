@@ -2,6 +2,7 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
+import { getFlashCampaignMetaMap, normalizeFlashMeta } from '@/lib/flash-campaign'
 import { resolveStock } from '@/lib/product-stock'
 import { getKur, dovizToTL, formatFiyat } from '@/lib/kur'
 import Image from 'next/image'
@@ -23,17 +24,28 @@ export default async function DailyDealsSection() {
 
   if (sescimSupabase) {
     try {
-      const { data: flasData } = await sescimSupabase
-        .from('flas_indirimler')
-        .select('*')
-        .eq('aktif', true)
-        .gt('bitis_tarihi', new Date().toISOString())
-        .order('bitis_tarihi', { ascending: true })
+      const nowIso = new Date().toISOString()
+      const [{ data: flasData }, flashMetaMap] = await Promise.all([
+        sescimSupabase
+          .from('flas_indirimler')
+          .select('*')
+          .eq('aktif', true)
+          .lte('baslangic_tarihi', nowIso)
+          .gt('bitis_tarihi', nowIso)
+          .order('bitis_tarihi', { ascending: true }),
+        getFlashCampaignMetaMap(),
+      ])
 
-      if (flasData && flasData.length > 0) {
-        flasUrunIds = flasData.map((f: any) => f.urun_id)
-        enYakinBitis = flasData[0].bitis_tarihi
-        flasData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
+      const sescimHaftasiData = (flasData || []).filter(
+        (f: any) => normalizeFlashMeta(flashMetaMap[f.id]).kampanya_tipi === 'sescim_haftasi'
+      )
+
+      if (sescimHaftasiData.length > 0) {
+        flasUrunIds = sescimHaftasiData.map((f: any) => f.urun_id)
+        enYakinBitis = sescimHaftasiData[0].bitis_tarihi
+        sescimHaftasiData.forEach((f: any) =>
+          flasDataMap.set(f.urun_id, { ...f, kampanya: normalizeFlashMeta(flashMetaMap[f.id]) })
+        )
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -113,6 +125,7 @@ export default async function DailyDealsSection() {
       sescim_fiyat: pricing?.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: indirimliFiyat,
       sescim_indirimli_fiyat_pb: indirimliPB,
+      flas_kampanya: flasItem?.kampanya ?? pricing?.flas_kampanya ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? true,
       sescim_stok: pricing?.sescim_stok ?? null,
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
@@ -120,6 +133,7 @@ export default async function DailyDealsSection() {
     }
   }).filter(p => {
     if (p.sescim_aktif === false || p.fiyat_sorunuz) return false
+    if (p.flas_kampanya?.kampanya_tipi === 'ozel') return false
     const stock = resolveStock(p)
     return stock.isOrderable
   })
@@ -140,13 +154,13 @@ export default async function DailyDealsSection() {
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-brand-red font-display font-bold text-[11px] uppercase tracking-wider">
                 <Zap size={13} className="text-brand-red fill-brand-red" />
-                Fırsat Köşesi
+                Her Cuma 20.00
               </span>
               <DailyDealsTimer targetDate={enYakinBitis} />
             </div>
             
             <h2 className="text-2xl md:text-3xl font-display font-black tracking-tight text-slate-900 uppercase">
-              Günün Fırsatları
+              Sescim Haftası
             </h2>
             <p className="text-xs md:text-sm text-slate-500 font-body mt-1">
               Sınırlı süreye özel indirimli profesyonel ses, stüdyo ve sahne ekipmanları

@@ -1,6 +1,8 @@
 import { notFound, redirect, permanentRedirect } from 'next/navigation'
 import { Phone, Mail, ChevronRight, Bell, ShieldCheck, Truck, CreditCard, Zap } from 'lucide-react'
 import DailyDealsTimer from '@/components/DailyDealsTimer'
+import CampaignBadge from '@/components/CampaignBadge'
+import { BADGE_COLOR_THEMES, DEFAULT_SESCIM_HAFTASI_META, type FlashCampaignMeta } from '@/lib/flash-campaign'
 import Link from 'next/link'
 import Image from 'next/image'
 import ProductImageGallery from '@/components/ProductImageGallery'
@@ -362,30 +364,55 @@ export default async function UrunDetayPage({ params }: Props) {
                 stokAdedi={product.stok_adedi}
                 kritikStok={product.kritik_stok ?? 5}
                 stokDurumu={stok}
-                fiyat={isFiyatSorunuz ? undefined : (basePriceTL || undefined)}
-                indirimliFiyat={hasDiscount ? (discountPriceTL || undefined) : undefined}
+                fiyat={isFiyatSorunuz || (product as any).is_flas_aktif ? undefined : (basePriceTL || undefined)}
+                indirimliFiyat={hasDiscount && !(product as any).is_flas_aktif ? (discountPriceTL || undefined) : undefined}
               />
             </div>
 
-            {/* Flaş İndirim Canlı Sayaç Bandı (Varsa) */}
-            {hasDiscount && (product as any).is_flas_aktif && (
-              <div className="mb-4 p-3.5 bg-gradient-to-r from-red-600 via-brand-red to-orange-600 text-white rounded-xl shadow-md flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 bg-white/20 backdrop-blur-xs rounded-lg">
-                    <Zap size={16} className="text-white fill-white animate-pulse" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-display font-black uppercase tracking-wider">
-                      Günün Fırsatı & Flaş İndirim
+            {/* Kampanya / Flaş İndirim Bandı (Varsa) */}
+            {hasDiscount && (product as any).is_flas_aktif && (() => {
+              const kampanya: FlashCampaignMeta = (product as any).flas_kampanya || DEFAULT_SESCIM_HAFTASI_META
+              const theme = BADGE_COLOR_THEMES[kampanya.rozet_rengi] || BADGE_COLOR_THEMES.red
+              const discountPct =
+                basePriceTL && discountPriceTL && basePriceTL > discountPriceTL
+                  ? Math.round(((basePriceTL - discountPriceTL) / basePriceTL) * 100)
+                  : null
+              const isSescimHaftasi = kampanya.kampanya_tipi === 'sescim_haftasi'
+              const isDarkBanner = kampanya.rozet_rengi === 'black'
+
+              return (
+                <div
+                  className={`mb-4 p-3.5 rounded-xl border shadow-sm flex items-center justify-between gap-3 flex-wrap ${
+                    isSescimHaftasi
+                      ? 'bg-gradient-to-r from-red-600 via-brand-red to-orange-600 text-white border-red-500/40 shadow-md'
+                      : `${theme.bannerBg} ${theme.bannerBorder}`
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CampaignBadge kampanya={kampanya} discountPercent={discountPct} size="sm" />
+                      <span
+                        className={`text-xs font-display font-black uppercase tracking-wider ${
+                          isSescimHaftasi || isDarkBanner ? 'text-white' : 'text-slate-900'
+                        }`}
+                      >
+                        {kampanya.kampanya_adi}
+                      </span>
                     </div>
-                    <div className="text-[11px] text-white/90">
-                      Bu indirimli fiyattan sipariş için kalan süre:
+                    <div
+                      className={`text-[11px] font-body ${
+                        isSescimHaftasi || isDarkBanner ? 'text-white/85' : 'text-slate-600'
+                      }`}
+                    >
+                      {kampanya.vurgu_metni || 'Bu indirimli fiyattan sipariş için sınırlı süre:'}
                     </div>
                   </div>
+                  {kampanya.urun_sayfasinda_sayac !== false && (
+                    <DailyDealsTimer targetDate={(product as any).flas_bitis_tarihi || undefined} />
+                  )}
                 </div>
-                <DailyDealsTimer targetDate={(product as any).flas_bitis_tarihi || undefined} />
-              </div>
-            )}
+              )
+            })()}
 
             {/* Fiyat veya Distribütör Fiyat Koruması Kutusu */}
             {isFiyatSorunuz ? (

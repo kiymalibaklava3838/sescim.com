@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath, revalidateTag } from 'next/cache'
+import {
+  getFlashCampaignMetaMap,
+  setFlashCampaignMeta,
+  deleteFlashCampaignMeta,
+  normalizeFlashMeta,
+} from '@/lib/flash-campaign'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,7 +118,7 @@ async function ensureMirrorProduct(db: any, product: any) {
   }
 }
 
-function triggerCacheRevalidation(slug?: string) {
+function triggerCacheRevalidation(slug?: string, kampanyaSlug?: string) {
   try {
     revalidatePath('/')
     revalidatePath('/firsatlar')
@@ -123,8 +129,12 @@ function triggerCacheRevalidation(slug?: string) {
     if (slug) {
       revalidatePath(`/urun/${slug}`)
     }
+    if (kampanyaSlug && kampanyaSlug !== 'sescim-haftasi') {
+      revalidatePath(`/kampanya/${kampanyaSlug}`)
+    }
     revalidateTag('products')
     revalidateTag('product-detail')
+    revalidateTag('flash-meta')
   } catch (e) {
     console.warn('Cache revalidation notice:', e)
   }
@@ -139,14 +149,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
-    const [firsatRes, outletRes] = await Promise.all([
+    const [firsatRes, outletRes, metaMap] = await Promise.all([
       db.from('flas_indirimler').select('*').order('created_at', { ascending: false }),
-      db.from('outlet_urunler').select('*').order('created_at', { ascending: false })
+      db.from('outlet_urunler').select('*').order('created_at', { ascending: false }),
+      getFlashCampaignMetaMap({ noCache: true }),
     ])
 
+    const firsatlar = (firsatRes.data || []).map((f: any) => ({
+      ...f,
+      kampanya: normalizeFlashMeta(metaMap[f.id]),
+    }))
+
     return NextResponse.json({
-      firsatlar: firsatRes.data || [],
-      outlet: outletRes.data || []
+      firsatlar,
+      outlet: outletRes.data || [],
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Sunucu hatası' }, { status: 500 })
@@ -163,7 +179,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { action, urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, durum_aciklamasi, stok_adedi, product } = body
+    const { action, urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, durum_aciklamasi, stok_adedi, product, kampanya } = body
 
     if (!urun_id) {
       return NextResponse.json({ error: 'Ürün ID zorunludur' }, { status: 400 })
@@ -181,9 +197,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Başlangıç ve bitiş tarihi zorunludur' }, { status: 400 })
       }
 
+      const startDate = new Date(baslangic_tarihi)
+      const endDate = new Date(bitis_tarihi)
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return NextResponse.json({ error: 'Geçersiz başlangıç veya bitiş tarihi' }, { status: 400 })
+      }
+      if (endDate.getTime() <= startDate.getTime()) {
+        return NextResponse.json({ error: 'Bitiş tarihi başlangıç tarihinden sonra olmalıdır.' }, { status: 400 })
+      }
+      if (endDate.getTime() <= Date.now()) {
+        return NextResponse.json({ error: 'Bitiş tarihi ileri bir tarih olmalıdır.' }, { status: 400 })
+      }
+
+      // Aynı ürün için halihazırda aktif ve süresi dolmamış başka bir kampanya var mı kontrol et
+      const { data: activeExisting } = await db
+        .from('flas_indirimler')
+        .select('id')
+        .eq('urun_id', urun_id)
+        .eq('aktif', true)
+        .gt('bitis_tarihi', new Date().toISOString())
+        .limit(1)
+
+      if (activeExisting && activeExisting.length > 0) {
+        return NextResponse.json(
+          { error: 'Bu ürün zaten aktif bir kampanyada yer alıyor. Önce mevcut kampanyayı pasife alın veya silin.' },
+          { status: 409 }
+        )
+      }
+
       // Flaş indirim tablosuna ekle
-      // fiyat_para_birimi: Admin hangi para birimiyle girdiyse onu sakla.
-      // TRY ile girilmişse TRY, USD ile girilmişse USD — kur dönüşümü yok.
       const indirimliFiyatPB = fiyat_para_birimi || 'TRY'
       const { data: firsatRow, error: firsatErr } = await db
         .from('flas_indirimler')
@@ -191,8 +233,8 @@ export async function POST(req: NextRequest) {
           urun_id,
           indirimli_fiyat: fiyatNum,
           fiyat_para_birimi: indirimliFiyatPB,
-          baslangic_tarihi: new Date(baslangic_tarihi).toISOString(),
-          bitis_tarihi: new Date(bitis_tarihi).toISOString(),
+          baslangic_tarihi: startDate.toISOString(),
+          bitis_tarihi: endDate.toISOString(),
           aktif: true
         })
         .select()
@@ -203,14 +245,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: firsatErr.message }, { status: 500 })
       }
 
-      // sescim_fiyatlar tablosunu senkronize et
-      // sescim_indirimli_fiyat her zaman TL olarak saklanır — fiyat TRY ise direkt, döviz ise çevrilmeden ürün sayfası zaten döviz→TL yapar.
-      // Ancak flaş indirim kendi para birimiyle DB'de tutulur; ürün sayfası hangi para biriminde olduğunu bilip çevirir.
+      // Kampanya tipini ve özelleştirilmiş rozet ayarlarını kaydet
+      const savedMeta = await setFlashCampaignMeta(firsatRow.id, kampanya)
+      const isSescimHaftasi = savedMeta.kampanya_tipi === 'sescim_haftasi'
+
+      // sescim_fiyatlar tablosuna SADECE is_firsat ve sescim_aktif durumunu işle;
+      // sescim_indirimli_fiyat'ı ezme (süresi dolan flaş fiyatının kalıcı olmasını önler)
       try {
         await db.from('sescim_fiyatlar').upsert({
           urun_id,
-          sescim_indirimli_fiyat: fiyatNum,
-          is_firsat: true,
+          is_firsat: isSescimHaftasi,
           sescim_aktif: true,
           updated_at: new Date().toISOString()
         }, { onConflict: 'urun_id' })
@@ -218,8 +262,8 @@ export async function POST(req: NextRequest) {
         console.warn('sescim_fiyatlar sync warning:', sfErr)
       }
 
-      triggerCacheRevalidation(product?.slug)
-      return NextResponse.json({ success: true, item: firsatRow })
+      triggerCacheRevalidation(product?.slug, savedMeta.kampanya_slug)
+      return NextResponse.json({ success: true, item: { ...firsatRow, kampanya: savedMeta } })
     }
 
     if (action === 'create_outlet') {
@@ -278,33 +322,51 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { type, id, urun_id, new_status, slug } = body
+    const { type, id, urun_id, new_status, slug, kampanya } = body
 
-    if (!id || !urun_id || typeof new_status !== 'boolean') {
+    if (!id || !urun_id) {
       return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 })
     }
 
     if (type === 'firsat') {
+      // Kampanya rozet / tip güncellemesi gönderildiyse kaydet
+      if (kampanya) {
+        const updatedMeta = await setFlashCampaignMeta(id, kampanya)
+        try {
+          await db
+            .from('sescim_fiyatlar')
+            .update({ is_firsat: updatedMeta.kampanya_tipi === 'sescim_haftasi' })
+            .eq('urun_id', urun_id)
+        } catch {}
+        triggerCacheRevalidation(slug)
+        if (typeof new_status !== 'boolean') {
+          return NextResponse.json({ success: true, kampanya: updatedMeta })
+        }
+      }
+
+      if (typeof new_status !== 'boolean') {
+        return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 })
+      }
+
       const { error } = await db.from('flas_indirimler').update({ aktif: new_status }).eq('id', id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+      const metaMap = await getFlashCampaignMetaMap({ noCache: true })
+      const dealMeta = normalizeFlashMeta(metaMap[id])
+
       try {
         if (!new_status) {
-          await db.from('sescim_fiyatlar').update({ is_firsat: false, sescim_indirimli_fiyat: null }).eq('urun_id', urun_id)
+          await db.from('sescim_fiyatlar').update({ is_firsat: false }).eq('urun_id', urun_id)
         } else {
-          const { data: fItem } = await db.from('flas_indirimler').select('indirimli_fiyat').eq('id', id).maybeSingle()
-          if (fItem) {
-            await db.from('sescim_fiyatlar').upsert({
-              urun_id,
-              sescim_indirimli_fiyat: fItem.indirimli_fiyat,
-              is_firsat: true,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'urun_id' })
-          }
+          await db.from('sescim_fiyatlar').upsert({
+            urun_id,
+            is_firsat: dealMeta.kampanya_tipi === 'sescim_haftasi',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'urun_id' })
         }
       } catch {}
 
-      triggerCacheRevalidation(slug)
+      triggerCacheRevalidation(slug, dealMeta.kampanya_slug)
       return NextResponse.json({ success: true })
     }
 
@@ -346,14 +408,19 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (type === 'firsat') {
+      const metaMap = await getFlashCampaignMetaMap({ noCache: true })
+      const dealMeta = normalizeFlashMeta(metaMap[id])
+
       const { error } = await db.from('flas_indirimler').delete().eq('id', id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+      await deleteFlashCampaignMeta(id)
+
       try {
-        await db.from('sescim_fiyatlar').update({ is_firsat: false, sescim_indirimli_fiyat: null }).eq('urun_id', urun_id)
+        await db.from('sescim_fiyatlar').update({ is_firsat: false }).eq('urun_id', urun_id)
       } catch {}
 
-      triggerCacheRevalidation(slug)
+      triggerCacheRevalidation(slug, dealMeta.kampanya_slug)
       return NextResponse.json({ success: true })
     }
 

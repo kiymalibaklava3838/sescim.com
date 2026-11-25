@@ -157,6 +157,8 @@ export default async function FeaturedProducts({
       sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
       sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
       sescim_indirimli_fiyat_pb: pricing?.sescim_indirimli_fiyat_pb ?? null,
+      flas_kampanya: pricing?.flas_kampanya ?? null,
+      flas_bitis_tarihi: pricing?.flas_bitis_tarihi ?? null,
       sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
       sescim_stok: pricing?.sescim_stok ?? p.sescim_stok ?? null,
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,

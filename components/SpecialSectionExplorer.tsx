@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Search, X, SlidersHorizontal, ArrowUpDown, Tag, Folder, Sparkles, RotateCcw } from 'lucide-react'
 import ProductGrid from '@/components/ProductGrid'
+import { dovizToTL, DEFAULT_KUR, type KurData } from '@/lib/kur'
+import { getKurClient } from '@/lib/kur-client'
 
 interface Product {
   id: string
@@ -24,6 +26,7 @@ interface Product {
   sescim_fiyat?: number
   sescim_indirimli_fiyat?: number
   sescim_indirimli_fiyat_pb?: string | null
+  flas_kampanya?: any
   sescim_aktif?: boolean
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null
@@ -33,7 +36,7 @@ interface Product {
 
 interface Props {
   products: Product[]
-  sectionType: 'firsatlar' | 'outlet'
+  sectionType: 'firsatlar' | 'outlet' | 'kampanya'
   sectionTitle: string
 }
 
@@ -42,6 +45,11 @@ export default function SpecialSectionExplorer({ products, sectionType, sectionT
   const [selectedBrand, setSelectedBrand] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [sortBy, setSortBy] = useState<string>('default')
+  const [kur, setKur] = useState<KurData>(DEFAULT_KUR)
+
+  useEffect(() => {
+    getKurClient().then(setKur).catch(() => {})
+  }, [])
 
   // Mevcut ürünlerden markaları çıkar
   const brands = useMemo(() => {
@@ -81,25 +89,26 @@ export default function SpecialSectionExplorer({ products, sectionType, sectionT
       result = result.filter(p => p.kategori === selectedCategory)
     }
 
-    // 4. Sıralama
+    // 4. Sıralama (Tüm döviz fiyatları TL'ye çevrilerek doğru karşılaştırılır)
+    const getPricesTL = (p: Product) => {
+      const pb = p.para_birimi || 'TRY'
+      const rawBase = p.sescim_fiyat ?? p.fiyat ?? 0
+      const baseTL = dovizToTL(rawBase, pb, kur)
+      const indPB = p.sescim_indirimli_fiyat_pb || pb
+      const rawInd = p.sescim_indirimli_fiyat ?? null
+      const indTL = rawInd ? dovizToTL(rawInd, indPB, kur) : null
+      const hasDisc = indTL !== null && indTL > 0 && baseTL > 0 && indTL < baseTL
+      const effectiveTL = hasDisc ? indTL! : baseTL
+      const savingsTL = hasDisc ? baseTL - indTL! : 0
+      return { baseTL, effectiveTL, savingsTL }
+    }
+
     if (sortBy === 'price-asc') {
-      result.sort((a, b) => {
-        const fA = a.sescim_indirimli_fiyat ?? a.sescim_fiyat ?? a.fiyat ?? 0
-        const fB = b.sescim_indirimli_fiyat ?? b.sescim_fiyat ?? b.fiyat ?? 0
-        return fA - fB
-      })
+      result.sort((a, b) => getPricesTL(a).effectiveTL - getPricesTL(b).effectiveTL)
     } else if (sortBy === 'price-desc') {
-      result.sort((a, b) => {
-        const fA = a.sescim_indirimli_fiyat ?? a.sescim_fiyat ?? a.fiyat ?? 0
-        const fB = b.sescim_indirimli_fiyat ?? b.sescim_fiyat ?? b.fiyat ?? 0
-        return fB - fA
-      })
+      result.sort((a, b) => getPricesTL(b).effectiveTL - getPricesTL(a).effectiveTL)
     } else if (sortBy === 'discount-desc') {
-      result.sort((a, b) => {
-        const indirimA = a.fiyat && a.sescim_indirimli_fiyat ? (a.fiyat - a.sescim_indirimli_fiyat) : 0
-        const indirimB = b.fiyat && b.sescim_indirimli_fiyat ? (b.fiyat - b.sescim_indirimli_fiyat) : 0
-        return indirimB - indirimA
-      })
+      result.sort((a, b) => getPricesTL(b).savingsTL - getPricesTL(a).savingsTL)
     } else if (sortBy === 'newest') {
       result.sort((a, b) => {
         const tA = a.created_at ? new Date(a.created_at).getTime() : 0
@@ -109,7 +118,7 @@ export default function SpecialSectionExplorer({ products, sectionType, sectionT
     }
 
     return result
-  }, [products, search, selectedBrand, selectedCategory, sortBy])
+  }, [products, search, selectedBrand, selectedCategory, sortBy, kur])
 
   const hasActiveFilters = search.trim() !== '' || selectedBrand !== 'all' || selectedCategory !== 'all' || sortBy !== 'default'
 

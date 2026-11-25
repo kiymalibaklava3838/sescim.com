@@ -221,6 +221,8 @@ export const getRelatedProducts = unstable_cache(
               sescim_fiyat: pricing.sescim_fiyat, 
               sescim_indirimli_fiyat: pricing.sescim_indirimli_fiyat, 
               sescim_indirimli_fiyat_pb: pricing.sescim_indirimli_fiyat_pb,
+              flas_kampanya: pricing.flas_kampanya ?? null,
+              flas_bitis_tarihi: pricing.flas_bitis_tarihi ?? null,
               sescim_aktif: pricing.sescim_aktif,
               sescim_stok: pricing.sescim_stok,
               sescim_stok_durumu: pricing.sescim_stok_durumu,

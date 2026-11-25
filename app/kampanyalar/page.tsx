@@ -4,6 +4,13 @@ import { Tag, Sparkles, ArrowRight, ShieldCheck, Truck, CreditCard } from 'lucid
 import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import KampanyalarCoupons from '@/components/KampanyalarCoupons';
+import CampaignBadge from '@/components/CampaignBadge';
+import {
+  BADGE_COLOR_THEMES,
+  getFlashCampaignMetaMap,
+  normalizeFlashMeta,
+  type FlashCampaignMeta,
+} from '@/lib/flash-campaign';
 import { getSiteUrl } from '@/lib/site-url';
 
 export const revalidate = 1800; // 30 dakika Vercel Edge CDN önbelleği
@@ -47,6 +54,48 @@ const getInitialCoupons = unstable_cache(
   { revalidate: 1800, tags: ['coupons'] }
 );
 
+const getActiveCustomCampaigns = unstable_cache(
+  async () => {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const nowIso = new Date().toISOString();
+      const [{ data: deals }, metaMap] = await Promise.all([
+        supabase
+          .from('flas_indirimler')
+          .select('id, urun_id, bitis_tarihi')
+          .eq('aktif', true)
+          .lte('baslangic_tarihi', nowIso)
+          .gt('bitis_tarihi', nowIso),
+        getFlashCampaignMetaMap(),
+      ]);
+
+      const grouped = new Map<string, { meta: FlashCampaignMeta; count: number; nearestEnd: string }>();
+      for (const d of deals || []) {
+        const meta = normalizeFlashMeta(metaMap[d.id]);
+        if (meta.kampanya_tipi !== 'ozel') continue;
+        const existing = grouped.get(meta.kampanya_slug);
+        if (existing) {
+          existing.count += 1;
+          if (new Date(d.bitis_tarihi).getTime() < new Date(existing.nearestEnd).getTime()) {
+            existing.nearestEnd = d.bitis_tarihi;
+          }
+        } else {
+          grouped.set(meta.kampanya_slug, { meta, count: 1, nearestEnd: d.bitis_tarihi });
+        }
+      }
+      return Array.from(grouped.values());
+    } catch {
+      return [];
+    }
+  },
+  ['kampanyalar-active-custom'],
+  { revalidate: 300, tags: ['products', 'flash-meta'] }
+);
+
 const kampanyalar = [
   {
     id: 1,
@@ -68,17 +117,20 @@ const kampanyalar = [
   },
   {
     id: 3,
-    title: 'Günün Flaş Fırsatları & Outlet',
-    description: 'Sınırlı stoklu teşhir, kutusu açılmış garantili outlet ve günün özel indirimli ürünlerini kaçırmayın.',
+    title: 'Sescim Haftası & Outlet Fırsatları',
+    description: "Her Cuma 20.00'da yenilenen Sescim Haftası indirimleri ve sınırlı stoklu garantili outlet ürünlerini kaçırmayın.",
     image: 'https://images.unsplash.com/photo-1598653222000-6b7b7a552625?q=80&w=2070&auto=format&fit=crop',
     link: '/firsatlar',
-    badge: 'Sınırlı Stok',
+    badge: 'Sescim Haftası',
     color: 'from-red-600 to-purple-800',
   },
 ];
 
 export default async function KampanyalarPage() {
-  const coupons = await getInitialCoupons();
+  const [coupons, activeCustomCampaigns] = await Promise.all([
+    getInitialCoupons(),
+    getActiveCustomCampaigns(),
+  ]);
   const baseUrl = getSiteUrl();
 
   const breadcrumbJsonLd = {
@@ -170,6 +222,68 @@ export default async function KampanyalarPage() {
             </div>
           </div>
         </div>
+
+        {/* Aktif Özel Kampanyalar (Kara Cuma, Yılbaşı vb. dinamik) */}
+        {activeCustomCampaigns.length > 0 && (
+          <div className="mb-14">
+            <div className="flex items-center gap-2 mb-5">
+              <Sparkles className="text-brand-red" size={20} />
+              <h2 className="text-xl font-display font-black text-slate-900 uppercase tracking-wide">
+                Aktif Özel Kampanyalar
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeCustomCampaigns.map(({ meta, count }) => {
+                const theme = BADGE_COLOR_THEMES[meta.rozet_rengi] || BADGE_COLOR_THEMES.black;
+                const isDark = meta.rozet_rengi === 'black';
+                return (
+                  <Link
+                    key={meta.kampanya_slug}
+                    href={`/kampanya/${meta.kampanya_slug}`}
+                    className={`group rounded-2xl border p-6 flex flex-col justify-between gap-4 transition-all hover:shadow-lg ${
+                      isDark
+                        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white border-amber-400/30'
+                        : `${theme.bannerBg} ${theme.bannerBorder}`
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <CampaignBadge kampanya={meta} size="sm" />
+                        <span
+                          className={`text-xs font-display font-bold uppercase tracking-wider ${
+                            isDark ? 'text-amber-300' : 'text-slate-600'
+                          }`}
+                        >
+                          {count} İndirimli Ürün
+                        </span>
+                      </div>
+                      <h3
+                        className={`font-display font-black text-2xl uppercase tracking-tight ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}
+                      >
+                        {meta.kampanya_adi}
+                      </h3>
+                      {meta.vurgu_metni && (
+                        <p className={`text-xs font-body ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {meta.vurgu_metni}
+                        </p>
+                      )}
+                    </div>
+                    <div
+                      className={`inline-flex items-center gap-1.5 text-xs font-display font-bold uppercase tracking-wider ${
+                        isDark ? 'text-amber-300' : 'text-brand-red'
+                      }`}
+                    >
+                      <span>Kampanya Ürünlerini Gör</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Campaign Banners */}
         <div className="space-y-8">

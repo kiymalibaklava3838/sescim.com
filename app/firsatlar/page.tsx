@@ -5,6 +5,7 @@ import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { LIGHT_PRODUCT_FIELDS } from '@/lib/product-queries'
 import { getSescimPricingMap } from '@/lib/sescim-pricing'
+import { getFlashCampaignMetaMap, normalizeFlashMeta } from '@/lib/flash-campaign'
 import ProductGrid from '@/components/ProductGrid'
 import DealCountdown from '@/components/DealCountdown'
 import SpecialSectionExplorer from '@/components/SpecialSectionExplorer'
@@ -37,17 +38,28 @@ export default async function FirsatlarPage() {
 
   if (sescimSupabase) {
     try {
-      const { data: flasData } = await sescimSupabase
-        .from('flas_indirimler')
-        .select('*')
-        .eq('aktif', true)
-        .gt('bitis_tarihi', new Date().toISOString())
-        .order('bitis_tarihi', { ascending: true })
+      const nowIso = new Date().toISOString()
+      const [{ data: flasData }, flashMetaMap] = await Promise.all([
+        sescimSupabase
+          .from('flas_indirimler')
+          .select('*')
+          .eq('aktif', true)
+          .lte('baslangic_tarihi', nowIso)
+          .gt('bitis_tarihi', nowIso)
+          .order('bitis_tarihi', { ascending: true }),
+        getFlashCampaignMetaMap(),
+      ])
 
-      if (flasData && flasData.length > 0) {
-        flasUrunIds = flasData.map((f: any) => f.urun_id)
-        enYakinBitis = flasData[0].bitis_tarihi
-        flasData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
+      const sescimHaftasiData = (flasData || []).filter(
+        (f: any) => normalizeFlashMeta(flashMetaMap[f.id]).kampanya_tipi === 'sescim_haftasi'
+      )
+
+      if (sescimHaftasiData.length > 0) {
+        flasUrunIds = sescimHaftasiData.map((f: any) => f.urun_id)
+        enYakinBitis = sescimHaftasiData[0].bitis_tarihi
+        sescimHaftasiData.forEach((f: any) =>
+          flasDataMap.set(f.urun_id, { ...f, kampanya: normalizeFlashMeta(flashMetaMap[f.id]) })
+        )
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -130,12 +142,14 @@ export default async function FirsatlarPage() {
         sescim_indirimli_fiyat: indirimliFiyat,
         // Flaş indirim para birimini override olarak ilet; null ise ürünün kendi para birimi kullanılır
         sescim_indirimli_fiyat_pb: indirimliPB,
+        flas_kampanya: flasItem?.kampanya ?? pricing?.flas_kampanya ?? null,
+        flas_bitis_tarihi: flasItem?.bitis_tarihi ?? pricing?.flas_bitis_tarihi ?? null,
         sescim_aktif: pricing?.sescim_aktif ?? true,
         sescim_stok: pricing?.sescim_stok ?? null,
         sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
         fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
       }
-    }).filter(p => p.sescim_aktif !== false)
+    }).filter(p => p.sescim_aktif !== false && p.flas_kampanya?.kampanya_tipi !== 'ozel')
   }
 
   const baseUrl = getSiteUrl()

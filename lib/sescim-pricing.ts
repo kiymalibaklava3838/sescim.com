@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from './supabase-server'
+import { getFlashCampaignMetaMap, normalizeFlashMeta, type FlashCampaignMeta } from './flash-campaign'
 
 export interface SescimPricing {
   urun_id: string
@@ -7,6 +8,7 @@ export interface SescimPricing {
   sescim_indirimli_fiyat_pb?: string | null
   is_flas_aktif?: boolean
   flas_bitis_tarihi?: string | null
+  flas_kampanya?: FlashCampaignMeta | null
   sescim_aktif: boolean
   is_outlet?: boolean
   outlet_durum?: string | null
@@ -26,6 +28,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
 
   try {
     const nowIso = new Date().toISOString()
+    const flashMetaMap = await getFlashCampaignMetaMap()
     // URL uzunluğu ve header taşmasını önlemek için 50'şerli parçalarla çek
     const BATCH_SIZE = 50
     for (let i = 0; i < urunIds.length; i += BATCH_SIZE) {
@@ -37,7 +40,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           .in('urun_id', batchIds),
         supabase
           .from('flas_indirimler')
-          .select('urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
+          .select('id, urun_id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
           .in('urun_id', batchIds)
           .eq('aktif', true)
           .gt('bitis_tarihi', nowIso)
@@ -68,6 +71,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
         let indirimliPB: string | null = null
         let isFlasAktif = false
         let flasBitis: string | null = null
+        let flasKampanya: FlashCampaignMeta | null = null
         let isFirsat = false
 
         // 1. Öncelik: Aktif Flaş İndirim (kendi para birimiyle: TRY, USD, EUR)
@@ -76,7 +80,8 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           indirimliPB = flas.fiyat_para_birimi || 'TRY'
           isFlasAktif = true
           flasBitis = flas.bitis_tarihi
-          isFirsat = true
+          flasKampanya = normalizeFlashMeta(flashMetaMap[flas.id])
+          isFirsat = flasKampanya.kampanya_tipi === 'sescim_haftasi'
         } else if (outlet && outlet.outlet_fiyat !== null && outlet.outlet_fiyat !== undefined) {
           indirimliFiyat = Number(outlet.outlet_fiyat)
           indirimliPB = outlet.fiyat_para_birimi || 'TRY'
@@ -93,6 +98,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           sescim_indirimli_fiyat_pb: indirimliPB,
           is_flas_aktif: isFlasAktif,
           flas_bitis_tarihi: flasBitis,
+          flas_kampanya: flasKampanya,
           sescim_aktif: sf?.sescim_aktif !== false,
           is_outlet: !!(outlet?.aktif || sf?.is_outlet),
           outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',
@@ -116,7 +122,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
 
   try {
     const nowIso = new Date().toISOString()
-    const [sfRes, flasRes, outletRes] = await Promise.all([
+    const [sfRes, flasRes, outletRes, flashMetaMap] = await Promise.all([
       supabase
         .from('sescim_fiyatlar')
         .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, is_outlet, outlet_durum, is_firsat, fiyat_sorunuz, sescim_stok, sescim_stok_durumu, updated_at')
@@ -124,7 +130,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         .maybeSingle(),
       supabase
         .from('flas_indirimler')
-        .select('indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
+        .select('id, indirimli_fiyat, fiyat_para_birimi, baslangic_tarihi, bitis_tarihi, aktif')
         .eq('urun_id', urunId)
         .eq('aktif', true)
         .gt('bitis_tarihi', nowIso)
@@ -138,7 +144,8 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         .eq('urun_id', urunId)
         .eq('aktif', true)
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(),
+      getFlashCampaignMetaMap(),
     ])
 
     const sf = sfRes.data
@@ -151,6 +158,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
     let indirimliPB: string | null = null
     let isFlasAktif = false
     let flasBitis: string | null = null
+    let flasKampanya: FlashCampaignMeta | null = null
     let isFirsat = false
 
     // 1. Öncelik: Aktif Flaş İndirim (kendi para birimiyle: TRY, USD, EUR)
@@ -159,7 +167,8 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
       indirimliPB = flas.fiyat_para_birimi || 'TRY'
       isFlasAktif = true
       flasBitis = flas.bitis_tarihi
-      isFirsat = true
+      flasKampanya = normalizeFlashMeta(flashMetaMap[flas.id])
+      isFirsat = flasKampanya.kampanya_tipi === 'sescim_haftasi'
     } else if (outlet && outlet.outlet_fiyat !== null && outlet.outlet_fiyat !== undefined) {
       indirimliFiyat = Number(outlet.outlet_fiyat)
       indirimliPB = outlet.fiyat_para_birimi || 'TRY'
@@ -176,6 +185,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
       sescim_indirimli_fiyat_pb: indirimliPB,
       is_flas_aktif: isFlasAktif,
       flas_bitis_tarihi: flasBitis,
+      flas_kampanya: flasKampanya,
       sescim_aktif: sf?.sescim_aktif !== false,
       is_outlet: !!(outlet?.aktif || sf?.is_outlet),
       outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',

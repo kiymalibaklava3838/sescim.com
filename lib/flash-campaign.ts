@@ -239,29 +239,36 @@ function getAdminStorageClient() {
 }
 
 async function fetchFreshFlashMetaMap(): Promise<FlashCampaignMetaMap> {
-  // Sunucu tarafında service role varsa doğrudan Storage download ile Cloudflare CDN önbelleğini atla
-  const admin = getAdminStorageClient()
-  if (admin) {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!baseUrl) return {}
+
+  // Sunucu tarafında service role varsa doğrudan authenticated endpoint'ten cache: 'no-store' + timestamp ile oku
+  // (Hem Next.js 14 fetch cache'ini hem Cloudflare CDN önbelleğini %100 atlar)
+  if (serviceKey) {
     try {
-      const { data, error } = await admin.storage.from(BUCKET).download(META_PATH)
-      if (!error && data) {
-        const text = await data.text()
-        const json = JSON.parse(text)
+      const url = `${baseUrl}/storage/v1/object/${BUCKET}/${META_PATH}?t=${Date.now()}`
+      const res = await fetch(url, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        cache: 'no-store',
+      })
+      if (res.ok) {
+        const json = await res.json()
         if (json && typeof json === 'object') return json as FlashCampaignMetaMap
       }
     } catch {}
   }
-
-  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!baseUrl) return {}
 
   try {
     const url = `${baseUrl}/storage/v1/object/public/${BUCKET}/${META_PATH}?t=${Date.now()}`
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return {}
     const json = await res.json()
-    if (!json || typeof json !== 'object') return {}
-    return json as FlashCampaignMetaMap
+    if (json && typeof json === 'object') return json as FlashCampaignMetaMap
+    return {}
   } catch {
     return {}
   }

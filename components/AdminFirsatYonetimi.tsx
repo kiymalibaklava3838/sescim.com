@@ -188,8 +188,11 @@ export default function AdminFirsatYonetimi() {
       const akdag = createAkdagBrowserClient()
       const headers = await getAuthHeaders()
 
-      // API rotası üzerinden çekmeyi dene (RLS bypass), başarısız olursa browser client ile fallback yap
-      const adminDataRes = await fetch('/api/admin/firsatlar', { headers })
+      // API rotası üzerinden çekmeyi dene (RLS bypass + önbelleksiz taze veri)
+      const adminDataRes = await fetch(`/api/admin/firsatlar?_t=${Date.now()}`, {
+        headers,
+        cache: 'no-store',
+      })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
 
@@ -314,8 +317,8 @@ export default function AdminFirsatYonetimi() {
           urun_id: urunId,
           indirimli_fiyat: valNum,
           fiyat_para_birimi: finalFiyatPB,
-          baslangic_tarihi: baslangic,
-          bitis_tarihi: bitis,
+          baslangic_tarihi: new Date(baslangic).toISOString(),
+          bitis_tarihi: new Date(bitis).toISOString(),
           kampanya: kampanyaPayload,
           product: selectedUrun
         })

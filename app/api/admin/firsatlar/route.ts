@@ -160,10 +160,17 @@ export async function GET(req: NextRequest) {
       kampanya: normalizeFlashMeta(metaMap[f.id]),
     }))
 
-    return NextResponse.json({
-      firsatlar,
-      outlet: outletRes.data || [],
-    })
+    return NextResponse.json(
+      {
+        firsatlar,
+        outlet: outletRes.data || [],
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    )
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Sunucu hatası' }, { status: 500 })
   }

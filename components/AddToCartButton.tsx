@@ -21,6 +21,7 @@ interface Props {
     stok_adedi?: number | null
     marka?: string | null
     fiyat_sorunuz?: boolean
+    fiyat_acik?: boolean
   }
 }
 
@@ -89,6 +90,7 @@ export default function AddToCartButton({ urun }: Props) {
         stok_adedi: maxStock,
         marka: urun.marka,
         fiyat_sorunuz: urun.fiyat_sorunuz,
+        fiyat_acik: urun.fiyat_acik,
       },
       qty
     )

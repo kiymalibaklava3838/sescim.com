@@ -81,7 +81,8 @@ export default async function AramaPage({
             sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
             sescim_stok: pricing?.sescim_stok !== undefined && pricing?.sescim_stok !== null ? pricing.sescim_stok : (p.sescim_stok ?? null),
             sescim_stok_durumu: pricing?.sescim_stok_durumu ?? p.sescim_stok_durumu ?? null,
-            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing?.fiyat_sorunuz })
+            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing?.fiyat_sorunuz, fiyat_acik: pricing?.fiyat_acik }),
+            fiyat_acik: pricing?.fiyat_acik ?? false,
           }
         }).filter(p => p.sescim_aktif !== false)
       } catch {

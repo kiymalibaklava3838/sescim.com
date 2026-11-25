@@ -46,6 +46,7 @@ interface Product {
   flas_kampanya?: FlashCampaignMeta | null
   sescim_aktif?: boolean
   fiyat_sorunuz?: boolean
+  fiyat_acik?: boolean
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null
   created_at?: string | null
@@ -158,7 +159,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
     ? (Date.now() - new Date(product.fiyat_guncelleme).getTime()) < 7 * 24 * 60 * 60 * 1000
     : false
 
-  const isFiyatSorunuz = isQuoteOnlyProduct({ marka: product.marka, fiyat_sorunuz: product.fiyat_sorunuz })
+  const isFiyatSorunuz = isQuoteOnlyProduct({ marka: product.marka, ad: product.ad, fiyat_sorunuz: product.fiyat_sorunuz, fiyat_acik: product.fiyat_acik })
   const aktifFiyat = product.sescim_fiyat ?? product.fiyat
   const normalFiyatTL = (!isFiyatSorunuz && aktifFiyat) ? dovizToTL(aktifFiyat, pb, kurData) : null
   const indirimPB = product.sescim_indirimli_fiyat_pb || pb
@@ -233,6 +234,7 @@ export const ProductCard = memo(function ProductCard({ product, isBayi, kur, sho
       stok_adedi: stockInfo.adet,
       marka: product.marka,
       fiyat_sorunuz: isFiyatSorunuz,
+      fiyat_acik: product.fiyat_acik,
     })
     if (res.ok) {
       setCartAdded(true)

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createAkdagServerClient } from '@/lib/supabase-akdag'
 import { upsertSescimPricing } from '@/lib/sescim-pricing'
+import { getPriceOverrideSet, setProductPriceOverride } from '@/lib/price-overrides'
+import { isQuoteOnlyProduct } from '@/lib/distributor-rules'
 import { revalidatePath, revalidateTag } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
@@ -250,13 +252,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Kısıtlı marka ürünü için Admin açıkça "Fiyatı Göster" (fiyat_sorunuz: false) dediyse istisna kaydet
+    if (fiyat_sorunuz !== undefined) {
+      const isRestrictedByBrand = isQuoteOnlyProduct({ marka: cleanMarka, ad: cleanAd, fiyat_sorunuz: false })
+      if (isRestrictedByBrand) {
+        await setProductPriceOverride(id, !fiyat_sorunuz)
+      } else if (fiyat_sorunuz) {
+        await setProductPriceOverride(id, false)
+      }
+    }
+
     // ── Cache Revalidation ──
     const targetSlug = slug || id
     try {
       revalidatePath(`/urun/${targetSlug}`)
       revalidatePath('/urunler')
+      revalidatePath('/arama')
       revalidatePath('/')
       revalidateTag('products')
+      revalidateTag('price-overrides')
     } catch {}
 
     return NextResponse.json({
@@ -269,5 +283,72 @@ export async function POST(req: NextRequest) {
       { error: 'Beklenmeyen sunucu hatası: ' + (err.message || String(err)) },
       { status: 500 }
     )
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const sescimDb = getSupabaseAdmin()
+    const auth = await verifyAdmin(req, sescimDb)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+    const set = await getPriceOverrideSet({ noCache: true })
+    return NextResponse.json(
+      { ids: Array.from(set) },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Sunucu hatası' }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const sescimDb = getSupabaseAdmin()
+    const auth = await verifyAdmin(req, sescimDb)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
+    const body = await req.json()
+    const { id, slug, marka, ad, fiyat_sorunuz, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, sescim_stok, sescim_stok_durumu } = body
+    if (!id || typeof fiyat_sorunuz !== 'boolean') {
+      return NextResponse.json({ error: 'Geçersiz parametre' }, { status: 400 })
+    }
+
+    await upsertSescimPricing(id, {
+      sescim_fiyat: sescim_fiyat ?? null,
+      sescim_indirimli_fiyat: sescim_indirimli_fiyat ?? null,
+      sescim_aktif: sescim_aktif ?? true,
+      fiyat_sorunuz,
+      sescim_stok: sescim_stok !== undefined ? sescim_stok : null,
+      sescim_stok_durumu: sescim_stok_durumu || null,
+    })
+
+    const isRestrictedByBrand = isQuoteOnlyProduct({ marka, ad, fiyat_sorunuz: false })
+    if (isRestrictedByBrand) {
+      await setProductPriceOverride(id, !fiyat_sorunuz)
+    } else if (fiyat_sorunuz) {
+      await setProductPriceOverride(id, false)
+    }
+
+    const targetSlug = slug || id
+    try {
+      revalidatePath(`/urun/${targetSlug}`)
+      revalidatePath('/urunler')
+      revalidatePath('/arama')
+      revalidatePath('/')
+      revalidateTag('products')
+      revalidateTag('price-overrides')
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      fiyat_sorunuz,
+      fiyat_acik: isRestrictedByBrand ? !fiyat_sorunuz : false,
+    })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Sunucu hatası' }, { status: 500 })
   }
 }

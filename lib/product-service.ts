@@ -62,7 +62,7 @@ export const getProduct = unstable_cache(
       console.error('Sescim pricing fetch failed for product', id, e)
     }
 
-    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, fiyat_sorunuz: productData.fiyat_sorunuz })
+    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, ad: productData.ad, fiyat_sorunuz: productData.fiyat_sorunuz, fiyat_acik: productData.fiyat_acik })
     const { sanitizeProductForClient } = await import('./pricing-engine')
     return { data: sanitizeProductForClient(productData), error: null }
   },
@@ -127,7 +127,7 @@ export const getProductBySlug = unstable_cache(
       console.error('Sescim pricing fetch failed for product slug', slug, e)
     }
 
-    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, fiyat_sorunuz: productData.fiyat_sorunuz })
+    productData.fiyat_sorunuz = isQuoteOnlyProduct({ marka: productData.marka, ad: productData.ad, fiyat_sorunuz: productData.fiyat_sorunuz, fiyat_acik: productData.fiyat_acik })
     const { sanitizeProductForClient } = await import('./pricing-engine')
     return { data: sanitizeProductForClient(productData), error: null }
   },
@@ -226,7 +226,8 @@ export const getRelatedProducts = unstable_cache(
               sescim_aktif: pricing.sescim_aktif,
               sescim_stok: pricing.sescim_stok,
               sescim_stok_durumu: pricing.sescim_stok_durumu,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing.fiyat_sorunuz, fiyat_acik: pricing.fiyat_acik }),
+              fiyat_acik: pricing.fiyat_acik ?? false,
             }
           }
           return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
@@ -541,7 +542,8 @@ export const getCrossSellProducts = unstable_cache(
                 sescim_aktif: pricing.sescim_aktif,
                 sescim_stok: pricing.sescim_stok,
                 sescim_stok_durumu: pricing.sescim_stok_durumu,
-                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing.fiyat_sorunuz }),
+                fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing.fiyat_sorunuz, fiyat_acik: pricing.fiyat_acik }),
+                fiyat_acik: pricing.fiyat_acik ?? false,
               }
             }
             return {

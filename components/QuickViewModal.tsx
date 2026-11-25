@@ -32,6 +32,7 @@ export interface QuickViewProduct {
   marka?: string | null
   kullanim_alani?: string | null
   fiyat_sorunuz?: boolean
+  fiyat_acik?: boolean
 }
 
 export default function QuickViewModal() {
@@ -92,6 +93,7 @@ export default function QuickViewModal() {
     marka: product.marka,
     ad: product.ad,
     fiyat_sorunuz: product.fiyat_sorunuz,
+    fiyat_acik: product.fiyat_acik,
   })
   const maxStock =
     typeof stockInfo.adet === 'number' && Number.isFinite(stockInfo.adet) && stockInfo.adet > 0
@@ -122,6 +124,7 @@ export default function QuickViewModal() {
         stok_adedi: maxStock,
         marka: product.marka,
         fiyat_sorunuz: isFiyatSorunuz,
+        fiyat_acik: product.fiyat_acik,
       },
       adet
     )

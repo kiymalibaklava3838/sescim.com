@@ -130,6 +130,7 @@ export default async function DailyDealsSection() {
       sescim_stok: pricing?.sescim_stok ?? null,
       sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
       fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
+      fiyat_acik: pricing?.fiyat_acik ?? false,
     }
   }).filter(p => {
     if (p.sescim_aktif === false || p.fiyat_sorunuz) return false

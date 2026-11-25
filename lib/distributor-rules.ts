@@ -33,18 +33,24 @@ export function isQuoteOnlyProduct(params: {
   marka?: string | null
   ad?: string | null
   fiyat_sorunuz?: boolean | null
+  fiyat_acik?: boolean | null
 }): boolean {
   // 1. Ürün düzeyinde manuel olarak 'Fiyat Sorunuz' aktif edilmişse
   if (params.fiyat_sorunuz === true) {
     return true
   }
 
-  // 2. Marka düzeyinde distribütör yasağı varsa
+  // 2. Admin kısıtlı markadaki bu ürün için açıkça "Fiyatı Göster" istisnası verdiyse
+  if (params.fiyat_acik === true) {
+    return false
+  }
+
+  // 3. Marka düzeyinde distribütör yasağı varsa
   if (isBrandRestricted(params.marka)) {
     return true
   }
 
-  // 3. Ürün başlığı içinde kısıtlı marka adı geçiyorsa (marka alanı boş/hatalı olsa dahi koruma sağlar)
+  // 4. Ürün başlığı içinde kısıtlı marka adı geçiyorsa (marka alanı boş/hatalı olsa dahi koruma sağlar)
   if (params.ad) {
     const cleanAd = params.ad.toUpperCase()
     if (RESTRICTED_BRANDS.some((b) => cleanAd.includes(b.toUpperCase()))) {

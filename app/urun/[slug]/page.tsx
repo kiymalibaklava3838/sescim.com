@@ -115,10 +115,12 @@ export default async function UrunDetayPage({ params }: Props) {
   const pb = product.para_birimi || 'TRY'
 
   // Fiyat hesaplama (TL)
+  const isFiyatAcik = !!(product as any).fiyat_acik
   const isFiyatSorunuz = isQuoteOnlyProduct({
     marka: product.marka,
     ad: product.ad,
-    fiyat_sorunuz: !!(product as any).fiyat_sorunuz
+    fiyat_sorunuz: !!(product as any).fiyat_sorunuz,
+    fiyat_acik: isFiyatAcik,
   })
   ;(product as any).fiyat_sorunuz = isFiyatSorunuz
 
@@ -548,6 +550,7 @@ export default async function UrunDetayPage({ params }: Props) {
                       stok_adedi: stockInfo.adet,
                       marka: product.marka,
                       fiyat_sorunuz: isFiyatSorunuz,
+                      fiyat_acik: isFiyatAcik,
                     }} />
                   </div>
                   <div className="sm:col-span-1">

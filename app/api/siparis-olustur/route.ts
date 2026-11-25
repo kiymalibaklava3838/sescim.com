@@ -145,7 +145,9 @@ export async function POST(req: NextRequest) {
       const sescimPricing = sescimFiyatlarMap.get(dbProd.id)
       const quoteOnly = isQuoteOnlyProduct({
         marka: dbProd.marka,
-        fiyat_sorunuz: sescimPricing?.fiyat_sorunuz === true
+        ad: dbProd.ad,
+        fiyat_sorunuz: sescimPricing?.fiyat_sorunuz === true,
+        fiyat_acik: sescimPricing?.fiyat_acik === true,
       })
 
       if (quoteOnly) {

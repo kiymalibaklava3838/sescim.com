@@ -216,19 +216,42 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
       const pageEnd = pageStart + ITEMS_PER_PAGE
       const pageItems = activeList.slice(pageStart, pageEnd)
 
-      // Sescim_fiyatlar tablosundan override verilerini çek
-      const { getSescimPricingMap } = await import('@/lib/sescim-pricing')
+      // Sescim_fiyatlar tablosundan override verilerini ve açık fiyat istisnalarını çek
+      const [{ getSescimPricingMap }, { isQuoteOnlyProduct }, sessionRes] = await Promise.all([
+        import('@/lib/sescim-pricing'),
+        import('@/lib/distributor-rules'),
+        sescimClient.auth.getSession(),
+      ])
       const urunIds = pageItems.map(p => p.id)
-      const pricingMap = await getSescimPricingMap(urunIds)
+      const token = sessionRes.data.session?.access_token
+      const [pricingMap, overrideRes] = await Promise.all([
+        getSescimPricingMap(urunIds),
+        token
+          ? fetch(`/api/admin/urunler?_t=${Date.now()}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: 'no-store',
+            })
+              .then((r) => (r.ok ? r.json() : { ids: [] }))
+              .catch(() => ({ ids: [] }))
+          : Promise.resolve({ ids: [] }),
+      ])
+      const overrideSet = new Set<string>(Array.isArray(overrideRes?.ids) ? overrideRes.ids : [])
 
       const finalMerged = pageItems.map(p => {
         const pricing = pricingMap.get(p.id)
+        const fiyatAcik = overrideSet.has(p.id) || pricing?.fiyat_acik === true
+        const effectiveQuoteOnly = isQuoteOnlyProduct({
+          marka: p.marka,
+          ad: p.ad,
+          fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
+          fiyat_acik: fiyatAcik,
+        })
         return {
           ...p,
           sescim_fiyat: pricing?.sescim_fiyat ?? p.sescim_fiyat ?? null,
           sescim_indirimli_fiyat: pricing?.sescim_indirimli_fiyat ?? p.sescim_indirimli_fiyat ?? null,
           sescim_aktif: pricing?.sescim_aktif ?? p.sescim_aktif ?? true,
-          fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
+          fiyat_sorunuz: effectiveQuoteOnly,
           sescim_stok: pricing?.sescim_stok ?? null,
           sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
         }
@@ -397,25 +420,38 @@ export default function AdminProductList({ onDeleted, refreshTrigger }: Props) {
     }
   }
 
-  // Fiyat Teklifi (Fiyat Gizli) Değiştirici
+  // Fiyat Teklifi (Fiyat Gizli / Kısıtlı Marka İstisnası) Değiştirici
   const toggleFiyatSorunuz = async (product: Product) => {
     const newValue = !(product.fiyat_sorunuz ?? false)
     try {
-      const { upsertSescimPricing } = await import('@/lib/sescim-pricing')
-      await upsertSescimPricing(product.id, {
-        sescim_fiyat: product.sescim_fiyat,
-        sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
-        sescim_aktif: product.sescim_aktif,
-        fiyat_sorunuz: newValue,
-        sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
-        sescim_stok_durumu: product.sescim_stok_durumu || null,
+      const sescimDb = createClient()
+      const { data: { session } } = await sescimDb.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/admin/urunler', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          id: product.id,
+          slug: product.slug,
+          marka: product.marka,
+          ad: product.ad,
+          fiyat_sorunuz: newValue,
+          sescim_fiyat: product.sescim_fiyat,
+          sescim_indirimli_fiyat: product.sescim_indirimli_fiyat,
+          sescim_aktif: product.sescim_aktif,
+          sescim_stok: product.sescim_stok !== undefined ? product.sescim_stok : null,
+          sescim_stok_durumu: product.sescim_stok_durumu || null,
+        }),
       })
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        alert('Fiyat görünürlüğü güncellenemedi: ' + (errJson.error || 'Bilinmeyen hata'))
+        return
+      }
       setProducts(products.map(p => (p.id === product.id ? { ...p, fiyat_sorunuz: newValue } : p)))
-      await fetch('/api/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/urun/${product.slug || product.id}` }),
-      }).catch(() => {})
     } catch (e) {
       console.error(e)
     }

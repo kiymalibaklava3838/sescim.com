@@ -17,6 +17,7 @@ export interface CartItem {
   stok_adedi?: number | null             // Bilinen maksimum stok (null/undefined = limitsiz)
   marka?: string | null
   fiyat_sorunuz?: boolean
+  fiyat_acik?: boolean
 }
 
 export interface AddToCartResult {
@@ -129,7 +130,7 @@ export function saveCart(items: CartItem[]) {
 }
 
 export function addToCart(item: Omit<CartItem, 'adet'>, qty = 1): AddToCartResult {
-  if (isQuoteOnlyProduct({ marka: item.marka, ad: item.ad, fiyat_sorunuz: item.fiyat_sorunuz })) {
+  if (isQuoteOnlyProduct({ marka: item.marka, ad: item.ad, fiyat_sorunuz: item.fiyat_sorunuz, fiyat_acik: item.fiyat_acik })) {
     return { ok: false, reason: 'quote_only' }
   }
 
@@ -209,7 +210,7 @@ export function addToCart(item: Omit<CartItem, 'adet'>, qty = 1): AddToCartResul
 
 export function addManyToCart(items: Array<Omit<CartItem, 'adet'> & { adet: number }>): number {
   const allowed = items.filter(
-    (i) => !isQuoteOnlyProduct({ marka: i.marka, ad: i.ad, fiyat_sorunuz: i.fiyat_sorunuz })
+    (i) => !isQuoteOnlyProduct({ marka: i.marka, ad: i.ad, fiyat_sorunuz: i.fiyat_sorunuz, fiyat_acik: i.fiyat_acik })
   )
   if (allowed.length === 0) return 0
 

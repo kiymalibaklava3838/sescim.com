@@ -30,6 +30,7 @@ interface Props {
     sescim_indirimli_fiyat_pb?: string | null
     marka?: string | null
     fiyat_sorunuz?: boolean
+    fiyat_acik?: boolean
   }
 }
 
@@ -52,6 +53,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
     marka: (product as any).marka,
     ad: product.ad,
     fiyat_sorunuz: product.fiyat_sorunuz,
+    fiyat_acik: product.fiyat_acik,
   })
 
   const pb = product.para_birimi || 'TRY'
@@ -92,6 +94,7 @@ export default function MobileStickyAddToCart({ product }: Props) {
       stok_adedi: stockInfo.adet,
       marka: product.marka,
       fiyat_sorunuz: isFiyatSorunuz,
+      fiyat_acik: product.fiyat_acik,
     })
 
     if (res.ok) {

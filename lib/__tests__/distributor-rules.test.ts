@@ -21,10 +21,15 @@ describe('distributor-rules', () => {
     expect(isQuoteOnlyProduct({ marka: 'Yamaha', fiyat_sorunuz: false })).toBe(false)
   })
 
-  it('flags restricted brands in marka field as quote-only', () => {
+  it('flags restricted brands in marka field as quote-only unless explicitly unlocked via fiyat_acik', () => {
     expect(isQuoteOnlyProduct({ marka: 'Gold Audio', fiyat_sorunuz: false })).toBe(true)
     expect(isQuoteOnlyProduct({ marka: 'ROXTONE' })).toBe(true)
     expect(isQuoteOnlyProduct({ marka: 'WÖLLER' })).toBe(true)
+    // Admin açıkça fiyatı açtıysa (fiyat_acik: true) kısıtlı marka olsa da satışa açılır
+    expect(isQuoteOnlyProduct({ marka: 'Gold Audio', fiyat_sorunuz: false, fiyat_acik: true })).toBe(false)
+    expect(isQuoteOnlyProduct({ ad: 'ROXTONE XLR Kablo', fiyat_sorunuz: false, fiyat_acik: true })).toBe(false)
+    // Ancak fiyat_sorunuz: true hâlâ önceliklidir
+    expect(isQuoteOnlyProduct({ marka: 'Gold Audio', fiyat_sorunuz: true, fiyat_acik: true })).toBe(true)
   })
 
   it('flags products where the restricted brand is present in the product title even if marka is empty', () => {

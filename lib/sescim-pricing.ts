@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from './supabase-server'
 import { getFlashCampaignMetaMap, normalizeFlashMeta, type FlashCampaignMeta } from './flash-campaign'
+import { getPriceOverrideSet } from './price-overrides'
 
 export interface SescimPricing {
   urun_id: string
@@ -14,6 +15,7 @@ export interface SescimPricing {
   outlet_durum?: string | null
   is_firsat?: boolean
   fiyat_sorunuz?: boolean
+  fiyat_acik?: boolean
   sescim_stok?: number | null
   sescim_stok_durumu?: string | null
   updated_at?: string
@@ -28,7 +30,10 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
 
   try {
     const nowIso = new Date().toISOString()
-    const flashMetaMap = await getFlashCampaignMetaMap()
+    const [flashMetaMap, priceOverrideSet] = await Promise.all([
+      getFlashCampaignMetaMap(),
+      getPriceOverrideSet(),
+    ])
     // URL uzunluğu ve header taşmasını önlemek için 50'şerli parçalarla çek
     const BATCH_SIZE = 50
     for (let i = 0; i < urunIds.length; i += BATCH_SIZE) {
@@ -64,8 +69,9 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
         const sf = sfMap.get(id)
         const flas = flasMap.get(id)
         const outlet = outletMap.get(id)
+        const hasPriceOverride = priceOverrideSet.has(id)
 
-        if (!sf && !flas && !outlet) continue
+        if (!sf && !flas && !outlet && !hasPriceOverride) continue
 
         let indirimliFiyat: number | null = null
         let indirimliPB: string | null = null
@@ -104,6 +110,7 @@ export async function getSescimPricingMap(urunIds: string[]): Promise<Map<string
           outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',
           is_firsat: isFirsat,
           fiyat_sorunuz: !!sf?.fiyat_sorunuz,
+          fiyat_acik: hasPriceOverride,
           sescim_stok: outlet ? (outlet.stok_adedi ?? 1) : (sf?.sescim_stok !== null && sf?.sescim_stok !== undefined ? Number(sf.sescim_stok) : null),
           sescim_stok_durumu: sf?.sescim_stok_durumu || null,
         })
@@ -122,7 +129,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
 
   try {
     const nowIso = new Date().toISOString()
-    const [sfRes, flasRes, outletRes, flashMetaMap] = await Promise.all([
+    const [sfRes, flasRes, outletRes, flashMetaMap, priceOverrideSet] = await Promise.all([
       supabase
         .from('sescim_fiyatlar')
         .select('urun_id, sescim_fiyat, sescim_indirimli_fiyat, sescim_aktif, is_outlet, outlet_durum, is_firsat, fiyat_sorunuz, sescim_stok, sescim_stok_durumu, updated_at')
@@ -146,13 +153,15 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
         .limit(1)
         .maybeSingle(),
       getFlashCampaignMetaMap(),
+      getPriceOverrideSet(),
     ])
 
     const sf = sfRes.data
     const flas = flasRes.data
     const outlet = outletRes.data
+    const hasPriceOverride = priceOverrideSet.has(urunId)
 
-    if (!sf && !flas && !outlet) return null
+    if (!sf && !flas && !outlet && !hasPriceOverride) return null
 
     let indirimliFiyat: number | null = null
     let indirimliPB: string | null = null
@@ -191,6 +200,7 @@ export async function getSescimPricing(urunId: string): Promise<SescimPricing | 
       outlet_durum: outlet?.durum_aciklamasi || sf?.outlet_durum || 'Teşhir / B-Stock',
       is_firsat: isFirsat,
       fiyat_sorunuz: !!sf?.fiyat_sorunuz,
+      fiyat_acik: hasPriceOverride,
       sescim_stok: outlet ? (outlet.stok_adedi ?? 1) : (sf?.sescim_stok !== null && sf?.sescim_stok !== undefined ? Number(sf.sescim_stok) : null),
       sescim_stok_durumu: sf?.sescim_stok_durumu || null,
       updated_at: sf?.updated_at

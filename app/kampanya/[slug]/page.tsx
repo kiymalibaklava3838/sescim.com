@@ -105,6 +105,7 @@ async function getCampaignData(rawSlug: string) {
           sescim_stok: pricing?.sescim_stok ?? null,
           sescim_stok_durumu: pricing?.sescim_stok_durumu ?? null,
           fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
+          fiyat_acik: pricing?.fiyat_acik ?? false,
         }
       })
       .filter((p) => p.sescim_aktif !== false)

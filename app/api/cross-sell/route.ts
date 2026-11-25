@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         marka: r.marka,
         ad: r.ad,
         fiyat_sorunuz: sp?.fiyat_sorunuz,
+        fiyat_acik: sp?.fiyat_acik,
       })
       if (isQuote) continue
 

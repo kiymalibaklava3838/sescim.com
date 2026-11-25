@@ -120,7 +120,8 @@ const getMainDiscoverCurated = unstable_cache(
               sescim_aktif: pr.sescim_aktif,
               sescim_stok: pr.sescim_stok,
               sescim_stok_durumu: pr.sescim_stok_durumu,
-              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pr.fiyat_sorunuz })
+              fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pr.fiyat_sorunuz, fiyat_acik: pr.fiyat_acik }),
+              fiyat_acik: pr.fiyat_acik ?? false,
             }
           }
           return { ...p, sescim_aktif: true, fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: false }) }
@@ -275,7 +276,8 @@ const getCachedCategoryProducts = unstable_cache(
             sescim_aktif: pricing.sescim_aktif,
             sescim_stok: pricing.sescim_stok,
             sescim_stok_durumu: pricing.sescim_stok_durumu,
-            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: pricing.fiyat_sorunuz })
+            fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: pricing.fiyat_sorunuz, fiyat_acik: pricing.fiyat_acik }),
+            fiyat_acik: pricing.fiyat_acik ?? false,
           }
         }
         return {

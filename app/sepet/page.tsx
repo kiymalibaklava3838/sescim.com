@@ -430,7 +430,7 @@ export default function SepetPage() {
   const submitOrder = async () => {
     setError('')
     if (!items.length) { setError('Sepetiniz boş.'); return }
-    const quoteOnlyItem = items.find(i => isQuoteOnlyProduct({ marka: i.marka, fiyat_sorunuz: i.fiyat_sorunuz }))
+    const quoteOnlyItem = items.find(i => isQuoteOnlyProduct({ marka: i.marka, ad: i.ad, fiyat_sorunuz: i.fiyat_sorunuz, fiyat_acik: i.fiyat_acik }))
     if (quoteOnlyItem) {
       setError(`Sepetinizdeki "${quoteOnlyItem.ad}" ürünü distribütör kuralları gereği doğrudan online satın alınamaz. Lütfen ürünü sepetten çıkarıp teklif isteyiniz.`)
       return
@@ -593,7 +593,7 @@ export default function SepetPage() {
                         {i.ad}
                       </Link>
                       <div className="font-body text-slate-400 text-[11px] sm:text-xs mt-0.5 truncate">{i.kategori}</div>
-                      {isQuoteOnlyProduct({ marka: i.marka, fiyat_sorunuz: i.fiyat_sorunuz }) ? (
+                      {isQuoteOnlyProduct({ marka: i.marka, ad: i.ad, fiyat_sorunuz: i.fiyat_sorunuz, fiyat_acik: i.fiyat_acik }) ? (
                         <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 mt-1">
                           Özel Teklif Ürünü (Doğrudan Satılamaz)
                         </div>

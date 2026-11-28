@@ -238,22 +238,32 @@ function getAdminStorageClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function fetchFreshFlashMetaMap(): Promise<FlashCampaignMetaMap> {
+/**
+ * Tüm flaş indirimlerin kampanya metadata haritasını okur.
+ * `noCache: true` olduğunda doğrudan güncel veriyi çeker; aksi halde Next.js
+ * native fetch tag önbelleği (`flash-meta`, 60 sn) kullanır ve admin kaydında
+ * `revalidateTag('flash-meta')` ile anında yenilenir.
+ */
+export async function getFlashCampaignMetaMap(options?: { noCache?: boolean }): Promise<FlashCampaignMetaMap> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!baseUrl) return {}
 
-  // Sunucu tarafında service role varsa doğrudan authenticated endpoint'ten cache: 'no-store' + timestamp ile oku
-  // (Hem Next.js 14 fetch cache'ini hem Cloudflare CDN önbelleğini %100 atlar)
+  const noCache = options?.noCache === true
+  const cacheBust = noCache ? `?t=${Date.now()}` : ''
+  const fetchInit: RequestInit & { next?: { revalidate?: number; tags?: string[] } } = noCache
+    ? { cache: 'no-store' }
+    : { next: { revalidate: 60, tags: ['products', 'flash-meta'] } }
+
   if (serviceKey) {
     try {
-      const url = `${baseUrl}/storage/v1/object/${BUCKET}/${META_PATH}?t=${Date.now()}`
+      const url = `${baseUrl}/storage/v1/object/${BUCKET}/${META_PATH}${cacheBust}`
       const res = await fetch(url, {
+        ...fetchInit,
         headers: {
           apikey: serviceKey,
           Authorization: `Bearer ${serviceKey}`,
         },
-        cache: 'no-store',
       })
       if (res.ok) {
         const json = await res.json()
@@ -263,37 +273,14 @@ async function fetchFreshFlashMetaMap(): Promise<FlashCampaignMetaMap> {
   }
 
   try {
-    const url = `${baseUrl}/storage/v1/object/public/${BUCKET}/${META_PATH}?t=${Date.now()}`
-    const res = await fetch(url, { cache: 'no-store' })
+    const url = `${baseUrl}/storage/v1/object/public/${BUCKET}/${META_PATH}${cacheBust}`
+    const res = await fetch(url, fetchInit)
     if (!res.ok) return {}
     const json = await res.json()
     if (json && typeof json === 'object') return json as FlashCampaignMetaMap
     return {}
   } catch {
     return {}
-  }
-}
-
-/**
- * Tüm flaş indirimlerin kampanya metadata haritasını okur.
- * `noCache: true` olduğunda doğrudan güncel veriyi çeker; aksi halde Next.js
- * `flash-meta` tag önbelleğiyle (5 dk) hızlı okur ve admin kaydında anında yenilenir.
- */
-export async function getFlashCampaignMetaMap(options?: { noCache?: boolean }): Promise<FlashCampaignMetaMap> {
-  if (options?.noCache) {
-    return fetchFreshFlashMetaMap()
-  }
-
-  try {
-    const { unstable_cache } = await import('next/cache')
-    const cachedRead = unstable_cache(
-      fetchFreshFlashMetaMap,
-      ['flash-campaign-meta-map'],
-      { revalidate: 300, tags: ['products', 'flash-meta'] }
-    )
-    return await cachedRead()
-  } catch {
-    return fetchFreshFlashMetaMap()
   }
 }
 

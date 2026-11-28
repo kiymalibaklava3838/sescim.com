@@ -10,62 +10,48 @@ function getAdminStorageClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function fetchFreshPriceOverrides(): Promise<string[]> {
+/**
+ * Kısıtlı markalarda Admin tarafından açıkça "Fiyatı Göster / Satışa Aç"
+ * istisnası tanımlanan ürün ID'lerini döndürür.
+ * Next.js 14 native fetch tag önbelleği (`price-overrides`, 60 sn) kullanır.
+ */
+export async function getPriceOverrideSet(options?: { noCache?: boolean }): Promise<Set<string>> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!baseUrl) return []
+  if (!baseUrl) return new Set()
+
+  const noCache = options?.noCache === true
+  const cacheBust = noCache ? `?t=${Date.now()}` : ''
+  const fetchInit: RequestInit & { next?: { revalidate?: number; tags?: string[] } } = noCache
+    ? { cache: 'no-store' }
+    : { next: { revalidate: 60, tags: ['products', 'price-overrides'] } }
 
   if (serviceKey) {
     try {
-      const url = `${baseUrl}/storage/v1/object/${BUCKET}/${OVERRIDE_PATH}?t=${Date.now()}`
+      const url = `${baseUrl}/storage/v1/object/${BUCKET}/${OVERRIDE_PATH}${cacheBust}`
       const res = await fetch(url, {
+        ...fetchInit,
         headers: {
           apikey: serviceKey,
           Authorization: `Bearer ${serviceKey}`,
         },
-        cache: 'no-store',
       })
       if (res.ok) {
         const json = await res.json()
-        if (Array.isArray(json)) return json.filter((x): x is string => typeof x === 'string')
+        if (Array.isArray(json)) return new Set(json.filter((x): x is string => typeof x === 'string'))
       }
     } catch {}
   }
 
   try {
-    const url = `${baseUrl}/storage/v1/object/public/${BUCKET}/${OVERRIDE_PATH}?t=${Date.now()}`
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) return []
+    const url = `${baseUrl}/storage/v1/object/public/${BUCKET}/${OVERRIDE_PATH}${cacheBust}`
+    const res = await fetch(url, fetchInit)
+    if (!res.ok) return new Set()
     const json = await res.json()
-    if (Array.isArray(json)) return json.filter((x): x is string => typeof x === 'string')
-    return []
+    if (Array.isArray(json)) return new Set(json.filter((x): x is string => typeof x === 'string'))
+    return new Set()
   } catch {
-    return []
-  }
-}
-
-/**
- * Kısıtlı markalarda Admin tarafından açıkça "Fiyatı Göster / Satışa Aç"
- * istisnası tanımlanan ürün ID'lerini döndürür.
- */
-export async function getPriceOverrideSet(options?: { noCache?: boolean }): Promise<Set<string>> {
-  if (options?.noCache) {
-    const list = await fetchFreshPriceOverrides()
-    return new Set(list)
-  }
-
-  try {
-    const { unstable_cache } = await import('next/cache')
-    const cached = unstable_cache(
-      fetchFreshPriceOverrides,
-      ['price-override-ids'],
-      { revalidate: 300, tags: ['products', 'price-overrides'] }
-    )
-    const list = await cached()
-    return new Set(list)
-  } catch {
-    const list = await fetchFreshPriceOverrides()
-    return new Set(list)
+    return new Set()
   }
 }
 

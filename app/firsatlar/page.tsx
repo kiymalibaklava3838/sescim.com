@@ -35,6 +35,7 @@ export default async function FirsatlarPage() {
   let flasUrunIds: string[] = []
   let enYakinBitis: string | undefined = undefined
   const flasDataMap = new Map<string, any>()
+  const excludedOzelUrunIds = new Set<string>()
 
   if (sescimSupabase) {
     try {
@@ -50,16 +51,20 @@ export default async function FirsatlarPage() {
         getFlashCampaignMetaMap(),
       ])
 
-      const sescimHaftasiData = (flasData || []).filter(
-        (f: any) => normalizeFlashMeta(flashMetaMap[f.id]).kampanya_tipi === 'sescim_haftasi'
-      )
+      const sescimHaftasiData: any[] = []
+      for (const f of flasData || []) {
+        const meta = normalizeFlashMeta(flashMetaMap[f.id])
+        if (meta.kampanya_tipi === 'ozel') {
+          excludedOzelUrunIds.add(f.urun_id)
+        } else {
+          sescimHaftasiData.push({ ...f, kampanya: meta })
+        }
+      }
 
       if (sescimHaftasiData.length > 0) {
         flasUrunIds = sescimHaftasiData.map((f: any) => f.urun_id)
         enYakinBitis = sescimHaftasiData[0].bitis_tarihi
-        sescimHaftasiData.forEach((f: any) =>
-          flasDataMap.set(f.urun_id, { ...f, kampanya: normalizeFlashMeta(flashMetaMap[f.id]) })
-        )
+        sescimHaftasiData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -150,7 +155,7 @@ export default async function FirsatlarPage() {
         fiyat_sorunuz: pricing?.fiyat_sorunuz ?? false,
         fiyat_acik: pricing?.fiyat_acik ?? false,
       }
-    }).filter(p => p.sescim_aktif !== false && p.flas_kampanya?.kampanya_tipi !== 'ozel')
+    }).filter(p => p.sescim_aktif !== false && !excludedOzelUrunIds.has(p.id) && p.flas_kampanya?.kampanya_tipi !== 'ozel')
   }
 
   const baseUrl = getSiteUrl()

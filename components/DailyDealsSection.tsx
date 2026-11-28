@@ -21,6 +21,7 @@ export default async function DailyDealsSection() {
   let flasUrunIds: string[] = []
   let enYakinBitis: string | undefined = undefined
   const flasDataMap = new Map<string, any>()
+  const excludedOzelUrunIds = new Set<string>()
 
   if (sescimSupabase) {
     try {
@@ -36,16 +37,20 @@ export default async function DailyDealsSection() {
         getFlashCampaignMetaMap(),
       ])
 
-      const sescimHaftasiData = (flasData || []).filter(
-        (f: any) => normalizeFlashMeta(flashMetaMap[f.id]).kampanya_tipi === 'sescim_haftasi'
-      )
+      const sescimHaftasiData: any[] = []
+      for (const f of flasData || []) {
+        const meta = normalizeFlashMeta(flashMetaMap[f.id])
+        if (meta.kampanya_tipi === 'ozel') {
+          excludedOzelUrunIds.add(f.urun_id)
+        } else {
+          sescimHaftasiData.push({ ...f, kampanya: meta })
+        }
+      }
 
       if (sescimHaftasiData.length > 0) {
         flasUrunIds = sescimHaftasiData.map((f: any) => f.urun_id)
         enYakinBitis = sescimHaftasiData[0].bitis_tarihi
-        sescimHaftasiData.forEach((f: any) =>
-          flasDataMap.set(f.urun_id, { ...f, kampanya: normalizeFlashMeta(flashMetaMap[f.id]) })
-        )
+        sescimHaftasiData.forEach((f: any) => flasDataMap.set(f.urun_id, f))
       }
     } catch (e) {
       console.error('Flas indirimler fetch error:', e)
@@ -134,7 +139,7 @@ export default async function DailyDealsSection() {
     }
   }).filter(p => {
     if (p.sescim_aktif === false || p.fiyat_sorunuz) return false
-    if (p.flas_kampanya?.kampanya_tipi === 'ozel') return false
+    if (excludedOzelUrunIds.has(p.id) || p.flas_kampanya?.kampanya_tipi === 'ozel') return false
     const stock = resolveStock(p)
     return stock.isOrderable
   })

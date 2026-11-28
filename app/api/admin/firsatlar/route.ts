@@ -122,6 +122,7 @@ function triggerCacheRevalidation(slug?: string, kampanyaSlug?: string) {
   try {
     revalidatePath('/')
     revalidatePath('/firsatlar')
+    revalidatePath('/kampanyalar')
     revalidatePath('/outlet')
     revalidatePath('/urunler')
     revalidatePath('/arama')

@@ -77,8 +77,31 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const priceOverridesRef = useRef<Set<string> | null>(null)
   const router = useRouter()
   const supabase = useRef(createAkdagBrowserClient()).current
+
+  const loadPriceOverrides = async (): Promise<Set<string>> => {
+    if (priceOverridesRef.current) return priceOverridesRef.current
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (baseUrl) {
+        const res = await fetch(
+          `${baseUrl}/storage/v1/object/public/kampanya-gorselleri/config/fiyat-acik-urunler.json?t=${Math.floor(Date.now() / 60000)}`,
+          { cache: 'no-store' }
+        )
+        if (res.ok) {
+          const json = await res.json()
+          if (Array.isArray(json)) {
+            priceOverridesRef.current = new Set(json.filter((x: any): x is string => typeof x === 'string'))
+            return priceOverridesRef.current
+          }
+        }
+      }
+    } catch {}
+    priceOverridesRef.current = new Set()
+    return priceOverridesRef.current
+  }
 
   // Canlı döviz kurunu çek
   useEffect(() => {
@@ -192,6 +215,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
         })
         let prods: any[] = Array.from(searchMap.values()).slice(0, 6)
 
+        const priceOverrides = await loadPriceOverrides()
+
         if (prods.length > 0) {
           try {
             const nowIso = new Date().toISOString()
@@ -220,7 +245,8 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
                 const s = sfMap.get(p.id)
                 const flas = flasMap.get(p.id)
                 const rawFiyatSorunuz = s?.fiyat_sorunuz ?? p.fiyat_sorunuz ?? false
-                const quoteOnly = isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: rawFiyatSorunuz })
+                const fiyatAcik = priceOverrides.has(p.id)
+                const quoteOnly = isQuoteOnlyProduct({ marka: p.marka, ad: p.ad, fiyat_sorunuz: rawFiyatSorunuz, fiyat_acik: fiyatAcik })
 
                 let indirimliFiyat: number | null = null
                 let indirimliPB: string | null = null
@@ -253,10 +279,15 @@ export default function ProductSearch({ fullPage = false }: { fullPage?: boolean
           }
         }
 
-        // Son güvenlik katmanı: Marka veya ürün bazında teklif usulü kontrolü
+        // Son güvenlik katmanı: Marka veya ürün bazında teklif usulü kontrolü (admin istisnası korunur)
         prods = prods.map(p => ({
           ...p,
-          fiyat_sorunuz: isQuoteOnlyProduct({ marka: p.marka, fiyat_sorunuz: p.fiyat_sorunuz })
+          fiyat_sorunuz: isQuoteOnlyProduct({
+            marka: p.marka,
+            ad: p.ad,
+            fiyat_sorunuz: p.fiyat_sorunuz,
+            fiyat_acik: priceOverrides.has(p.id),
+          })
         }))
 
         setResults(prods)

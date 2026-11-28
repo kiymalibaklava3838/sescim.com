@@ -13,7 +13,7 @@ import {
 } from '@/lib/flash-campaign';
 import { getSiteUrl } from '@/lib/site-url';
 
-export const revalidate = 1800; // 30 dakika Vercel Edge CDN önbelleği
+export const revalidate = 300; // 5 dakika Vercel Edge CDN önbelleği + admin kaydında anında revalidate
 
 export const metadata = {
   title: 'Kampanyalar & İndirim Kuponları | Sescim',
@@ -54,47 +54,43 @@ const getInitialCoupons = unstable_cache(
   { revalidate: 1800, tags: ['coupons'] }
 );
 
-const getActiveCustomCampaigns = unstable_cache(
-  async () => {
-    try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      );
-      const nowIso = new Date().toISOString();
-      const [{ data: deals }, metaMap] = await Promise.all([
-        supabase
-          .from('flas_indirimler')
-          .select('id, urun_id, bitis_tarihi')
-          .eq('aktif', true)
-          .lte('baslangic_tarihi', nowIso)
-          .gt('bitis_tarihi', nowIso),
-        getFlashCampaignMetaMap(),
-      ]);
+async function getActiveCustomCampaigns() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const nowIso = new Date().toISOString();
+    const [{ data: deals }, metaMap] = await Promise.all([
+      supabase
+        .from('flas_indirimler')
+        .select('id, urun_id, bitis_tarihi')
+        .eq('aktif', true)
+        .lte('baslangic_tarihi', nowIso)
+        .gt('bitis_tarihi', nowIso),
+      getFlashCampaignMetaMap(),
+    ]);
 
-      const grouped = new Map<string, { meta: FlashCampaignMeta; count: number; nearestEnd: string }>();
-      for (const d of deals || []) {
-        const meta = normalizeFlashMeta(metaMap[d.id]);
-        if (meta.kampanya_tipi !== 'ozel') continue;
-        const existing = grouped.get(meta.kampanya_slug);
-        if (existing) {
-          existing.count += 1;
-          if (new Date(d.bitis_tarihi).getTime() < new Date(existing.nearestEnd).getTime()) {
-            existing.nearestEnd = d.bitis_tarihi;
-          }
-        } else {
-          grouped.set(meta.kampanya_slug, { meta, count: 1, nearestEnd: d.bitis_tarihi });
+    const grouped = new Map<string, { meta: FlashCampaignMeta; count: number; nearestEnd: string }>();
+    for (const d of deals || []) {
+      const meta = normalizeFlashMeta(metaMap[d.id]);
+      if (meta.kampanya_tipi !== 'ozel') continue;
+      const existing = grouped.get(meta.kampanya_slug);
+      if (existing) {
+        existing.count += 1;
+        if (new Date(d.bitis_tarihi).getTime() < new Date(existing.nearestEnd).getTime()) {
+          existing.nearestEnd = d.bitis_tarihi;
         }
+      } else {
+        grouped.set(meta.kampanya_slug, { meta, count: 1, nearestEnd: d.bitis_tarihi });
       }
-      return Array.from(grouped.values());
-    } catch {
-      return [];
     }
-  },
-  ['kampanyalar-active-custom'],
-  { revalidate: 300, tags: ['products', 'flash-meta'] }
-);
+    return Array.from(grouped.values());
+  } catch {
+    return [];
+  }
+}
 
 const kampanyalar = [
   {
